@@ -1,0 +1,42 @@
+[project]
+name = "kotoba"
+version = "0.1.0"
+description = "A hub for your Japanese: collect, triage, shadow and review your own sentences."
+requires-python = ">=3.12"
+dependencies = [
+    "django>=6.1.2",
+    "djangorestframework>=3.18.1",
+    "numpy>=2",
+    "pillow>=12.3.0",
+    "pykakasi>=2.3.0",
+    "waitress>=3.0.2",
+]
+
+[project.optional-dependencies]
+# Score your speaking and transcribe uploads (needs ffmpeg on the system)
+whisper = ["faster-whisper>=1.1"]
+# Kokoro, a Japanese voice that runs in kotoba (then: python -m unidic download).
+# Kokoro supports Python up to 3.12.
+voice = [
+    "kokoro>=0.9.4; python_version < '3.13'",
+    "misaki[ja]>=0.9.4; python_version < '3.13'",
+    "torch; python_version < '3.13'",
+]
+# Whisper on an NVIDIA GPU: the CUDA 12 libraries CTranslate2 needs
+gpu = [
+    "nvidia-cublas-cu12; sys_platform == 'linux' or sys_platform == 'win32'",
+    "nvidia-cudnn-cu12>=9,<10; sys_platform == 'linux' or sys_platform == 'win32'",
+]
+all = ["kotoba[whisper,voice]"]
+
+[tool.uv]
+package = false
+
+# Kokoro needs torch; the CPU build is plenty for it and saves gigabytes of CUDA
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true

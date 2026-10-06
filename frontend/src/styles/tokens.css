@@ -1,0 +1,91 @@
+/* kotoba design tokens: a weekly manga magazine of your own sentences.
+   Each section is printed on its own tinted newsprint stock; ink frames; one red. */
+:root {
+  color-scheme: light dark;
+
+  /* newsprint stocks, one per section (set on <main> as --stock) */
+  --stock-inbox: #f4dfd5;
+  --stock-library: #f0e7c6;
+  --stock-decks: #dce8d2;
+  --stock-practice: #fbfaf6;
+  --stock-review: #e5dff1;
+  --stock-collect: #e8e4db;
+  --stock-recordings: #dbe4ea;
+
+  --ink: #1a1714;
+  --ink-2: #463f37;
+  --ink-3: #5f574d;          /* meta text; >= 4.5:1 on every stock */
+  --paper: #fffdf8;          /* balloons, inputs, sheets */
+  --on-ink: #fbf7ee;         /* text on black reversal plates */
+  --red: #cc1f1a;            /* recording, misses, stamps. Nothing decorative. */
+  --red-ink: #b0130e;        /* red used as text on stock */
+  --red-wash: #f7d4cf;
+  --spine: #171411;          /* the nav spine is a black plate */
+  --spine-2: #2a2520;
+  --spine-ink: #efe8da;
+  --spine-ink-2: #b4ab9c;
+
+  --frame-thin: 1.5px;       /* controls, balloons */
+  --frame-bold: 3px;         /* panels */
+  --tone-dot: rgb(26 23 20 / .34);
+
+  --font: 'Kotoba Kana', 'BIZ UDPGothic', system-ui, -apple-system, 'Hiragino Kaku Gothic ProN',
+          'Yu Gothic UI', 'Noto Sans CJK JP', sans-serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* three sizes only; rank comes from weight and black reversal */
+  --t-s: .8125rem;
+  --t-m: 1rem;
+  --t-l: 1.75rem;
+
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px;  --s-4: 16px;
+  --s-5: 24px; --s-6: 32px; --s-7: 48px;  --s-8: 64px;
+
+  --gutter: 12px;            /* white gutter between panels */
+  --radius-control: 3px;
+  --control-h: 36px;
+  --control-h-s: 28px;
+  --spine-w: 208px;
+
+  --ease: cubic-bezier(.2, .7, .2, 1);
+  --t-fast: 120ms;
+  --t-state: 160ms;
+  --lift: 0 1px 0 rgb(26 23 20 / .08), 0 6px 18px -8px rgb(26 23 20 / .28);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    /* black "beta" pages: the stock tints survive as deep inks */
+    --stock-inbox: #2a1e1a;
+    --stock-library: #28241a;
+    --stock-decks: #1c241b;
+    --stock-practice: #161513;
+    --stock-review: #211d2a;
+    --stock-collect: #22201c;
+    --stock-recordings: #1a2127;
+
+    --ink: #f2ecdf;
+    --ink-2: #d2c9b9;
+    --ink-3: #a99f8f;
+    --paper: #1f1d1a;
+    --on-ink: #161513;
+    --red: #ff5b4f;
+    --red-ink: #ff7a6f;
+    --red-wash: #4a1d19;
+    --spine: #0d0c0a;
+    --spine-2: #221f1b;
+    --spine-ink: #efe8da;
+    --spine-ink-2: #9d9486;
+    --tone-dot: rgb(242 236 223 / .26);
+    --lift: 0 1px 0 rgb(0 0 0 / .4), 0 8px 22px -10px rgb(0 0 0 / .7);
+  }
+}
+:root[data-theme='dark'] {
+  --stock-inbox: #2a1e1a; --stock-library: #28241a; --stock-decks: #1c241b;
+  --stock-practice: #161513; --stock-review: #211d2a; --stock-collect: #22201c; --stock-recordings: #1a2127;
+  --ink: #f2ecdf; --ink-2: #d2c9b9; --ink-3: #a99f8f; --paper: #1f1d1a; --on-ink: #161513;
+  --red: #ff5b4f; --red-ink: #ff7a6f; --red-wash: #4a1d19;
+  --spine: #0d0c0a; --spine-2: #221f1b; --spine-ink: #efe8da; --spine-ink-2: #9d9486;
+  --tone-dot: rgb(242 236 223 / .26);
+  --lift: 0 1px 0 rgb(0 0 0 / .4), 0 8px 22px -10px rgb(0 0 0 / .7);
+}

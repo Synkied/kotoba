@@ -1,0 +1,29 @@
+# docker compose up -d  →  http://localhost:8780     (or: make up)
+# Profiles:  voicevox  the VOICEVOX engine, for more Japanese voices (VOICEVOX=1 with make)
+# compose.gpu.yaml runs Whisper on an NVIDIA GPU (GPU=1 with make).
+services:
+  kotoba:
+    build:
+      context: .
+      args:
+        GPU: ${GPU:-0}
+    image: kotoba
+    restart: unless-stopped
+    ports:
+      # localhost only: kotoba has no accounts. Reach it from a phone with `tailscale serve`.
+      - "127.0.0.1:${KOTOBA_PORT:-8780}:8780"
+    volumes:
+      - kotoba-data:/data
+    environment:
+      KOTOBA_HOSTS: ${KOTOBA_HOSTS:-}
+      KOTOBA_WHISPER_MODEL: ${KOTOBA_WHISPER_MODEL:-}
+      KOTOBA_VOICEVOX: ${KOTOBA_VOICEVOX:-http://voicevox:50021}
+      TZ: ${TZ:-UTC}
+
+  voicevox:
+    profiles: [voicevox]
+    image: ${VOICEVOX_IMAGE:-voicevox/voicevox_engine:cpu-latest}
+    restart: unless-stopped
+
+volumes:
+  kotoba-data:

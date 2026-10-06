@@ -1,0 +1,14 @@
+{
+  "world": "weekly manga magazine",
+  "colors": {
+    "stock-inbox": "#f4dfd5", "stock-library": "#f0e7c6", "stock-decks": "#dce8d2",
+    "stock-practice": "#fbfaf6", "stock-review": "#e5dff1", "stock-collect": "#e8e4db", "stock-recordings": "#dbe4ea",
+    "ink": "#1a1714", "ink-2": "#463f37", "ink-3": "#5f574d", "paper": "#fffdf8",
+    "red": "#cc1f1a", "red-ink": "#b0130e", "spine": "#171411"
+  },
+  "type": { "family": "Kotoba Kana (BIZ UDPMincho kana) + BIZ UDPGothic", "sizes": ["0.8125rem", "1rem", "1.75rem"], "weights": [400, 700] },
+  "frames": { "thin": "1.5px", "bold": "3px", "radiusControl": "3px", "radiusPanel": "0" },
+  "spacing": [4, 8, 12, 16, 24, 32, 48, 64],
+  "motion": { "fast": "120ms", "state": "160ms", "ease": "cubic-bezier(.2,.7,.2,1)" },
+  "signature": "Balloon outline encodes sentence state: round / burst (recording) / dashed (unclear)"
+}
