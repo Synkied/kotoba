@@ -32,9 +32,28 @@ class SentenceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Sentence
         fields = ["id", "source", "source_kind", "source_title", "position", "text", "roman", "furigana",
-                  "start", "end", "note", "has_audio", "image", "due", "reps", "lapses", "best", "last",
+                  "reading_overrides", "start", "end", "note", "has_audio", "image", "due", "reps", "lapses", "best", "last",
                   "stamps", "decks", "created_at"]
         read_only_fields = ["roman", "furigana", "due", "reps", "lapses", "best", "last", "created_at"]
+
+    def validate(self, attrs):
+        from . import romanize
+        text = attrs.get("text", self.instance.text if self.instance else "").strip()
+        pairs = attrs.get("reading_overrides")
+        if pairs is not None and not isinstance(pairs, list):
+            raise serializers.ValidationError({"reading_overrides": "Readings must be a list."})
+        if pairs:
+            expected = [p[0] for p in romanize.furigana(text)]
+            if not isinstance(pairs, list) or len(pairs) != len(expected):
+                raise serializers.ValidationError({"reading_overrides": "Supply one reading for each generated furigana span."})
+            for pair, surface in zip(pairs, expected):
+                if (not isinstance(pair, list) or len(pair) != 2 or pair[0] != surface
+                        or not isinstance(pair[1], str) or not pair[1]
+                        or len(pair[1]) > 100 or any(not ("ぁ" <= c <= "ゖ" or c == "ー") for c in pair[1])):
+                    raise serializers.ValidationError({"reading_overrides": "Readings must be hiragana and match the sentence spans in order."})
+        if self.instance and text != self.instance.text and pairs is None:
+            attrs["reading_overrides"] = []
+        return attrs
 
     def get_source_title(self, s):
         return str(s.source)

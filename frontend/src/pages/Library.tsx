@@ -147,7 +147,7 @@ function LibrarySource({ s, n, furigana, roman, selected, toggle }: {
                 <Furigana text={x.text} pairs={x.furigana} show={furigana} />
                 {roman && x.roman && <span className="roman">{x.roman.split('\t')[0]}</span>}
               </Balloon>
-              <div className="acts"><Stamps stamps={x.stamps} max={3} /><CopyButton text={x.text} /></div>
+              <div className="acts"><Link className="btn small ghost" to={`/sentences/${x.id}`}>Details</Link><Stamps stamps={x.stamps} max={3} /><CopyButton text={x.text} /></div>
             </div>
           ))}
         </div>

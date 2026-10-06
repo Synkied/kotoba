@@ -9,6 +9,8 @@ dependencies = [
     "numpy>=2",
     "pillow>=12.3.0",
     "pykakasi>=2.3.0",
+    "fugashi>=1.5.2",
+    "unidic-lite>=1.0.8",
     "waitress>=3.0.2",
 ]
 

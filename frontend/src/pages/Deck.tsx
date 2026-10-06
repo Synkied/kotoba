@@ -70,7 +70,8 @@ export default function DeckPage() {
                 <span className="meta" style={{ paddingLeft: 18 }}><Link to={`/sources/${s.source}`}>{s.source_title}</Link>{s.start != null && <> · <span className="num">{fmtTime(s.start)}</span></>}</span>
               </div>
               <div className="acts">
-                <Stamps stamps={s.stamps} max={3} />
+                <Link className="btn small ghost" to={`/sentences/${s.id}`}>Details</Link>
+        <Stamps stamps={s.stamps} max={3} />
                 <button className="btn small icon ghost" onClick={() => reorder(k, k - 1)} disabled={k === 0} aria-label="Move up"><ArrowUp aria-hidden="true" /></button>
                 <button className="btn small icon ghost" onClick={() => reorder(k, k + 1)} disabled={k === items.length - 1} aria-label="Move down"><ArrowDown aria-hidden="true" /></button>
                 <button className="btn small icon ghost" onClick={() => remove(s)} aria-label="Remove from deck"><X aria-hidden="true" /></button>

@@ -37,7 +37,7 @@ export default function ReviewPage() {
             {queue.slice(0, 12).map((s, k) => (
               <div className="row" key={s.id} style={{ gridTemplateColumns: 'minmax(0,1fr) auto' }}>
                 <Balloon tail="none" dim={k > 4}>{s.text}</Balloon>
-                <div className="acts">{s.last == null ? <span className="plate hollow">new</span> : <Stamps stamps={s.stamps} max={3} />}</div>
+                <div className="acts"><Link className="btn small ghost" to={`/sentences/${s.id}`}>Details</Link>{s.last == null ? <span className="plate hollow">new</span> : <Stamps stamps={s.stamps} max={3} />}</div>
               </div>
             ))}
             {queue.length > 12 && <p className="meta" style={{ paddingTop: 'var(--s-3)' }}>+ {queue.length - 12} more</p>}

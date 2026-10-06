@@ -20,3 +20,29 @@ class PracticeRecordingTests(SimpleTestCase):
         self.assertEqual(response.json(), {"said": "こんにちは"})
         whisper_key.assert_called_once_with({"model": "small", "device": "cpu", "compute_type": "int8"})
         self.assertEqual(score.call_args.args, (pcm, "こんにちは", True, ("small", "cpu", "int8")))
+
+
+class NonSpeechCleanupTests(SimpleTestCase):
+    def test_preserve_non_speech_at_start_middle_and_end(self):
+        from speech import cleanup, jpcut
+        words = {'words': [
+            {'word': 'こんにちは', 'start': 10, 'end': 11},
+            {'word': 'ありがとう', 'start': 25, 'end': 26},
+        ]}
+        _, trimmed = jpcut.analyze(words, 40, cleanup.make_args({}))
+        self.assertTrue(trimmed)
+        self.assertTrue(all(reason == 'pause' for _, _, reason in trimmed))
+        settings = cleanup.clean_settings({'no_pauses': True})
+        _, preserved = jpcut.analyze(words, 40, cleanup.make_args(settings))
+        self.assertEqual(preserved, [])
+
+    def test_preserving_gaps_still_removes_speech_fillers(self):
+        from speech import cleanup, jpcut
+        words = {'words': [
+            {'word': 'こんにちは', 'start': 10, 'end': 11},
+            {'word': 'えーと', 'start': 12, 'end': 13},
+            {'word': 'ありがとう', 'start': 14, 'end': 15},
+        ]}
+        _, cuts = jpcut.analyze(words, 40, cleanup.make_args({'no_pauses': True}))
+        self.assertTrue(any('filler' in reason for _, _, reason in cuts))
+        self.assertFalse(any(reason == 'pause' for _, _, reason in cuts))

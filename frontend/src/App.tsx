@@ -6,6 +6,7 @@ import { ToastHost } from './components/ui'
 import InboxPage from './pages/Inbox'
 import LibraryPage from './pages/Library'
 import SourcePage from './pages/Source'
+import SentencePage from './pages/Sentence'
 import DecksPage from './pages/Decks'
 import DeckPage from './pages/Deck'
 import PracticePage from './pages/Practice'
@@ -30,7 +31,7 @@ export const useStats = () => useContext(StatsCtx)
 
 function stockFor(path: string) {
   if (path.startsWith('/practice')) return 'practice'
-  if (path.startsWith('/sources')) return 'library'
+  if (path.startsWith('/sources') || path.startsWith('/sentences')) return 'library'
   if (path.startsWith('/addons')) return 'collect'
   return SECTIONS.find((s) => path.startsWith(s.to))?.stock ?? 'collect'
 }
@@ -79,6 +80,7 @@ function Shell() {
             <Route path="/" element={<Navigate to="/inbox" replace />} />
             <Route path="/inbox" element={<InboxPage />} />
             <Route path="/library" element={<LibraryPage />} />
+            <Route path="/sentences/:id" element={<SentencePage />} />
             <Route path="/sources/:id" element={<SourcePage />} />
             <Route path="/decks" element={<DecksPage />} />
             <Route path="/decks/:id" element={<DeckPage />} />

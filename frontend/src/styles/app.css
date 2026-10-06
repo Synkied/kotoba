@@ -630,3 +630,24 @@ code.inline { font: 400 .95em var(--mono); padding: 0 3px; background: color-mix
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
 }
+
+.sentence-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr); gap: var(--s-6); }
+.sentence-main, .sentence-aside { display: grid; gap: var(--s-6); align-content: start; min-width: 0; }
+.sentence-layout h2 { margin: 0 0 var(--s-3); }
+.sentence-audio { padding-block: var(--s-4); border-block: 1px solid var(--ink-3); }
+.sentence-wave { display: block; width: 100%; height: 160px; cursor: crosshair; }
+.sentence-seek input, .sentence-audio audio { width: 100%; }
+.sentence-seek input { accent-color: var(--ink); }
+.sentence-audio .times { display: flex; justify-content: space-between; }
+.sentence-audio .btn-row { flex-wrap: wrap; }
+.sentence-notes { display: grid; gap: var(--s-3); }
+.sentence-notes textarea { width: 100%; resize: vertical; }
+.sentence-notes button { justify-self: start; }
+.sentence-context { display: grid; margin-bottom: var(--s-3); }
+.sentence-context a { display: grid; gap: var(--s-2); padding: var(--s-3); border-bottom: 1px solid var(--ink-3); text-decoration: none; overflow-wrap: anywhere; }
+.sentence-context a[aria-current] { font-weight: 700; }
+.sentence-context a:hover { text-decoration: underline; }
+.sentence-image { width: 100%; height: auto; }
+@media (max-width: 800px) { .sentence-layout { grid-template-columns: minmax(0, 1fr); } }
+.reading-fields { display: flex; flex-wrap: wrap; gap: var(--s-3); }
+.reading-fields label { display: grid; gap: var(--s-2); width: min(100%, 180px); }

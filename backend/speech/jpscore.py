@@ -17,6 +17,7 @@ import re
 import unicodedata
 
 from . import jpcut
+from library import romanize
 
 try:
     import pykakasi
@@ -46,7 +47,7 @@ def reading(text):
     """Hiragana reading, in comparison form."""
     if _kks is None:
         return jpcut.loose(text)
-    return jpcut.loose("".join(item["hira"] for item in _kks.convert(text)))
+    return jpcut.loose("".join(item["hira"] for item in romanize.japanese_parts(text)))
 
 
 def _readings(us, exp, exp_unit, b1, b2):
@@ -86,7 +87,7 @@ def units(sentence):
     every other character on its own.
     [{"text", "head", "base", "ruby", "tail", "reading", "keys": [key chars]}]"""
     out = []
-    parts = _kks.convert(sentence) if _kks else [{"orig": c, "hira": c} for c in sentence]
+    parts = romanize.japanese_parts(sentence) if _kks else [{"orig": c, "hira": c} for c in sentence]
     for item in parts:
         orig = item["orig"]
         if _has_kanji(orig):

@@ -12,10 +12,15 @@ import { useStats } from '../App'
 
 export default function PracticePage() {
   const [params] = useSearchParams()
+  const sentence = Number(params.get('sentence')) || undefined
   const deck = Number(params.get('deck')) || undefined
   const source = Number(params.get('source')) || undefined
   const ids = params.get('ids')?.split(',').map(Number).filter(Boolean)
   const { data, error, loading } = useAsync(async () => {
+    if (sentence) {
+      const s = await api.sentence(sentence)
+      return { title: 'Sentence practice', back: `/sentences/${s.id}`, sentences: [s] }
+    }
     if (deck) {
       const [d, s] = await Promise.all([api.deck(deck), api.sentences({ deck })])
       return { title: d.name, back: `/decks/${deck}`, sentences: s.results }
@@ -27,7 +32,7 @@ export default function PracticePage() {
     const all = await api.sentences({ limit: 500 })
     const pick = ids ? all.results.filter((s) => ids.includes(s.id)) : all.results.slice(0, 20)
     return { title: 'Selected sentences', back: '/library', sentences: pick }
-  }, [deck, source, params.get('ids')])
+  }, [sentence, deck, source, params.get('ids')])
 
   if (error) return <ErrorNotice error={error} />
   if (loading || !data) return <Skeleton rows={3} />

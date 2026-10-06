@@ -372,7 +372,7 @@ def apply_repeats(tl, threshold):
             tl.mark(*tl.utts[k], "repeat")
 
 
-def cut_intervals(tl, duration, pad, max_pause, lead):
+def cut_intervals(tl, duration, pad, max_pause, lead, no_pauses=False):
     """Turn per-char cut marks + silences into merged (start, end, reason)."""
     spoken = [i for i in range(len(tl.chars)) if tl.is_spoken(i)]
     kept = [i for i in spoken if tl.cut[i] is None]
@@ -401,7 +401,7 @@ def cut_intervals(tl, duration, pad, max_pause, lead):
         i = j
 
     # Long pauses between kept speech.
-    if kept:
+    if kept and not no_pauses:
         if tl.cs[kept[0]] > lead:
             out.append((0.0, tl.cs[kept[0]] - lead, "pause"))
         for p, q in zip(kept, kept[1:]):
@@ -552,6 +552,8 @@ def build_parser():
                    help="similarity (0-1) above which an attempt counts as a repeat")
     g.add_argument("--utt-gap", type=float, default=0.6,
                    help="pause (s) that separates two utterances/attempts")
+    g.add_argument("--no-pauses", action="store_true",
+                   help="keep gaps without recognized speech, including music and ambience")
     g.add_argument("--max-pause", type=float, default=0.5,
                    help="longer pauses are shortened to this (s)")
     g.add_argument("--pad", type=float, default=0.12,
@@ -582,7 +584,7 @@ def analyze(data, duration, args, script=None):
         tl.script_report = apply_script(tl, script, args.script_match)
     elif not args.no_repeats:
         apply_repeats(tl, args.repeat_threshold)
-    return tl, cut_intervals(tl, duration, args.pad, args.max_pause, args.lead)
+    return tl, cut_intervals(tl, duration, args.pad, args.max_pause, args.lead, args.no_pauses)
 
 
 def main():

@@ -1,6 +1,7 @@
 """Readings in Latin letters for Japanese, Chinese and Korean text, so "tokyo" finds 東京.
 
-Kana and hangul are converted by rule. Kanji and hanzi need pykakasi and pypinyin;
+Japanese uses contextual MeCab/UniDic readings with pykakasi romanization.
+Kana and hangul also have rule-based fallbacks; hanzi use pypinyin;
 without them those characters are skipped, and the web page says so.
 """
 
@@ -13,16 +14,26 @@ HAN = re.compile("[㐀-䶿一-鿿]")
 
 _kakasi = None
 _pinyin = None
+_tagger = None
 
 
 def _load() -> None:
-    global _kakasi, _pinyin
+    global _kakasi, _pinyin, _tagger
     if _kakasi is None:
         try:
             import pykakasi
             _kakasi = pykakasi.kakasi()
         except ImportError:
             _kakasi = False
+    if _tagger is None:
+        try:
+            from fugashi import Tagger
+            import unidic_lite
+            from pathlib import Path
+            dictionary = Path(unidic_lite.DICDIR)
+            _tagger = Tagger(f'-r "{dictionary / "mecabrc"}" -d "{dictionary}"')
+        except (ImportError, RuntimeError):
+            _tagger = False
     if _pinyin is None:
         try:
             from pypinyin import Style, lazy_pinyin
@@ -34,7 +45,7 @@ def _load() -> None:
 def engine() -> str:
     """Names what the readings were made with; stored readings are redone when it changes."""
     _load()
-    return "5" + ("+kakasi" if _kakasi else "") + ("+pinyin" if _pinyin else "")
+    return "6" + ("+unidic" if _tagger else "") + ("+kakasi" if _kakasi else "") + ("+pinyin" if _pinyin else "")
 
 
 def missing() -> list:
@@ -105,10 +116,46 @@ def _korean(text: str) -> str:
 
 # --- putting it together -----------------------------------------------------
 
+def japanese_parts(text: str) -> list:
+    """Tokenize the complete sentence before choosing each word's kana reading."""
+    _load()
+    if not _tagger:
+        return _kakasi.convert(text) if _kakasi else [{"orig": text, "hira": _hira(text)}]
+    out, at = [], 0
+    for token in _tagger(text):
+        start = text.find(token.surface, at)
+        if start > at:
+            out.append({"orig": text[at:start], "hira": text[at:start]})
+        reading = token.feature.kana
+        if not reading or reading == "*":
+            reading = "".join(p["hira"] for p in _kakasi.convert(token.surface)) if _kakasi else token.surface
+        # Clock-hour suffix; preserve standalone 時 (とき) and compounds like 時間.
+        if token.surface == "時" and re.search(r"[0-9０-９一二三四五六七八九十百零〇]+$", text[:start]):
+            reading = "ジ"
+        out.append({"orig": token.surface, "hira": _hira(reading)})
+        at = start + len(token.surface)
+    if at < len(text):
+        out.append({"orig": text[at:], "hira": text[at:]})
+    return out
+
+
+def with_readings(text: str, pairs: list) -> str:
+    """Replace ordered surface spans, keeping kana and punctuation between them."""
+    out, at = [], 0
+    for surface, reading in pairs:
+        start = text.find(surface, at)
+        if start < 0:
+            continue
+        out.extend([text[at:start], reading])
+        at = start + len(surface)
+    return "".join(out) + text[at:]
+
+
 def _japanese(line: str) -> str:
+    parts = japanese_parts(line)
     if _kakasi:
-        return " ".join(part["hepburn"] for part in _kakasi.convert(line))
-    return _kana(line)
+        return " ".join("".join(p["hepburn"] for p in _kakasi.convert(part["hira"])) for part in parts)
+    return " ".join(_kana(part["hira"]) for part in parts)
 
 
 def _chinese(line: str) -> str:
@@ -183,16 +230,16 @@ def _split_word(orig: str, reading: str) -> list:
 
 def furigana(text: str) -> list:
     """Hiragana readings for the kanji in Japanese text, as [kanji, reading] pairs in
-    the order they appear (each kanji run is found after the previous one). Empty
-    without pykakasi, and for lines that can only be Chinese."""
+    the order they appear (each kanji run is found after the previous one).
+    MeCab chooses readings in sentence context, with pykakasi as fallback."""
     _load()
-    if not _kakasi:
+    if not _kakasi and not _tagger:
         return []
     out = []
     for line in text.split("\n"):
         if not HAN.search(line) or HANGUL.search(line) or not (KANA.search(line) or _could_be_japanese(line)):
             continue
-        for part in _kakasi.convert(line):
+        for part in japanese_parts(line):
             orig, reading = part["orig"], part["hira"]
             if _KANJI_RUN.search(orig) and reading and not HAN.search(reading):
                 out.extend(_split_word(orig, reading))

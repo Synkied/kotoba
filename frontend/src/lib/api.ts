@@ -2,7 +2,7 @@ export type Stamp = { id: number; created_at: string; overall: number; accuracy:
 export type Sentence = {
   id: number; source: number; source_kind: SourceKind; source_title: string; position: number
   text: string; roman: string; furigana: [string, string][]; start: number | null; end: number | null
-  note: string; has_audio: boolean; image: string | null; due: string | null; reps: number; lapses: number
+  note: string; reading_overrides: [string, string][]; has_audio: boolean; image: string | null; due: string | null; reps: number; lapses: number
   best: number | null; last: number | null; stamps: Stamp[]; decks: { id: number; name: string }[]; created_at: string
 }
 export type SourceKind = 'capture' | 'audio' | 'video' | 'subtitle' | 'text'
@@ -36,7 +36,7 @@ export type TChar = [string, number, number, string | null]
 export type ScriptRow = { text: string; status: 'ok' | 'partial' | 'missing'; coverage: number; takes: number; start: number | null; end: number | null }
 export type CleanupSettings = {
   cue_back?: number; repeat_threshold?: number; utt_gap?: number; max_pause?: number; pad?: number; lead?: number
-  script_match?: number; no_fillers?: boolean; no_repeats?: boolean; no_script?: boolean
+  script_match?: number; no_fillers?: boolean; no_repeats?: boolean; no_script?: boolean; no_pauses?: boolean
   cues?: string[]; fillers?: string[]; model?: string; device?: string; compute_type?: string
 }
 export type Cleanup = {
@@ -93,7 +93,8 @@ export const api = {
     req<{ updated?: number; deleted?: number }>('sources/bulk', json('POST', data)),
   sentences: (p: { q?: string; category?: string; label?: string; deck?: number; source?: number; status?: string; limit?: number; offset?: number }) =>
     req<Page<Sentence>>('sentences' + qs({ limit: 200, ...p })),
-  updateSentence: (id: number, data: Partial<Pick<Sentence, 'text' | 'note'>>) => req<Sentence>(`sentences/${id}`, json('PATCH', data)),
+  sentence: (id: number) => req<Sentence>(`sentences/${id}`),
+  updateSentence: (id: number, data: Partial<Pick<Sentence, 'text' | 'note' | 'reading_overrides'>>) => req<Sentence>(`sentences/${id}`, json('PATCH', data)),
   deleteSentence: (id: number) => req<void>(`sentences/${id}`, { method: 'DELETE' }),
   decks: () => req<Page<Deck>>('decks?limit=500'),
   deck: (id: number) => req<Deck>(`decks/${id}`),

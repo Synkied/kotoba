@@ -9,7 +9,7 @@ import { ErrorNotice, Skeleton, usePref, useToast } from '../components/ui'
 const TYPES = ['retake', 'retry', 'offscript', 'filler', 'repeat', 'pause', 'manual'] as const
 type CutType = typeof TYPES[number]
 const TYPE_NAME: Record<CutType, string> = {
-  retake: 'Retake', retry: 'Earlier take', offscript: 'Off script', filler: 'Filler', repeat: 'Repeat', pause: 'Pause', manual: 'Yours',
+  retake: 'Retake', retry: 'Earlier take', offscript: 'Off script', filler: 'Filler', repeat: 'Repeat', pause: 'Non-speech', manual: 'Yours',
 }
 const TYPE_HELP: Record<CutType, string> = {
   retake: 'You said the retake cue: the slip before it goes',
@@ -17,7 +17,7 @@ const TYPE_HELP: Record<CutType, string> = {
   offscript: 'Speech that isn\'t in the script',
   filler: 'えーと, あのー and friends',
   repeat: 'A false start you said again right after',
-  pause: 'A long pause, shortened',
+  pause: 'A gap without recognized speech; may contain music, ambience or silence',
   manual: 'Cuts you drew yourself',
 }
 type EditCut = Cut & { id: number; type: CutType }
@@ -82,7 +82,7 @@ export default function CleanupPage() {
   const [peaks, setPeaks] = useState<{ rate: number; peaks: number[]; duration: number } | null>(null)
   const [peaksError, setPeaksError] = useState<string | null>(null)
   const [mode, setModeState] = useState<Mode>('edited')
-  const [show, setShow] = usePref<Record<CutType, boolean>>('cleanup.show', { retake: true, retry: true, offscript: true, filler: true, repeat: true, pause: false, manual: true })
+  const [show, setShow] = usePref<Record<CutType, boolean>>('cleanup.show.v2', { retake: true, retry: true, offscript: true, filler: true, repeat: true, pause: true, manual: true })
   const [job, setJob] = useState<Job | null>(null)
   const [tab, setTab] = useState<'transcript' | 'script'>('transcript')
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -348,6 +348,17 @@ export default function CleanupPage() {
           })}
         </div>
       </section>
+
+      {cuts.some(c => c.type === 'pause') && <div className="notice">
+        <div><p>Non-speech cuts may contain music or ambience. Hiding a cut type above only changes its visibility.</p>
+          <button className="btn small" disabled={!cuts.some(c => c.type === 'pause' && c.on)} onClick={() => {
+            change(cuts.map(c => c.type === 'pause' ? { ...c, on: false } : c))
+            setShow({ ...show, pause: true })
+            toast({ text: 'Non-speech cuts turned off. Music and ambience in those sections will be kept.' })
+          }}>Keep all non-speech audio</button>
+          <p className="meta">To keep it after reanalysis, turn off “Automatically trim gaps without speech” in Settings. Render again to update a previously cleaned recording.</p>
+        </div>
+      </div>}
 
       <div className="cut-cols">
         <section className="panel cut-text" aria-label="Transcript and script">
@@ -714,7 +725,7 @@ function CutList({ cuts, sel, show, onSelect, onChange, onAudition, onDelete }: 
   return (
     <ul className="cut-scroll cut-list" ref={box}>
       {list.map((c) => {
-        const text = c.reason.includes(':') ? c.reason.slice(c.reason.indexOf(':') + 1).trim() : c.type === 'pause' ? 'long pause' : ''
+        const text = c.reason.includes(':') ? c.reason.slice(c.reason.indexOf(':') + 1).trim() : c.type === 'pause' ? 'no recognized speech' : ''
         return (
           <li key={c.id} className={(c.on ? '' : 'off ') + (c.id === sel ? 'sel' : '')} onClick={(e) => { if (!(e.target as HTMLElement).closest('input,button')) onSelect(c) }}>
             <input type="checkbox" className="check" checked={c.on} onChange={(e) => set(c, { on: e.target.checked })} aria-label={`Apply the ${TYPE_NAME[c.type].toLowerCase()} cut at ${fmt(c.start)}`} />
@@ -906,7 +917,7 @@ function SettingsSheet({ data, busy, onAnalyze }: { data: Cleanup; busy: boolean
   const d = data.defaults
   const init = () => ({
     cues: (data.settings.cues ?? d.cues).join(', '), fillers: (data.settings.fillers ?? []).join(', '),
-    no_fillers: !!data.settings.no_fillers, no_repeats: !!data.settings.no_repeats, no_script: !!data.settings.no_script,
+    no_fillers: !!data.settings.no_fillers, no_repeats: !!data.settings.no_repeats, no_script: !!data.settings.no_script, no_pauses: !!data.settings.no_pauses,
     cue_back: String(data.settings.cue_back ?? d.cue_back), repeat_threshold: String(data.settings.repeat_threshold ?? d.repeat_threshold),
     utt_gap: String(data.settings.utt_gap ?? d.utt_gap), max_pause: String(data.settings.max_pause ?? d.max_pause),
     pad: String(data.settings.pad ?? d.pad), lead: String(data.settings.lead ?? d.lead), script_match: String(data.settings.script_match ?? d.script_match),
@@ -916,7 +927,7 @@ function SettingsSheet({ data, busy, onAnalyze }: { data: Cleanup; busy: boolean
   const set = (k: keyof ReturnType<typeof init>, v: string | boolean) => setF((o) => ({ ...o, [k]: v }))
   const list = (s: string) => s.split(/[,、]/).map((x) => x.trim()).filter(Boolean)
   const submit = () => onAnalyze({
-    cues: list(f.cues), fillers: list(f.fillers), no_fillers: f.no_fillers, no_repeats: f.no_repeats, no_script: f.no_script,
+    cues: list(f.cues), fillers: list(f.fillers), no_fillers: f.no_fillers, no_repeats: f.no_repeats, no_script: f.no_script, no_pauses: f.no_pauses,
     cue_back: +f.cue_back, repeat_threshold: +f.repeat_threshold, utt_gap: +f.utt_gap, max_pause: +f.max_pause, pad: +f.pad, lead: +f.lead,
     script_match: +f.script_match, model: f.model.trim() || undefined, device: f.device || undefined, compute_type: f.compute_type || undefined,
   }, f.retranscribe)
@@ -944,6 +955,8 @@ function SettingsSheet({ data, busy, onAnalyze }: { data: Cleanup; busy: boolean
         </fieldset>
         <fieldset>
           <legend>Timing (seconds)</legend>
+          <label className="opt"><input type="checkbox" className="check" checked={!f.no_pauses} onChange={(e) => set('no_pauses', !e.target.checked)} />Automatically trim gaps without speech</label>
+          <p className="meta">Turn this off to preserve music, ambience and pauses when analyzing again. Other speech cuts still apply.</p>
           {num('utt_gap', 'Pause between two utterances', 0.05)}
           {num('max_pause', 'Longest pause kept', 0.05)}
           {num('pad', 'Silence kept around a cut', 0.01)}

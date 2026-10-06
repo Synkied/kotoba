@@ -64,6 +64,7 @@ class Sentence(models.Model):
     roman = models.TextField(blank=True)              # Latin reading, shown under the text
     search = models.TextField(blank=True, editable=False)  # fold(text) + reading key
     furigana = models.JSONField(default=list, blank=True)
+    reading_overrides = models.JSONField(default=list, blank=True)
     start = models.FloatField(null=True, blank=True)  # seconds into source.media
     end = models.FloatField(null=True, blank=True)
     note = models.TextField(blank=True)
@@ -83,8 +84,9 @@ class Sentence(models.Model):
 
     def save(self, *args, **kwargs):
         self.text = self.text.strip()
-        self.roman = romanize.romanize(self.text)
-        self.furigana = romanize.furigana(self.text)
+        self.furigana = self.reading_overrides or romanize.furigana(self.text)
+        reading_text = romanize.with_readings(self.text, self.reading_overrides) if self.reading_overrides else self.text
+        self.roman = romanize.romanize(reading_text)
         self.search = fold(self.text) + "\n" + romanize.key(self.roman.replace("\n", " "))
         super().save(*args, **kwargs)
 

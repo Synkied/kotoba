@@ -42,3 +42,16 @@ make ocr-client         # install the screen-ocr capture client, then: screen-oc
 ```
 
 Uploaded audio and video are transcribed in the background. `make transcribe` does the waiting ones now, with progress in the terminal.
+
+Each sentence has a permalink at `/sentences/<id>`, linked from sources, decks,
+the library and review. Its page includes audio seeking, a highlighted sentence
+span, repeat playback, speed controls, source context, notes and practice history.
+
+Japanese readings use MeCab through fugashi with the bundled UniDic Lite dictionary.
+On a platform without fugashi wheels (such as Alpine), install/build MeCab and its
+headers before installing Python dependencies. Pykakasi remains a fallback.
+Use **Edit readings** on a sentence page to save hiragana corrections;
+**Reset to automatic** regenerates them. Changing sentence text clears its
+corrections. Database migration regenerates existing automatic readings, and
+`cd backend && uv run python manage.py refresh_readings` can refresh them later
+while retaining saved corrections.

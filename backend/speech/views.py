@@ -213,9 +213,9 @@ def source_render(request, pk):
 
 @api_view(["GET"])
 def source_peaks(request, pk):
-    s = _recorded(pk)
-    if not s:
-        return _no_media()
+    s = get_object_or_404(Source, pk=pk)
+    if not s.media:
+        return Response({"error": "This source has no audio."}, status=400)
     c = cleanup.get(s)
     if c.peaks is None:
         if not shutil.which("ffmpeg"):

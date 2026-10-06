@@ -104,6 +104,7 @@ function SentenceRow({ x, first, furigana, audio, playing, onPlay, onSaved }: {
         </Balloon>
       )}
       <div className="acts">
+        <Link className="btn small ghost" to={`/sentences/${x.id}`}>Details</Link>
         <Stamps stamps={x.stamps} max={3} />
         <CopyButton text={x.text} />
         <button className="btn small icon ghost" aria-label="Fix the text" title="Fix the text" onClick={() => setDraft(x.text)}><Pencil aria-hidden="true" /></button>

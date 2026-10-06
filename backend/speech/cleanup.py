@@ -8,7 +8,7 @@ from . import engine, jobs, jpcut
 from .models import Cleanup
 
 NUMBERS = ("cue_back", "repeat_threshold", "utt_gap", "max_pause", "pad", "lead", "script_match")
-FLAGS = ("no_fillers", "no_repeats", "no_script")
+FLAGS = ("no_fillers", "no_repeats", "no_script", "no_pauses")
 WHISPER = ("model", "device", "compute_type")
 
 
