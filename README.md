@@ -47,6 +47,47 @@ Each sentence has a permalink at `/sentences/<id>`, linked from sources, decks,
 the library and review. Its page includes audio seeking, a highlighted sentence
 span, repeat playback, speed controls, source context, notes and practice history.
 
+Listening worksheets have their own **Listening** section at `/listening`.
+Choose **Import package** there, or **Import a quiz package** in Collect. Select
+one PDF and its audio files together (or add them in several selections), name
+the package, review the recording order, and choose **Create quiz package**.
+Dropping a PDF into Collect’s regular uploader also opens the package importer.
+Packages stay separate and keep their worksheet and recordings together.
+
+The supplied lesson 18 PDF and four recordings are recognized by their content,
+even when renamed, and include the prepared questions. Other worksheets open
+with one quiz per recording: use **Add question** to enter prompts, choose written
+answers or multiple choice, and select the worksheet page for each quiz. Text
+PDFs show extracted page text; scanned PDFs show their page images. The original
+PDF remains available. **Edit quiz** can revise questions later; previous attempts
+are retained, and changed questions start a new quiz version. These packages use
+answer-and-review practice without automatically inferred corrections.
+
+The command-line importer remains available for reviewed lesson manifests.
+To import lesson 18 from a local `listening/` folder:
+
+```bash
+cd backend
+uv run python manage.py migrate
+uv run python manage.py import_listening ../listening
+```
+
+The importer copies the PDF and audio into Kotoba’s data directory and extracts
+the worksheet illustrations. You can listen, adjust playback speed, answer all
+four exercises, save answers for review, and retry. Drafts stay in the browser;
+submitted attempts stay in the database. The supplied PDF has no answer key, so
+these exercises use answer-and-review practice without automatic marking.
+
+For another lesson, pass `--manifest /path/to/lesson.json`; the reviewed manifest
+in `backend/library/data/minna18-listening.json` shows the format. Its `page` is
+zero-based and `crop` is a normalized rectangle in a scanned page’s single image.
+Each question can optionally contain a verified `answer` (a string or a list of
+accepted answers) and `explanation`. Re-importing the same slug and exercise
+positions updates assets and corrections while preserving attempts. Keep
+question IDs stable for saved responses; create a new slug for different material.
+The command-line importer does not automatically generate questions, transcripts,
+or corrections from arbitrary PDFs. Local lesson files are excluded from Git.
+
 Japanese readings use MeCab through fugashi with the bundled UniDic Lite dictionary.
 On a platform without fugashi wheels (such as Alpine), install/build MeCab and its
 headers before installing Python dependencies. Pykakasi remains a fallback.

@@ -1,3 +1,5 @@
+import re
+
 from rest_framework import serializers
 
 from .models import Attempt, Deck, Sentence, Source
@@ -5,10 +7,20 @@ from .models import Attempt, Deck, Sentence, Source
 MAX_LABELS = 3
 
 
+# Labels are typed as one comma-separated line; accept Japanese and full-width commas too.
+LABEL_SEP = re.compile(r"[,、，､]")
+
+
+def split_labels(value):
+    if isinstance(value, str):
+        value = [value]
+    return [part for label in value or [] for part in LABEL_SEP.split(str(label))]
+
+
 def clean_labels(value):
     seen, out = set(), []
-    for label in value or []:
-        label = str(label).strip()[:40]
+    for label in split_labels(value):
+        label = " ".join(label.split())[:40]
         if label and label.lower() not in seen:
             seen.add(label.lower())
             out.append(label)

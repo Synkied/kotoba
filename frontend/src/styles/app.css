@@ -100,7 +100,7 @@ p { margin: 0; text-wrap: pretty; }
   .page-head { margin-bottom: var(--s-4); }
   .page-head .search { flex-basis: 100%; }
   .tabbar {
-    position: fixed; inset: auto 0 0; z-index: 30; display: grid; grid-template-columns: repeat(6, 1fr);
+    position: fixed; inset: auto 0 0; z-index: 30; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
     background: var(--spine); padding-bottom: env(safe-area-inset-bottom);
   }
   .tabbar a {
@@ -910,3 +910,64 @@ code.inline { font: 400 .95em var(--mono); padding: 0 3px; background: color-mix
 .bulk-label-form .field { flex: 1 1 220px; }
 .bulk-label-form p, .bulk-label-form .notice { flex-basis: 100%; margin: 0; }
 .toolbar.active .bulk-label-form .meta { color: var(--on-ink); }
+
+/* Listening keeps the worksheet beside the answers, with native audio first. */
+:root { --stock-listening: var(--stock-practice); }
+.listening-lesson-head { margin-bottom: var(--s-5); }
+.listening-lesson-head h2 { margin-bottom: var(--s-2); }
+.listening-lesson-picker { display: flex; gap: var(--s-3); align-items: center; margin-bottom: var(--s-4); }
+.listening-exercise-nav { display: flex; flex-wrap: wrap; gap: var(--s-2); padding-bottom: var(--s-5); margin-bottom: var(--s-5); border-bottom: var(--frame-bold) solid var(--ink); }
+.listening-exercise-nav .btn { flex: 1 1 140px; flex-direction: column; align-items: start; padding: var(--s-3) var(--s-4); gap: var(--s-1); }
+.listening-exercise-nav [aria-current='step'] { background: var(--ink); color: var(--on-ink); }
+.listening-exercise-nav [aria-current='step'] .meta { color: inherit; }
+.listening-title { margin-bottom: var(--s-3); }
+.listening-instructions { max-width: 70ch; margin-bottom: var(--s-5); }
+.listening-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: var(--s-6); }
+.listening-source { min-width: 0; }
+.listening-player { padding: var(--s-4); border: var(--frame-bold) solid var(--ink); background: var(--paper); }
+.listening-player audio { display: block; width: 100%; margin-bottom: var(--s-3); }
+.listening-speed { display: flex; align-items: center; gap: var(--s-2); margin-left: auto; }
+.listening-speed select { width: auto; }
+.listening-figure { margin: var(--s-4) 0; }
+.listening-figure img { display: block; width: 100%; height: auto; background: white; border: var(--frame-thin) solid var(--ink); }
+.listening-figure figcaption { margin-top: var(--s-2); font-size: var(--t-s); color: var(--ink-3); }
+.listening-example { display: flex; flex-wrap: wrap; gap: var(--s-3); padding: var(--s-3) 0; border-top: var(--frame-thin) solid var(--ink); }
+.listening-answer-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--s-4); }
+.listening-answer-head h3 { margin: 0; }
+.listening-question { min-width: 0; margin: 0 0 var(--s-5); padding: 0; border: 0; }
+.listening-question legend { margin-bottom: var(--s-3); line-height: 1.8; }
+.listening-choices { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.listening-choice { display: inline-flex; align-items: center; gap: var(--s-2); min-height: 44px; min-width: 54px; padding: var(--s-2) var(--s-3); border: var(--frame-thin) solid var(--ink); background: var(--paper); cursor: pointer; }
+.listening-choice.selected { color: var(--on-ink); background: var(--ink); }
+.listening-choice input { margin: 0; accent-color: var(--ink); }
+.listening-choice:has(input:focus-visible) { outline: 3px solid var(--ink); outline-offset: 3px; }
+.listening-question:disabled .listening-choice { cursor: default; }
+.listening-question:disabled .selected input { opacity: 1; }
+.listening-text { width: 100%; min-height: 44px; }
+.listening-question:disabled .listening-text { opacity: 1; color: var(--ink); }
+.listening-miss { color: var(--red-ink); }
+.listening-submit, .listening-result { padding-top: var(--s-4); border-top: var(--frame-thin) solid var(--ink); }
+.listening-result p { max-width: 65ch; }
+.listening-step { display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--s-3); margin-top: var(--s-7); padding-top: var(--s-4); border-top: var(--frame-thin) solid var(--ink); }
+.listening-layout .btn, .listening-step .btn, .listening-speed select, .listening-lesson-picker select { min-height: 44px; }
+@media (max-width: 900px) { .listening-layout { grid-template-columns: minmax(0, 1fr); } .listening-figure { max-width: 34rem; } }
+@media (max-width: 760px) { .tabbar a { font-size: 11px; } .listening-step .btn { flex: 1 1 140px; } }
+
+.listening-import { margin-bottom: var(--s-6); }
+.listening-import .drop { min-height: 130px; margin-bottom: var(--s-4); }
+.listening-import > p { max-width: 70ch; }
+.listening-import-files { padding: 0; margin: var(--s-4) 0; list-style: none; }
+.listening-import-files li { display: flex; justify-content: space-between; align-items: center; gap: var(--s-3); padding: var(--s-3) 0; border-bottom: var(--frame-thin) solid var(--ink); }
+.listening-import-files li > div:first-child { min-width: 0; display: grid; gap: var(--s-1); overflow-wrap: anywhere; }
+.listening-import-files .btn-row { flex: none; }
+.listening-import .btn, .listening-editor .btn, .listening-editor select, .listening-editor input { min-height: 44px; }
+.listening-editor-fields { min-width: 0; padding: 0; border: 0; margin: 0 0 var(--s-5); }
+.listening-editor-question { min-width: 0; border: var(--frame-thin) solid var(--ink); padding: var(--s-4); margin: var(--s-5) 0; }
+.listening-editor-choices { display: grid; gap: var(--s-3); margin-bottom: var(--s-4); }
+.listening-editor-choices .btn-row { align-items: end; flex-wrap: nowrap; }
+.listening-editor-choices .field { min-width: 0; flex: 1; margin: 0; }
+.listening-editor-choices .field input { width: 100%; }
+.listening-answer-head { flex-wrap: wrap; gap: var(--s-2); }
+.listening-worksheet-text { white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font); line-height: 1.9; padding: var(--s-4); background: var(--paper); max-height: 32rem; overflow-y: auto; }
+.listening-pdf { width: 100%; height: 32rem; border: var(--frame-thin) solid var(--ink); margin-top: var(--s-4); }
+@media (max-width: 480px) { .listening-import-files li { flex-wrap: wrap; } .listening-import-files .btn-row { margin-left: auto; } }

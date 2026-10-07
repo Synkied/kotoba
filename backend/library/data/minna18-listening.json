@@ -1,0 +1,328 @@
+{
+  "slug": "minna-18-listening",
+  "title": "Minna no Nihongo · Lesson 18",
+  "description": "Listening comprehension · できる / 趣味 / …まえに",
+  "pdf": "leçon 18 compréhension orale.pdf",
+  "exercises": [
+    {
+      "position": 1,
+      "title": "犬は 何が できますか。",
+      "instructions": "Listen to track 18. Match each dog to a picture (a–e). The recording begins with an example.",
+      "example": "ポチ → b",
+      "audio": "18.Track18.mp3",
+      "page": 0,
+      "crop": [
+        0.47,
+        0.18,
+        0.94,
+        0.43
+      ],
+      "image_alt": "Five dogs: a responds to commands, b runs, c sings with a microphone, d sleeps, e rides a bicycle.",
+      "questions": [
+        {
+          "id": "1",
+          "prompt": "ジャック",
+          "choices": [
+            {
+              "value": "a",
+              "label": "A"
+            },
+            {
+              "value": "b",
+              "label": "B"
+            },
+            {
+              "value": "c",
+              "label": "C"
+            },
+            {
+              "value": "d",
+              "label": "D"
+            },
+            {
+              "value": "e",
+              "label": "E"
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "prompt": "アミ",
+          "choices": [
+            {
+              "value": "a",
+              "label": "A"
+            },
+            {
+              "value": "b",
+              "label": "B"
+            },
+            {
+              "value": "c",
+              "label": "C"
+            },
+            {
+              "value": "d",
+              "label": "D"
+            },
+            {
+              "value": "e",
+              "label": "E"
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "prompt": "モモ",
+          "choices": [
+            {
+              "value": "a",
+              "label": "A"
+            },
+            {
+              "value": "b",
+              "label": "B"
+            },
+            {
+              "value": "c",
+              "label": "C"
+            },
+            {
+              "value": "d",
+              "label": "D"
+            },
+            {
+              "value": "e",
+              "label": "E"
+            }
+          ]
+        }
+      ],
+      "audio_sha256": "a680affbebdfc6926c6f4d01eb0140644ad241c45334987d9d863d6a852905a1"
+    },
+    {
+      "position": 2,
+      "title": "できますか、できませんか。",
+      "instructions": "Listen to track 19. Choose whether each action is possible. The recording begins with an example.",
+      "example": "あの 店から 荷物を 送ります。→ できません",
+      "audio": "19.Track19.mp3",
+      "questions": [
+        {
+          "id": "1",
+          "prompt": "図書館で 本を コピーします。",
+          "choices": [
+            {
+              "value": "yes",
+              "label": "できます"
+            },
+            {
+              "value": "no",
+              "label": "できません"
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "prompt": "きょう お寺を 見ます。",
+          "choices": [
+            {
+              "value": "yes",
+              "label": "できます"
+            },
+            {
+              "value": "no",
+              "label": "できません"
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "prompt": "イーメールと 写真を 送ります。",
+          "choices": [
+            {
+              "value": "yes",
+              "label": "できます"
+            },
+            {
+              "value": "no",
+              "label": "できません"
+            }
+          ]
+        }
+      ],
+      "audio_sha256": "3b7a3c8dc43f5703809f1db0867892ebe9ef251c8a08be9c6306c1074b4aa72a"
+    },
+    {
+      "position": 3,
+      "title": "趣味は 何ですか。何を あげますか。",
+      "instructions": "Listen to track 20. Write each friend’s hobby in Japanese, then choose their birthday gift (a–e). Include こと where shown.",
+      "example": "絵を かく こと → a",
+      "audio": "20.Track20.mp3",
+      "page": 0,
+      "crop": [
+        0.54,
+        0.7,
+        0.93,
+        0.92
+      ],
+      "image_alt": "Gift choices: a art book, b CD, c flowers, d bowl, spoon and fork, e bottle and glasses.",
+      "questions": [
+        {
+          "id": "1-hobby",
+          "prompt": "1) 趣味",
+          "placeholder": "…こと"
+        },
+        {
+          "id": "1-gift",
+          "prompt": "1) プレゼント",
+          "choices": [
+            {
+              "value": "a",
+              "label": "A"
+            },
+            {
+              "value": "b",
+              "label": "B"
+            },
+            {
+              "value": "c",
+              "label": "C"
+            },
+            {
+              "value": "d",
+              "label": "D"
+            },
+            {
+              "value": "e",
+              "label": "E"
+            }
+          ]
+        },
+        {
+          "id": "2-hobby",
+          "prompt": "2) 趣味",
+          "placeholder": "…こと"
+        },
+        {
+          "id": "2-gift",
+          "prompt": "2) プレゼント",
+          "choices": [
+            {
+              "value": "a",
+              "label": "A"
+            },
+            {
+              "value": "b",
+              "label": "B"
+            },
+            {
+              "value": "c",
+              "label": "C"
+            },
+            {
+              "value": "d",
+              "label": "D"
+            },
+            {
+              "value": "e",
+              "label": "E"
+            }
+          ]
+        },
+        {
+          "id": "3-hobby",
+          "prompt": "3) 趣味",
+          "placeholder": "趣味を 書いてください"
+        },
+        {
+          "id": "3-gift",
+          "prompt": "3) プレゼント",
+          "choices": [
+            {
+              "value": "a",
+              "label": "A"
+            },
+            {
+              "value": "b",
+              "label": "B"
+            },
+            {
+              "value": "c",
+              "label": "C"
+            },
+            {
+              "value": "d",
+              "label": "D"
+            },
+            {
+              "value": "e",
+              "label": "E"
+            }
+          ]
+        }
+      ],
+      "audio_sha256": "ef1b746f52b68eb8696c4054159b9555d16096c1fc5017a319fc525001ee797d"
+    },
+    {
+      "position": 4,
+      "title": "どちらが 先ですか。",
+      "instructions": "Listen to track 21. For each numbered pair of pictures, choose which happens first. The top pair is the example.",
+      "example": "例 → b（コピー）",
+      "audio": "21.Track21.mp3",
+      "page": 1,
+      "crop": [
+        0.05,
+        0.105,
+        0.74,
+        0.6
+      ],
+      "image_alt": "Example: a meeting, b photocopying. Pair 1: a party, b Hokkaido travel. Pair 2: a hot spring, b a meal. Pair 3: a post office visit, b a party.",
+      "questions": [
+        {
+          "id": "1",
+          "prompt": "パーティー / 北海道",
+          "choices": [
+            {
+              "value": "a",
+              "label": "A"
+            },
+            {
+              "value": "b",
+              "label": "B"
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "prompt": "温泉 / 食事",
+          "choices": [
+            {
+              "value": "a",
+              "label": "A"
+            },
+            {
+              "value": "b",
+              "label": "B"
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "prompt": "郵便局 / パーティー",
+          "choices": [
+            {
+              "value": "a",
+              "label": "A"
+            },
+            {
+              "value": "b",
+              "label": "B"
+            }
+          ]
+        }
+      ],
+      "audio_sha256": "e613f2862d617b9a1dd2453ebb936138343d2b8169c06b022a0adc85d38bf726"
+    }
+  ],
+  "pdf_sha256": "93b4d572a881c187409f0ac91987d0b3427fd9c8e33e703646bcb45225f55a6d"
+}

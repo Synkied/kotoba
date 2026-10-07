@@ -54,6 +54,19 @@ export type Addons = {
 }
 export type Page<T> = { count: number; results: T[] }
 
+export type ListeningQuestion = { id: string; prompt: string; choices?: { value: string; label: string }[]; placeholder?: string }
+export type ListeningAttempt = {
+  id: number; responses: Record<string, string>; score: number | null; total: number; created_at: string
+  feedback: { id: string; correct: boolean | null; answer: string | null; explanation: string }[]
+}
+export type ListeningExercise = {
+  id: number; position: number; title: string; instructions: string; example: string
+  audio: string; image: string | null; image_alt: string; questions: ListeningQuestion[]
+  has_answer_key: boolean; attempt_count: number; latest_attempt: ListeningAttempt | null
+  worksheet_page: number; worksheet_text: string; revision: number
+}
+export type ListeningLesson = { id: number; title: string; description: string; pdf: string; page_count: number; exercises: ListeningExercise[] }
+
 export class ApiError extends Error {
   status: number
   constructor(message: string, status: number) { super(message); this.status = status }
@@ -92,6 +105,14 @@ export async function allSentences(params: { deck?: number; source?: number } = 
 }
 
 export const api = {
+  listening: () => req<ListeningLesson[]>('listening'),
+  listeningAttempt: (id: number, responses: Record<string, string>, revision?: number) => req<ListeningAttempt>(`listening/exercises/${id}/attempts`, json('POST', { responses, revision })),
+  importListeningPackage: (files: File[], title: string) => {
+    const form = new FormData(); form.append('title', title)
+    files.forEach(file => form.append('files', file))
+    return req<ListeningLesson>('listening/packages', { method: 'POST', body: form })
+  },
+  editListeningExercise: (id: number, data: Pick<ListeningExercise, 'title' | 'instructions' | 'worksheet_page' | 'questions' | 'revision'>) => req<ListeningExercise>(`listening/exercises/${id}`, json('PATCH', data)),
   stats: () => req<Stats>('stats'),
   facets: () => req<Facets>('facets'),
   sources: (p: { status?: string; q?: string; kind?: string; category?: string; label?: string; limit?: number; offset?: number }) =>

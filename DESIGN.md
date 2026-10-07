@@ -70,7 +70,7 @@ The recording editor (from jp-shadow-cut) lives on its own stock, a cold blue-gr
 ## Interface refinements
 
 - Sentence rows keep the text in its own reading area at narrow widths (≤1100px); actions wrap beneath. Row variants live in CSS rather than inline column definitions. Long headings wrap, including editable deck names.
-- Controls are at least 44px tall on phones and devices with a coarse pointer. The mobile navigation keeps six sections; Add-ons is available above the page header.
+- Controls are at least 44px tall on phones and devices with a coarse pointer. The mobile navigation has seven sections including Listen; Add-ons is available above the page header.
 - Organization filters use a native disclosure with label/category selects. Changing a search or filter clears the visible selection. Inbox and Library provide Load more; deck practice loads all deck sentences.
 - Red remains reserved for recording, due counts, misses, and score stamps. Practice entry actions use ink. `--on-red` supplies a contrasting foreground in both themes.
 - Failed mutations retain drafts and show actionable errors; deck order/removal updates after server success. Undo remains until used, dismissed, or replaced by another notification.

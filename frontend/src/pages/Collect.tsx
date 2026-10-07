@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { CopyButton } from './Library'
 import { useStats } from '../App'
 import { useToast } from '../components/ui'
+import ListeningPackageImport from '../components/ListeningPackageImport'
 
 export default function CollectPage() {
   const nav = useNavigate()
@@ -17,6 +18,8 @@ export default function CollectPage() {
   const [err, setErr] = useState<string | null>(null)
   const [over, setOver] = useState(false)
   const file = useRef<HTMLInputElement>(null)
+  const [packageSelection, setPackageSelection] = useState<{ key: number; files: File[] }>({ key: 0, files: [] })
+  const packagePanel = useRef<HTMLDivElement>(null)
 
   const paste = async (e: React.FormEvent) => {
     e.preventDefault(); if (locked.current || !text.trim()) return
@@ -28,6 +31,12 @@ export default function CollectPage() {
     if (locked.current) return
     const list = [...files]
     if (!list.length) return
+    if (list.some(file => /\.pdf$/i.test(file.name))) {
+      setPackageSelection(previous => ({ key: previous.key + 1, files: list }))
+      packagePanel.current?.scrollIntoView({ behavior: 'auto', block: 'start' })
+      if (file.current) file.current.value = ''
+      return
+    }
     locked.current = true; setErr(null); setBusy('files')
     let added = 0
     // a subtitle file dropped together with its audio/video becomes one timed source
@@ -54,6 +63,7 @@ export default function CollectPage() {
       <header className="page-head"><h1>Collect</h1></header>
       {err && <div className="notice error" role="alert" style={{ marginBottom: 'var(--s-4)' }}>{err}</div>}
       <div className="collect">
+        <div ref={packagePanel}><ListeningPackageImport key={packageSelection.key} initialFiles={packageSelection.files} onImported={lesson => nav(`/listening?lesson=${lesson.id}`)} /></div>
         <form className="sheet" onSubmit={paste}>
           <h2><ClipboardPaste aria-hidden="true" />Paste text</h2>
           <p>Lyrics, a dialogue, a page of your textbook. Each line or sentence becomes a sentence you can practise.</p>
@@ -66,13 +76,14 @@ export default function CollectPage() {
         <section className="sheet">
           <h2><Upload aria-hidden="true" />Upload files</h2>
           <p>Audio or video is transcribed by Whisper in kotoba into timed sentences you can shadow. Drop a subtitle file (.srt, .vtt, .ass) with its video to skip transcription. Images go in as captures.</p>
+          <p>A PDF with its audio files opens the quiz package importer above.</p>
           <label className={'drop' + (over ? ' over' : '') + (busy ? ' disabled' : '')} aria-busy={busy === 'files'}
             onDragOver={(e) => { e.preventDefault(); if (!busy) setOver(true) }} onDragLeave={() => setOver(false)}
             onDrop={(e) => { e.preventDefault(); setOver(false); upload(e.dataTransfer.files) }}>
             <Upload aria-hidden="true" />
             <b>{busy === 'files' ? 'Uploading…' : 'Drop files here'}</b>
             <span className="meta" style={{ color: 'inherit' }}>or click to choose</span>
-            <input ref={file} type="file" disabled={busy !== null} multiple accept="audio/*,video/*,image/*,.srt,.vtt,.ass,.ssa" onChange={(e) => e.target.files && upload(e.target.files)} />
+            <input ref={file} type="file" disabled={busy !== null} multiple accept="application/pdf,.pdf,audio/*,video/*,image/*,.srt,.vtt,.ass,.ssa" onChange={(e) => e.target.files && upload(e.target.files)} />
           </label>
         </section>
 
