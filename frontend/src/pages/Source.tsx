@@ -5,6 +5,7 @@ import { api, type Sentence, type Source } from '../lib/api'
 import { playClip, stopAudio } from '../lib/audio'
 import { SentenceText } from '../components/SentenceText'
 import { Furigana } from '../components/Furigana'
+import { MAX_LABELS, parseLabels } from '../lib/labels'
 import { SourcePanel, fmtTime } from '../components/SourcePanel'
 import { Stamps } from '../components/Stamp'
 import { DeckPicker } from '../components/DeckPicker'
@@ -69,7 +70,7 @@ function SourcePageDetail({ id }: { id: number }) {
                 <button className="btn small ghost" onClick={() => setLabels(s.labels.join(', '))}><Pencil aria-hidden="true" />{s.labels.length ? 'Edit labels' : 'Add labels'}</button>
               </div>
             ) : (
-              <form className="edit-line" onSubmit={async (e) => { e.preventDefault(); await action.run(async () => { const next = [...new Set(labels.split(',').map((x) => x.trim()).filter(Boolean))]; if (next.length > 3) throw new Error('Use up to three labels. Remove a label and try again.'); set(await api.updateSource(s.id, { labels: next })); setLabels(null) }) }}>
+              <form className="edit-line" onSubmit={async (e) => { e.preventDefault(); await action.run(async () => { const next = parseLabels(labels); if (next.length > MAX_LABELS) throw new Error('Use up to three labels. Remove a label and try again.'); set(await api.updateSource(s.id, { labels: next })); setLabels(null) }) }}>
                 <label style={{ flex: 1 }}><span className="sr">Labels, comma separated (up to 3)</span>
                   <input className="input" autoFocus value={labels} placeholder="minna no nihongo, lesson 18" onChange={(e) => setLabels(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && setLabels(null)} /></label>
                 <button className="btn small primary">Save</button>

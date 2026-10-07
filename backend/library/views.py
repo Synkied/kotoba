@@ -22,7 +22,7 @@ from .models import Attempt, Deck, DeckItem, Sentence, Source, fold
 mimetypes.add_type("audio/mp4", ".m4a")
 
 from .serializers import (AttemptSerializer, DeckSerializer, SentenceSerializer, SourceSerializer,
-                          clean_labels)
+                          clean_labels, MAX_LABELS)
 
 AUDIO_EXT = {".wav", ".mp3", ".m4a", ".flac", ".ogg", ".opus", ".aac"}
 VIDEO_EXT = {".mp4", ".mkv", ".webm", ".mov"}
@@ -123,6 +123,15 @@ def bulk(request):
             s.media.delete(save=False)
         qs.delete()
         return Response({"deleted": n})
+    add = clean_labels(request.data.get("add_label"))
+    if add:
+        # one label or several, comma separated; never drop labels silently past the limit
+        merged = {s.id: clean_labels([*s.labels, *add]) for s in qs}
+        full = [s for s in qs if len(set(map(str.lower, [*s.labels, *add]))) > MAX_LABELS]
+        if full:
+            return Response({"error": f"{len(full)} selected source{'s' if len(full) > 1 else ''} would have more "
+                             f"than {MAX_LABELS} labels. Remove a label from {'them' if len(full) > 1 else 'it'} first."},
+                            status=400)
     fields = {}
     if request.data.get("status") in Source.Status.values:
         fields["status"] = request.data["status"]
@@ -132,9 +141,9 @@ def bulk(request):
         qs.update(**fields)
     if "labels" in request.data:
         qs.update(labels=clean_labels(request.data["labels"]))
-    if request.data.get("add_label"):
+    if add:
         for s in qs:
-            s.labels = clean_labels([*s.labels, request.data["add_label"]])
+            s.labels = merged[s.id]
             s.save(update_fields=["labels"])
     return Response({"updated": qs.count()})
 

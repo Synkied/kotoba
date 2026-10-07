@@ -48,3 +48,27 @@ class SentenceDetailTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['reading_overrides'], [])
         self.assertIn(['時', 'とき'], response.json()['furigana'])
+
+
+class LabelTests(TestCase):
+    def test_clean_labels_splits_commas(self):
+        from .serializers import clean_labels
+        self.assertEqual(clean_labels(["minna no nihongo, lesson 18"]), ["minna no nihongo", "lesson 18"])
+        self.assertEqual(clean_labels("アニメ、第3話，  op "), ["アニメ", "第3話", "op"])
+        self.assertEqual(clean_labels(["a", "A, b,,"]), ["a", "b"])
+
+    def test_bulk_add_label_splits_and_respects_limit(self):
+        s = Source.objects.create(kind="text", text="x", labels=["drama"])
+        r = self.client.post("/api/sources/bulk", {"ids": [s.id], "add_label": "lesson 18, minna"}, content_type="application/json")
+        self.assertEqual(r.status_code, 200)
+        s.refresh_from_db()
+        self.assertEqual(s.labels, ["drama", "lesson 18", "minna"])
+        r = self.client.post("/api/sources/bulk", {"ids": [s.id], "add_label": "one more"}, content_type="application/json")
+        self.assertEqual(r.status_code, 400)
+        s.refresh_from_db()
+        self.assertEqual(len(s.labels), 3)
+
+    def test_patch_labels_splits(self):
+        s = Source.objects.create(kind="text", text="x")
+        r = self.client.patch(f"/api/sources/{s.id}", {"labels": ["a, b"]}, content_type="application/json")
+        self.assertEqual(r.json()["labels"], ["a", "b"])

@@ -137,7 +137,7 @@ export const api = {
     req<Source>(`sources/${id}`, json('PATCH', data)),
   setSentences: (id: number, sentences: { text: string; start?: number | null; end?: number | null }[]) =>
     req<Source>(`sources/${id}/sentences`, json('POST', { sentences })),
-  bulk: (data: { ids: number[]; status?: string; category?: string; add_label?: string; delete?: boolean }) =>
+  bulk: (data: { ids: number[]; status?: string; category?: string; add_label?: string | string[]; delete?: boolean }) =>
     req<{ updated?: number; deleted?: number }>('sources/bulk', json('POST', data)),
   sentences: (p: { q?: string; category?: string; label?: string; deck?: number; source?: number; status?: string; limit?: number; offset?: number }) =>
     req<Page<Sentence>>('sentences' + qs({ limit: 200, ...p })),
