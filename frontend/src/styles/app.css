@@ -480,10 +480,24 @@ ruby rt { font-size: .5em; color: var(--ink-2); font-weight: 400; letter-spacing
 .addon .dot.off { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-3); }
 
 /* source detail */
-.source-layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--gutter) var(--s-6); align-items: start; }
-.source-aside { display: grid; gap: var(--s-4); position: sticky; top: var(--s-4); }
+.source-layout { display: grid; grid-template-columns: minmax(300px, 4fr) minmax(0, 7fr); gap: var(--gutter) var(--s-6); align-items: start; }
+/* the player column stays put while the script scrolls; it scrolls itself rather than lose its foot */
+/* scrolls vertically only: children shrink to the column, and 4px of inline padding keeps focus rings unclipped */
+.source-aside { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-4); position: sticky; top: var(--s-4); max-height: calc(100dvh - 2 * var(--s-4)); overflow: hidden auto; overscroll-behavior: contain; padding-inline: 4px; margin-inline: -4px; }
+.source-aside > *, .source-aside fieldset { min-width: 0; }
 .source-layout .panel.big { aspect-ratio: 4 / 3; }
-@media (max-width: 900px) { .source-layout { grid-template-columns: 1fr; } .source-aside { position: static; } }
+@media (max-width: 900px) {
+  /* stacked: the player docks at the top of the screen and the script reads beneath it */
+  .source-layout { grid-template-columns: minmax(0, 1fr); }
+  .source-aside { display: contents; }
+  .source-aside > * { min-width: 0; }
+  .source-aside .source-audio { position: sticky; top: 0; z-index: 6; background: var(--stock); padding-block: var(--s-2); border-bottom: var(--frame-thin) solid var(--ink); gap: var(--s-2); }
+  .source-aside .source-audio .sentence-section-head { display: none; }
+  .source-aside .source-audio .sentence-wave { height: 56px; }
+  .source-aside .source-audio .sentence-audio-hint { display: none; }
+  .source-aside .source-audio .sentence-audio-controls { gap: var(--s-2); }
+  .source-aside .source-audio .sentence-audio-controls .btn:not(.sentence-play):not(.icon) { padding-inline: var(--s-2); }
+}
 .edit-line { display: flex; flex-wrap: wrap; gap: var(--s-2); width: 100%; }
 .edit-line .input { flex: 1; }
 
@@ -910,103 +924,6 @@ code.inline { font: 400 .95em var(--mono); padding: 0 3px; background: color-mix
 .bulk-label-form .field { flex: 1 1 220px; }
 .bulk-label-form p, .bulk-label-form .notice { flex-basis: 100%; margin: 0; }
 .toolbar.active .bulk-label-form .meta { color: var(--on-ink); }
-
-/* Listening keeps the worksheet beside the answers, with native audio first. */
-:root { --stock-listening: var(--stock-practice); }
-.listening-lesson-head { margin-bottom: var(--s-5); }
-.listening-lesson-head h2 { margin-bottom: var(--s-2); }
-.listening-lesson-picker { display: flex; gap: var(--s-3); align-items: center; margin-bottom: var(--s-4); }
-.listening-exercise-nav { display: flex; flex-wrap: wrap; gap: var(--s-2); padding-bottom: var(--s-5); margin-bottom: var(--s-5); border-bottom: var(--frame-bold) solid var(--ink); }
-.listening-exercise-nav .btn { flex: 1 1 140px; flex-direction: column; align-items: start; padding: var(--s-3) var(--s-4); gap: var(--s-1); }
-.listening-exercise-nav [aria-current='step'] { background: var(--ink); color: var(--on-ink); }
-.listening-exercise-nav [aria-current='step'] .meta { color: inherit; }
-.listening-title { margin-bottom: var(--s-3); }
-.listening-instructions { max-width: 70ch; margin-bottom: var(--s-5); }
-.listening-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: var(--s-6); }
-.listening-source { min-width: 0; }
-.listening-player { padding: var(--s-4); border: var(--frame-bold) solid var(--ink); background: var(--paper); }
-.listening-player audio { display: block; width: 100%; margin-bottom: var(--s-3); }
-.listening-speed { display: flex; align-items: center; gap: var(--s-2); margin-left: auto; }
-.listening-speed select { width: auto; }
-.listening-figure { margin: var(--s-4) 0; }
-.listening-figure img { display: block; width: 100%; height: auto; background: white; border: var(--frame-thin) solid var(--ink); }
-.listening-figure figcaption { margin-top: var(--s-2); font-size: var(--t-s); color: var(--ink-3); }
-.listening-example { display: flex; flex-wrap: wrap; gap: var(--s-3); padding: var(--s-3) 0; border-top: var(--frame-thin) solid var(--ink); }
-.listening-answer-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--s-4); }
-.listening-answer-head h3 { margin: 0; }
-.listening-question { min-width: 0; margin: 0 0 var(--s-5); padding: 0; border: 0; }
-.listening-question legend { margin-bottom: var(--s-3); line-height: 1.8; }
-.listening-choices { display: flex; flex-wrap: wrap; gap: var(--s-2); }
-.listening-choice { display: inline-flex; align-items: center; gap: var(--s-2); min-height: 44px; min-width: 54px; padding: var(--s-2) var(--s-3); border: var(--frame-thin) solid var(--ink); background: var(--paper); cursor: pointer; }
-.listening-choice.selected { color: var(--on-ink); background: var(--ink); }
-.listening-choice input { margin: 0; accent-color: var(--ink); }
-.listening-choice:has(input:focus-visible) { outline: 3px solid var(--ink); outline-offset: 3px; }
-.listening-question:disabled .listening-choice { cursor: default; }
-.listening-question:disabled .selected input { opacity: 1; }
-.listening-text { width: 100%; min-height: 44px; }
-.listening-question:disabled .listening-text { opacity: 1; color: var(--ink); }
-.listening-miss { color: var(--red-ink); }
-.listening-submit, .listening-result { padding-top: var(--s-4); border-top: var(--frame-thin) solid var(--ink); }
-.listening-result p { max-width: 65ch; }
-.listening-step { display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--s-3); margin-top: var(--s-7); padding-top: var(--s-4); border-top: var(--frame-thin) solid var(--ink); }
-.listening-layout .btn, .listening-step .btn, .listening-speed select, .listening-lesson-picker select { min-height: 44px; }
-@media (max-width: 900px) { .listening-layout { grid-template-columns: minmax(0, 1fr); } .listening-figure { max-width: 34rem; } }
-@media (max-width: 760px) { .tabbar a { font-size: 11px; } .listening-step .btn { flex: 1 1 140px; } }
-
-.listening-import { margin-bottom: var(--s-6); }
-.listening-import .drop { min-height: 130px; margin-bottom: var(--s-4); }
-.listening-import > p { max-width: 70ch; }
-.listening-import-files { padding: 0; margin: var(--s-4) 0; list-style: none; }
-.listening-import-files li { display: flex; justify-content: space-between; align-items: center; gap: var(--s-3); padding: var(--s-3) 0; border-bottom: var(--frame-thin) solid var(--ink); }
-.listening-import-files li > div:first-child { min-width: 0; display: grid; gap: var(--s-1); overflow-wrap: anywhere; }
-.listening-import-files .btn-row { flex: none; }
-.listening-import .btn, .listening-editor .btn, .listening-editor select, .listening-editor input { min-height: 44px; }
-.listening-editor-fields { min-width: 0; padding: 0; border: 0; margin: 0 0 var(--s-5); }
-.listening-editor-question { min-width: 0; border: var(--frame-thin) solid var(--ink); padding: var(--s-4); margin: var(--s-5) 0; }
-.listening-editor-choices { display: grid; gap: var(--s-3); margin-bottom: var(--s-4); }
-.listening-editor-choices .btn-row { align-items: end; flex-wrap: nowrap; }
-.listening-editor-choices .field { min-width: 0; flex: 1; margin: 0; }
-.listening-editor-choices .field input { width: 100%; }
-.listening-answer-head { flex-wrap: wrap; gap: var(--s-2); }
-.listening-worksheet-text { white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font); line-height: 1.9; padding: var(--s-4); background: var(--paper); max-height: 32rem; overflow-y: auto; }
-.listening-pdf { width: 100%; height: 32rem; border: var(--frame-thin) solid var(--ink); margin-top: var(--s-4); }
-@media (max-width: 480px) { .listening-import-files li { flex-wrap: wrap; } .listening-import-files .btn-row { margin-left: auto; } }
-
-
-/* Word lookup: tap a word in any sentence. The word is reversed (ink plate, paper
-   text) while its sheet is open, like the character under the playhead. */
-.lookup { cursor: pointer; }
-::highlight(lookup) { background-color: var(--ink); color: var(--paper); }
-.word-pop {
-  position: fixed; z-index: 60; width: min(24rem, calc(100vw - 32px)); max-height: min(28rem, 70vh); overflow-y: auto;
-  border: var(--frame-bold) solid var(--ink); background: var(--paper); color: var(--ink); box-shadow: var(--lift);
-  padding: var(--s-4) var(--s-4) var(--s-3); display: grid; gap: var(--s-2); font-size: var(--t-m); line-height: 1.5;
-}
-.word-pop:focus { outline: none; }
-.word-pop:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-.word-pop p { margin: 0; }
-.word-pop-close { position: absolute; top: var(--s-2); right: var(--s-2); }
-.word-head { display: flex; align-items: flex-end; gap: var(--s-3); padding-right: var(--s-6); }
-.word-surface { font-size: var(--t-l); font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
-.word-surface ruby rt { font-size: .42em; }
-.word-reading { font-size: var(--t-m); }
-.word-romaji { color: var(--ink-3); font-size: var(--t-s); letter-spacing: .02em; }
-.word-lemma { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-2); }
-.word-lemma b { color: var(--ink); font-size: var(--t-m); }
-.word-entry { border-top: var(--frame-thin) solid var(--ink); padding-top: var(--s-2); }
-.word-entry h3 { margin: 0 0 var(--s-1); font-size: var(--t-m); }
-.word-entry ol { margin: 0; padding-left: 1.5em; display: grid; gap: var(--s-1); }
-.word-entry li::marker { font-variant-numeric: tabular-nums; color: var(--ink-3); }
-.word-pos { display: block; font-size: var(--t-s); color: var(--ink-3); }
-@media (max-width: 760px) {
-  .word-pop {
-    left: 16px; right: 16px; width: auto; max-height: 55vh;
-    bottom: calc(84px + env(safe-area-inset-bottom));
-  }
-}
-@media (pointer: coarse) { .word-pop .btn.icon.small { width: 44px; height: 44px; } }
-
-
 .bulk-label-help { flex-basis: 100%; display: grid; gap: var(--s-2); }
 .toolbar.active .bulk-label-help .chip { color: var(--on-ink); border-color: var(--on-ink); }
 
@@ -1053,6 +970,126 @@ code.inline { font: 400 .95em var(--mono); padding: 0 3px; background: color-mix
   .source-card-check { width: 24px; height: 24px; top: var(--s-2); right: var(--s-2); }
 }
 @media (prefers-reduced-motion: reduce) { .source-card { transition: none; } }
+
+/* Listening keeps the worksheet beside the answers, with native audio first. */
+:root { --stock-listening: var(--stock-practice); }
+.listening-lesson-head { margin-bottom: var(--s-5); }
+.listening-lesson-head h2 { margin-bottom: var(--s-2); }
+.listening-lesson-picker { display: flex; gap: var(--s-3); align-items: center; margin-bottom: var(--s-4); }
+.listening-exercise-nav { display: flex; flex-wrap: wrap; gap: var(--s-2); padding-bottom: var(--s-5); margin-bottom: var(--s-5); border-bottom: var(--frame-bold) solid var(--ink); }
+.listening-exercise-nav .btn { flex: 1 1 140px; flex-direction: column; align-items: start; padding: var(--s-3) var(--s-4); gap: var(--s-1); }
+.listening-exercise-nav [aria-current='step'] { background: var(--ink); color: var(--on-ink); }
+.listening-exercise-nav [aria-current='step'] .meta { color: inherit; }
+.listening-title { margin-bottom: var(--s-3); }
+.listening-instructions { max-width: 70ch; margin-bottom: var(--s-5); }
+.listening-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: var(--s-6); }
+.listening-source { min-width: 0; }
+.listening-player { padding: var(--s-4); border: var(--frame-bold) solid var(--ink); background: var(--paper); }
+.listening-player audio { display: block; width: 100%; margin-bottom: var(--s-3); }
+.listening-speed { display: flex; align-items: center; gap: var(--s-2); margin-left: auto; }
+.listening-speed select { width: auto; }
+.listening-figure { margin: var(--s-4) 0; }
+.listening-figure img { display: block; width: 100%; height: auto; background: white; border: var(--frame-thin) solid var(--ink); }
+.listening-figure figcaption { margin-top: var(--s-2); font-size: var(--t-s); color: var(--ink-3); }
+.listening-example { display: flex; flex-wrap: wrap; gap: var(--s-3); padding: var(--s-3) 0; border-top: var(--frame-thin) solid var(--ink); }
+.listening-answer-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--s-4); }
+.listening-answer-head h3 { margin: 0; }
+.listening-question { min-width: 0; margin: 0 0 var(--s-5); padding: 0; border: 0; }
+.listening-question legend { margin-bottom: var(--s-3); line-height: 1.8; }
+.listening-choices { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.listening-choice { display: inline-flex; align-items: center; gap: var(--s-2); min-height: 44px; min-width: 54px; padding: var(--s-2) var(--s-3); border: var(--frame-thin) solid var(--ink); background: var(--paper); cursor: pointer; }
+.listening-choice.selected { color: var(--on-ink); background: var(--ink); }
+.listening-choice input { margin: 0; accent-color: var(--ink); }
+.listening-choice:has(input:focus-visible) { outline: 3px solid var(--ink); outline-offset: 3px; }
+.listening-question:disabled .listening-choice { cursor: default; }
+.listening-question:disabled .selected input { opacity: 1; }
+.listening-text { width: 100%; min-height: 44px; }
+.listening-question:disabled .listening-text { opacity: 1; color: var(--ink); }
+.listening-miss { color: var(--red-ink); }
+.listening-submit, .listening-result { padding-top: var(--s-4); border-top: var(--frame-thin) solid var(--ink); }
+.listening-result p { max-width: 65ch; }
+.listening-step { display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--s-3); margin-top: var(--s-7); padding-top: var(--s-4); border-top: var(--frame-thin) solid var(--ink); }
+.listening-layout .btn, .listening-step .btn, .listening-speed select, .listening-lesson-picker select { min-height: 44px; }
+@media (max-width: 900px) { .listening-layout { grid-template-columns: minmax(0, 1fr); } .listening-figure { max-width: 34rem; } }
+@media (max-width: 760px) { .tabbar a { font-size: 11px; } .listening-step .btn { flex: 1 1 140px; } }
+
+/* Word lookup: tap a word in any sentence. The word is reversed (ink plate, paper
+   text) while its sheet is open, like the character under the playhead. */
+.lookup { cursor: pointer; }
+::highlight(lookup) { background-color: var(--ink); color: var(--paper); }
+.word-pop {
+  position: fixed; z-index: 60; width: min(24rem, calc(100vw - 32px)); max-height: min(28rem, 70vh); overflow-y: auto;
+  border: var(--frame-bold) solid var(--ink); background: var(--paper); color: var(--ink); box-shadow: var(--lift);
+  padding: var(--s-4) var(--s-4) var(--s-3); display: grid; gap: var(--s-2); font-size: var(--t-m); line-height: 1.5;
+}
+.word-pop:focus { outline: none; }
+.word-pop:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.word-pop p { margin: 0; }
+.word-pop-close { position: absolute; top: var(--s-2); right: var(--s-2); }
+.word-head { display: flex; align-items: flex-end; gap: var(--s-3); padding-right: var(--s-6); }
+.word-surface { font-size: var(--t-l); font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+.word-surface ruby rt { font-size: .42em; }
+.word-reading { font-size: var(--t-m); }
+.word-romaji { color: var(--ink-3); font-size: var(--t-s); letter-spacing: .02em; }
+.word-lemma { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-2); }
+.word-lemma b { color: var(--ink); font-size: var(--t-m); }
+.word-entry { border-top: var(--frame-thin) solid var(--ink); padding-top: var(--s-2); }
+.word-entry h3 { margin: 0 0 var(--s-1); font-size: var(--t-m); }
+.word-entry ol { margin: 0; padding-left: 1.5em; display: grid; gap: var(--s-1); }
+.word-entry li::marker { font-variant-numeric: tabular-nums; color: var(--ink-3); }
+.word-pos { display: block; font-size: var(--t-s); color: var(--ink-3); }
+@media (max-width: 760px) {
+  .word-pop {
+    left: 16px; right: 16px; width: auto; max-height: 55vh;
+    bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+}
+@media (pointer: coarse) { .word-pop .btn.icon.small { width: 44px; height: 44px; } }
+
+/* Source playback: the sentence being spoken is marked with an ink rule and paper,
+   and its timecode is reversed, like the character under the playhead. */
+.source-aside .source-audio { padding-top: 0; border-top: 0; }
+.source-aside .source-audio .sentence-wave { height: 120px; }
+.row .tc { border: 0; background: none; padding: 0; text-align: left; cursor: pointer; }
+.row .tc:hover { color: var(--ink); text-decoration: underline; }
+.row.now { background: var(--paper); box-shadow: inset 4px 0 0 var(--ink); transition: background-color var(--t-state) var(--ease); }
+.row.now .tc { background: var(--ink); color: var(--paper); padding: 2px var(--s-1); }
+@media (prefers-reduced-motion: reduce) { .row.now { transition: none; } }
+.source-content .row { padding-inline: var(--s-3); }
+/* what has been said steps back to the second ink, so the eye finds the reading front */
+.source-content .row.past .sentence-text { color: var(--ink-3); }
+.source-content .row .sentence-text { transition: color var(--t-state) var(--ease); }
+/* while listening the per-line tools stay out of the script's way; stamps stay, they're the record */
+@media (hover: hover) and (pointer: fine) {
+  .source-content .row .acts > :not(.stamps) { opacity: 0; transition: opacity var(--t-fast) var(--ease); }
+  .source-content .row:hover .acts > *, .source-content .row:focus-within .acts > * { opacity: 1; }
+}
+.follow-voice { position: fixed; z-index: 7; right: var(--s-6); bottom: var(--s-6); box-shadow: var(--lift); }
+@media (max-width: 900px) { .follow-voice { right: auto; left: 50%; transform: translateX(-50%); bottom: var(--s-4); } }
+@media (max-width: 760px) { .follow-voice { bottom: calc(84px + env(safe-area-inset-bottom)); } }
+.sentence-selection-more > summary { cursor: pointer; width: fit-content; font-size: var(--t-s); min-height: 32px; display: flex; align-items: center; }
+.sentence-selection-more[open] > summary { margin-bottom: var(--s-2); }
+@media (pointer: coarse) { .sentence-selection-more > summary { min-height: 44px; } }
+@media (prefers-reduced-motion: reduce) { .source-content .row .sentence-text, .source-content .row .acts > * { transition: none; } }
+
+.listening-import { margin-bottom: var(--s-6); }
+.listening-import .drop { min-height: 130px; margin-bottom: var(--s-4); }
+.listening-import > p { max-width: 70ch; }
+.listening-import-files { padding: 0; margin: var(--s-4) 0; list-style: none; }
+.listening-import-files li { display: flex; justify-content: space-between; align-items: center; gap: var(--s-3); padding: var(--s-3) 0; border-bottom: var(--frame-thin) solid var(--ink); }
+.listening-import-files li > div:first-child { min-width: 0; display: grid; gap: var(--s-1); overflow-wrap: anywhere; }
+.listening-import-files .btn-row { flex: none; }
+.listening-import .btn, .listening-editor .btn, .listening-editor select, .listening-editor input { min-height: 44px; }
+.listening-editor-fields { min-width: 0; padding: 0; border: 0; margin: 0 0 var(--s-5); }
+.listening-editor-question { min-width: 0; border: var(--frame-thin) solid var(--ink); padding: var(--s-4); margin: var(--s-5) 0; }
+.listening-editor-choices { display: grid; gap: var(--s-3); margin-bottom: var(--s-4); }
+.listening-editor-choices .btn-row { align-items: end; flex-wrap: nowrap; }
+.listening-editor-choices .field { min-width: 0; flex: 1; margin: 0; }
+.listening-editor-choices .field input { width: 100%; }
+.listening-answer-head { flex-wrap: wrap; gap: var(--s-2); }
+.listening-worksheet-text { white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font); line-height: 1.9; padding: var(--s-4); background: var(--paper); max-height: 32rem; overflow-y: auto; }
+.listening-pdf { width: 100%; height: 32rem; border: var(--frame-thin) solid var(--ink); margin-top: var(--s-4); }
+@media (max-width: 480px) { .listening-import-files li { flex-wrap: wrap; } .listening-import-files .btn-row { margin-left: auto; } }
 
 /* library selection: docked over the bottom of the page so selecting never shifts the cards */
 .toolbar.selection-dock {

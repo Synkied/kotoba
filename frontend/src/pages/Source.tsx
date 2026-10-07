@@ -1,8 +1,9 @@
-import { ChevronLeft, Play, Volume2, Pencil, Check, Archive, Inbox as InboxIcon, Scissors } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { ChevronLeft, Play, Volume2, Pencil, Check, Archive, Inbox as InboxIcon, Scissors, SkipBack, SkipForward, ListEnd } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, type Sentence, type Source } from '../lib/api'
-import { playClip, stopAudio } from '../lib/audio'
+import { stopAudio } from '../lib/audio'
+import { WaveformPlayer, type PlayerHandle } from '../components/SentenceAudio'
 import { SentenceText } from '../components/SentenceText'
 import { Furigana } from '../components/Furigana'
 import { MAX_LABELS, parseLabels } from '../lib/labels'
@@ -21,7 +22,21 @@ function SourcePageDetail({ id }: { id: number }) {
   const { data: s, error, set, reload } = useAsync(() => api.source(id), [id])
   const [furigana] = usePref('furigana', true)
   const [roman] = usePref('roman', false)
-  const [playing, setPlaying] = useState<number | null>(null)
+  const player = useRef<PlayerHandle>(null)
+  // the playhead, once playback has started: it lights up the sentence being spoken
+  const [head, setHead] = useState<{ t: number; playing: boolean } | null>(null)
+  const onTime = useCallback((t: number, playing: boolean) => setHead((h) => (playing || h ? { t, playing } : h)), [])
+  // the script follows the voice until the reader scrolls away on their own; one tap brings it back
+  const [follow, setFollow] = useState(true)
+  useEffect(() => {
+    // scrolling the player column or dragging across the waveform isn't leaving the script
+    const away = (e: Event) => { if (!(e.target instanceof Element && e.target.closest('.source-aside'))) setFollow(false) }
+    const keys = (e: KeyboardEvent) => { if (['PageUp', 'PageDown', 'Home', 'End'].includes(e.key)) away(e) }
+    window.addEventListener('wheel', away, { passive: true })
+    window.addEventListener('touchmove', away, { passive: true })
+    window.addEventListener('keydown', keys)
+    return () => { window.removeEventListener('wheel', away); window.removeEventListener('touchmove', away); window.removeEventListener('keydown', keys) }
+  }, [])
   const [labels, setLabels] = useState<string | null>(null)
   const toast = useToast()
   const action = useAction()
@@ -29,11 +44,19 @@ function SourcePageDetail({ id }: { id: number }) {
   if (error) return <ErrorNotice error={error} action={<button className="btn" onClick={reload}>Try again</button>} />
   if (!s) return <Skeleton rows={3} />
 
-  const play = async (x: Sentence) => {
-    if (playing === x.id) { stopAudio(); setPlaying(null); return }
-    setPlaying(x.id)
-    try { await playClip(s.media!, x.start!, x.end!) } catch (err) { toast({ text: (err as Error).message }) } finally { setPlaying((p) => (p === x.id ? null : p)) }
+  const timed = s.media ? s.sentences.filter((x) => x.start != null && x.end != null) : []
+  const current = head ? timed.find((x) => head.t >= x.start! && head.t < x.end!)?.id ?? null : null
+  // the line we're on, or the last one begun (the gaps between lines belong to the line before)
+  const at = head ? timed.findLastIndex((x) => x.start! <= head.t + .05) : -1
+  const play = (x: Sentence) => {
+    setFollow(true)
+    if (current === x.id && head?.playing) player.current?.pause()
+    else player.current?.playRange(x.start!, x.end!)
   }
+  const playFrom = (x: Sentence) => { setFollow(true); player.current?.playFrom(x.start!) }
+  // previous restarts the line you're in unless you're just past its start, like a music player
+  const prevLine = timed[at >= 0 && head!.t - timed[at].start! > 1.5 ? at : at - 1]
+  const nextLine = timed[at + 1]
   const status = async (st: Source['status']) => action.run(async () => { set(await api.updateSource(s.id, { status: st })); toast({ text: st === 'kept' ? 'Moved to the library' : st === 'archived' ? 'Archived' : 'Back in the inbox' }) })
   const { date } = dayLabel(s.created_at)
 
@@ -43,7 +66,7 @@ function SourcePageDetail({ id }: { id: number }) {
       <fieldset className="action-scope" disabled={action.busy} aria-busy={action.busy}>
       <header className="page-head">
         <Link className="btn icon ghost" to={s.status === 'inbox' ? '/inbox' : '/library'} aria-label="Back"><ChevronLeft aria-hidden="true" /></Link>
-        <h1>{s.title || (s.kind === 'capture' ? 'Capture' : 'Source')} <span className="meta num">{s.sentences.length} sentences</span></h1>
+        <h1>{s.title || (s.kind === 'capture' ? 'Capture' : 'Source')} <span className="meta num">{{ capture: 'Capture', audio: 'Audio', video: 'Video', subtitle: 'Subtitles', text: 'Text' }[s.kind]} · {s.sentences.length} sentences</span></h1>
         <span className="grow" />
         {s.status !== 'kept' && <button className="btn" onClick={() => status('kept')}><Check aria-hidden="true" />Keep</button>}
         {s.status === 'kept' && <button className="btn ghost" onClick={() => status('inbox')}><InboxIcon aria-hidden="true" />Back to inbox</button>}
@@ -55,8 +78,14 @@ function SourcePageDetail({ id }: { id: number }) {
 
       <div className="source-layout">
         <div className="source-aside">
-          <SourcePanel big kind={s.kind} image={s.image} start={s.sentences[0]?.start} end={s.sentences.at(-1)?.end} alt={s.text} />
-          {s.media && <audio aria-label="Source audio" controls src={s.media} preload="none" />}
+          {/* a screenshot is the source; for audio the waveform is, so no placeholder panel */}
+          {s.image && <SourcePanel big kind={s.kind} image={s.image} alt={s.text} />}
+          {s.media && <WaveformPlayer source={s} start={null} end={null} noun="source" onTime={onTime} handle={player}
+            hint="Click a line's time to play from there."
+            controls={timed.length > 0 && <>
+              <button className="btn icon" aria-label="Previous line" title="Previous line" disabled={!prevLine && at < 0} onClick={() => playFrom(prevLine ?? timed[0])}><SkipBack aria-hidden="true" /></button>
+              <button className="btn icon" aria-label="Next line" title="Next line" disabled={!nextLine} onClick={() => nextLine && playFrom(nextLine)}><SkipForward aria-hidden="true" /></button>
+            </>} />}
           <dl className="meta" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 16px', margin: 0 }}>
             <dt>Collected</dt><dd style={{ margin: 0 }}>{date}, {clock(s.created_at)}</dd>
             <dt>Status</dt><dd style={{ margin: 0 }}>{{ inbox: 'In the inbox', kept: 'In the library', archived: 'Archived' }[s.status]}</dd>
@@ -80,9 +109,14 @@ function SourcePageDetail({ id }: { id: number }) {
         </div>
 
         <div className="source-content">
+        {head?.playing && !follow && current != null && (
+          <button className="btn primary follow-voice" onClick={() => setFollow(true)}><ListEnd aria-hidden="true" />Back to the current line</button>
+        )}
         <ol className="rows" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-          {s.sentences.map(x => <SentenceRow key={x.id} x={x} furigana={furigana} roman={roman} audio={!!s.media} playing={playing === x.id}
-            onPlay={() => play(x)} onSaved={(nx) => set({ ...s, sentences: s.sentences.map((y) => (y.id === nx.id ? nx : y)) })} />)}
+          {s.sentences.map(x => <SentenceRow key={x.id} x={x} furigana={furigana} roman={roman} audio={!!s.media && x.start != null}
+            current={current === x.id} past={head != null && x.end != null && timed.includes(x) && x.end <= head.t && current !== x.id}
+            playing={current === x.id && !!head?.playing} follow={!!head?.playing && follow}
+            onPlay={() => play(x)} onPlayFrom={() => playFrom(x)} onSaved={(nx) => set({ ...s, sentences: s.sentences.map((y) => (y.id === nx.id ? nx : y)) })} />)}
           {!s.sentences.length && <li className="empty"><h2>No sentences yet</h2><p>{s.job ? 'They appear once the audio is transcribed.' : 'This source has no text.'}</p></li>}
         </ol>
         </div>
@@ -92,17 +126,31 @@ function SourcePageDetail({ id }: { id: number }) {
   )
 }
 
-function SentenceRow({ x, furigana, roman, audio, playing, onPlay, onSaved }: {
-  x: Sentence; furigana: boolean; roman: boolean; audio: boolean; playing: boolean; onPlay: () => void; onSaved: (x: Sentence) => void
+function SentenceRow({ x, furigana, roman, audio, current, past, playing, follow, onPlay, onPlayFrom, onSaved }: {
+  x: Sentence; furigana: boolean; roman: boolean; audio: boolean; current: boolean; past: boolean; playing: boolean; follow: boolean
+  onPlay: () => void; onPlayFrom: () => void; onSaved: (x: Sentence) => void
 }) {
   const [draft, setDraft] = useState<string | null>(null)
   const action = useAction()
+  const row = useRef<HTMLLIElement>(null)
+  // keep the spoken sentence in the upper part of the reading area, so the lines coming next
+  // stay visible; only scroll once it drifts out of that band, not on every line
+  useEffect(() => {
+    const el = row.current
+    if (!current || !follow || !el) return
+    const player = document.querySelector('.source-layout .source-audio')
+    const top = player && getComputedStyle(player).position === 'sticky' ? player.getBoundingClientRect().bottom : 0
+    const r = el.getBoundingClientRect(), room = window.innerHeight - top
+    if (r.top >= top + room * .1 && r.bottom <= top + room * .7) return
+    const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    window.scrollBy({ top: r.top - (top + room * .25), behavior: calm ? 'auto' : 'smooth' })
+  }, [current, follow])
   return (
-    <li className={'row ' + (audio ? 'row-lead' : 'row-simple')}>
+    <li ref={row} className={'row ' + (audio ? 'row-lead' : 'row-simple') + (current ? ' now' : '') + (past ? ' past' : '')} aria-current={current ? 'true' : undefined}>
       {audio && (
         <div className="lead">
-          <button className="btn small icon" onClick={onPlay} aria-label={playing ? 'Stop' : `Play ${fmtTime(x.start)}`} aria-pressed={playing}><Volume2 aria-hidden="true" /></button>
-          <span className="tc num">{fmtTime(x.start)}</span>
+          <button className="btn small icon" onClick={onPlay} aria-label={playing ? 'Pause' : `Play this line only (${fmtTime(x.start)})`} title={playing ? 'Pause' : 'Play this line only'} aria-pressed={playing}><Volume2 aria-hidden="true" /></button>
+          <button type="button" className="tc num" onClick={onPlayFrom} aria-label={`Play from ${fmtTime(x.start)}`} title="Play from here">{fmtTime(x.start)}</button>
         </div>
       )}
       {draft !== null ? (
