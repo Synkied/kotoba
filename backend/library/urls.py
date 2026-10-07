@@ -19,6 +19,7 @@ urlpatterns = [
     path("sources/bulk", views.bulk),
     path("facets", views.facets),
     path("stats", views.stats),
+    path("lookup", views.lookup),
     path("attempts", views.attempts),
     path("review", views.review),
     *router.urls,

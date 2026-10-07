@@ -16,7 +16,7 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 
-from . import ingest, romanize, srs
+from . import dictionary, ingest, romanize, srs
 from .models import Attempt, Deck, DeckItem, Sentence, Source, fold
 # not in every system mime table; browsers need it to play rendered takes
 mimetypes.add_type("audio/mp4", ".m4a")
@@ -321,6 +321,19 @@ def stats(request):
         "attempts_today": Attempt.objects.filter(created_at__date=timezone.localdate()).count(),
         "waiting": Source.objects.filter(job__in=[Source.Job.WAITING, Source.Job.RUNNING]).count(),
     })
+
+
+@api_view(["GET"])
+def lookup(request):
+    """?text=<sentence>&at=<character offset>: the word there, its readings and meanings.
+    The first lookup starts the one-time dictionary download."""
+    text = request.query_params.get("text", "")[:2000]
+    try:
+        at = int(request.query_params.get("at", ""))
+    except ValueError:
+        return Response({"error": "at must be a character offset"}, status=400)
+    dictionary.ensure()
+    return Response({"word": dictionary.lookup(text, at), "dictionary": dictionary.status()})
 
 
 # ---------------------------------------------------------------- decks

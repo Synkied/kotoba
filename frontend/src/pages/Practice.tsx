@@ -236,7 +236,7 @@ export function PracticeSession({ title, back, sentences: initial, onFinish }: {
             <div className="strip">
               {i > 0 && (
                 <button className="btn ghost" style={{ justifySelf: 'start', height: 'auto', padding: 0, fontWeight: 400 }} disabled={recording || scoring || saving} onClick={() => go(-1)} aria-label="Previous sentence">
-                  <Balloon dim tail="none"><Furigana text={sentences[i - 1].text} pairs={[]} show={false} /></Balloon>
+                  <Balloon dim tail="none"><Furigana text={sentences[i - 1].text} pairs={[]} show={false} lookup={false} /></Balloon>
                 </button>
               )}
               <Balloon big shape={shape} live={recording} className="focus-balloon">

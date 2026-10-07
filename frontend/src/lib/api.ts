@@ -51,6 +51,19 @@ export type Addons = {
   voices: { count: number; kokoro: 'missing' | 'available' | 'ready' | 'error'; kokoro_error: string | null; voicevox: boolean; voicevox_url: string }
   queue: { waiting: number; failed: number; jobs: Job[] }
   screen_ocr: { last_capture: string | null }
+  dictionary: DictionaryStatus
+}
+export type DictionaryStatus = { state: 'missing' | 'downloading' | 'ready' | 'error'; error: string | null; lang: string; version?: string }
+export type DictEntry = {
+  id: number
+  kanji: { text: string; common: boolean; tags: string[] }[]
+  kana: { text: string; common: boolean; tags: string[]; kanji: string[] }[]
+  senses: { pos: string[]; misc: string[]; info: string[]; kanji: string[]; kana: string[]; gloss: string[] }[]
+}
+/** The word around a tapped character: as written, as read in this sentence, and in the dictionary. */
+export type Word = {
+  surface: string; start: number; end: number; reading: string; romaji: string; furigana: [string, string][]
+  lemma: string | null; lemma_reading: string | null; lemma_romaji: string | null; entries: DictEntry[]
 }
 export type Page<T> = { count: number; results: T[] }
 
@@ -114,6 +127,8 @@ export const api = {
   },
   editListeningExercise: (id: number, data: Pick<ListeningExercise, 'title' | 'instructions' | 'worksheet_page' | 'questions' | 'revision'>) => req<ListeningExercise>(`listening/exercises/${id}`, json('PATCH', data)),
   stats: () => req<Stats>('stats'),
+  lookup: (text: string, at: number, signal?: AbortSignal) =>
+    req<{ word: Word | null; dictionary: DictionaryStatus }>('lookup' + qs({ text, at }), { signal }),
   facets: () => req<Facets>('facets'),
   sources: (p: { status?: string; q?: string; kind?: string; category?: string; label?: string; limit?: number; offset?: number }) =>
     req<Page<Source>>('sources' + qs({ limit: 50, ...p })),

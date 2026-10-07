@@ -88,6 +88,15 @@ question IDs stable for saved responses; create a new slug for different materia
 The command-line importer does not automatically generate questions, transcripts,
 or corrections from arbitrary PDFs. Local lesson files are excluded from Git.
 
+Tap any word in a sentence to look it up: a sheet opens with its meaning, its reading in
+kana and romaji (with furigana), its dictionary form when it's conjugated, and a button to
+hear it in your chosen voice. Compounds that MeCab cuts apart (図書館 is 図書 + 館) are
+joined back into the longest word the dictionary knows. Meanings come from
+[JMdict](https://www.edrdg.org/jmdict/j_jmdict.html) (© EDRDG, CC BY-SA 4.0) via
+jmdict-simplified: the first lookup downloads it once (about 12 MB) into the data directory,
+or run `make dictionary` beforehand. `KOTOBA_DICT_LANG=fre` (or ger, spa, rus, …) picks
+another gloss language; English has by far the most entries.
+
 Japanese readings use MeCab through fugashi with the bundled UniDic Lite dictionary.
 On a platform without fugashi wheels (such as Alpine), install/build MeCab and its
 headers before installing Python dependencies. Pykakasi remains a fallback.

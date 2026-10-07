@@ -15,7 +15,7 @@ COMPOSE  = KOTOBA_PORT=$(PORT) GPU=$(GPU) $(if $(filter 1,$(VOICEVOX)),COMPOSE_P
            docker compose -f compose.yaml $(if $(filter 1,$(GPU)),-f compose.gpu.yaml)
 
 .DEFAULT_GOAL := help
-.PHONY: help install build migrate run dev dev-api dev-web check import-ocr import-jpcut transcribe \
+.PHONY: help install build migrate run dev dev-api dev-web check import-ocr import-jpcut dictionary transcribe \
         ocr-client docker-build up down logs status shell docker-import-ocr clean
 
 help: ## List the targets
@@ -60,6 +60,9 @@ import-ocr: ## Import screen_ocr's history (OCR_DIR=... to override)
 
 import-jpcut: ## Import jp-shadow-cut's recordings, cuts and scripts (JPCUT_DIR=...)
 	$(UV) python manage.py import_jpcut "$(abspath $(JPCUT_DIR))"
+
+dictionary: ## Download the dictionary for word lookups now (otherwise the first lookup fetches it)
+	$(UV) python manage.py fetch_dictionary
 
 transcribe: ## Transcribe waiting uploads now, with progress (the server also does it by itself)
 	$(UV) python manage.py transcribe

@@ -971,3 +971,37 @@ code.inline { font: 400 .95em var(--mono); padding: 0 3px; background: color-mix
 .listening-worksheet-text { white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font); line-height: 1.9; padding: var(--s-4); background: var(--paper); max-height: 32rem; overflow-y: auto; }
 .listening-pdf { width: 100%; height: 32rem; border: var(--frame-thin) solid var(--ink); margin-top: var(--s-4); }
 @media (max-width: 480px) { .listening-import-files li { flex-wrap: wrap; } .listening-import-files .btn-row { margin-left: auto; } }
+
+
+/* Word lookup: tap a word in any sentence. The word is reversed (ink plate, paper
+   text) while its sheet is open, like the character under the playhead. */
+.lookup { cursor: pointer; }
+::highlight(lookup) { background-color: var(--ink); color: var(--paper); }
+.word-pop {
+  position: fixed; z-index: 60; width: min(24rem, calc(100vw - 32px)); max-height: min(28rem, 70vh); overflow-y: auto;
+  border: var(--frame-bold) solid var(--ink); background: var(--paper); color: var(--ink); box-shadow: var(--lift);
+  padding: var(--s-4) var(--s-4) var(--s-3); display: grid; gap: var(--s-2); font-size: var(--t-m); line-height: 1.5;
+}
+.word-pop:focus { outline: none; }
+.word-pop:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.word-pop p { margin: 0; }
+.word-pop-close { position: absolute; top: var(--s-2); right: var(--s-2); }
+.word-head { display: flex; align-items: flex-end; gap: var(--s-3); padding-right: var(--s-6); }
+.word-surface { font-size: var(--t-l); font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+.word-surface ruby rt { font-size: .42em; }
+.word-reading { font-size: var(--t-m); }
+.word-romaji { color: var(--ink-3); font-size: var(--t-s); letter-spacing: .02em; }
+.word-lemma { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-2); }
+.word-lemma b { color: var(--ink); font-size: var(--t-m); }
+.word-entry { border-top: var(--frame-thin) solid var(--ink); padding-top: var(--s-2); }
+.word-entry h3 { margin: 0 0 var(--s-1); font-size: var(--t-m); }
+.word-entry ol { margin: 0; padding-left: 1.5em; display: grid; gap: var(--s-1); }
+.word-entry li::marker { font-variant-numeric: tabular-nums; color: var(--ink-3); }
+.word-pos { display: block; font-size: var(--t-s); color: var(--ink-3); }
+@media (max-width: 760px) {
+  .word-pop {
+    left: 16px; right: 16px; width: auto; max-height: 55vh;
+    bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+}
+@media (pointer: coarse) { .word-pop .btn.icon.small { width: 44px; height: 44px; } }

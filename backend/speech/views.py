@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
+from library import dictionary
 from library.models import Source
 
 from . import cleanup, engine, jobs, jpscore
@@ -89,6 +90,7 @@ def addons(request):
                   "failed": Source.objects.filter(job=Source.Job.FAILED).count(),
                   "jobs": jobs.current()},
         "screen_ocr": {"last_capture": last},
+        "dictionary": dictionary.status(),
     })
 
 
