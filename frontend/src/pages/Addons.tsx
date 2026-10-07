@@ -14,7 +14,7 @@ export default function AddonsPage() {
   const [busy, setBusy] = useState(false)
   useEffect(() => {
     let live = true
-    const poll = () => api.addons().then((x) => live && setA(x), (e) => live && setError(e))
+    const poll = () => api.addons().then((x) => { if (live) { setA(x); setError(null) } }, (e) => live && setError(e))
     poll()
     const t = window.setInterval(poll, 4000)
     return () => { live = false; window.clearInterval(t) }
@@ -38,6 +38,7 @@ export default function AddonsPage() {
   return (
     <>
       <header className="page-head"><h1>Add-ons</h1></header>
+      {error != null && <ErrorNotice error={error} />}
       <section className="sheet addons">
         <p>kotoba keeps and organises your sentences on its own. These pieces add listening and speaking. Each one is optional, and the hub works without them.</p>
 
@@ -47,7 +48,7 @@ export default function AddonsPage() {
             <Install cmds={[...(!a.ffmpeg ? ['# ffmpeg, from your package manager, e.g.', 'sudo apt install ffmpeg'] : []),
               ...(w.state === 'missing' ? ['make install EXTRAS=whisper    # or: uv sync --extra whisper'] : [])]} />
           ) : (w.state === 'idle' || w.state === 'error') && (
-            <div><button className="btn small" disabled={busy} onClick={async () => { setBusy(true); try { await api.engineLoad() } finally { setBusy(false) } }}>Load Whisper now</button></div>
+            <div><button className="btn small" disabled={busy} onClick={async () => { setBusy(true); try { await api.engineLoad() } catch (err) { setError(err) } finally { setBusy(false) } }}>Load Whisper now</button></div>
           )}
           {(q.waiting > 0 || q.failed > 0 || q.jobs.length > 0) && (
             <p className="meta">

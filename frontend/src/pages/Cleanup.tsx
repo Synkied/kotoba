@@ -1,8 +1,8 @@
-import { ChevronLeft, Download, Pause, Play, Scissors, Settings2, FileText, BookOpen, ListPlus, Upload, RotateCcw, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MoreHorizontal, Maximize, Download, Pause, Play, Scissors, Settings2, FileText, BookOpen, ListPlus, Upload, RotateCcw, X } from 'lucide-react'
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError, type Cleanup, type CleanupSettings, type Cut, type Job, type ScriptRow, type TChar } from '../lib/api'
-import { ErrorNotice, Skeleton, usePref, useToast } from '../components/ui'
+import { ErrorNotice, Skeleton, usePref, useToast, useAction } from '../components/ui'
 
 // ------------------------------------------------------------------ cut model
 
@@ -74,7 +74,16 @@ function fmt(t: number | null | undefined, dec = 1) {
 
 export default function CleanupPage() {
   const id = Number(useParams().id)
+  return <CleanupPageDetail key={id} id={id} />
+}
+
+function CleanupPageDetail({ id }: { id: number }) {
   const toast = useToast()
+  const navigate = useNavigate()
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [saveError, setSaveError] = useState<unknown>(null)
+  const latestCuts = useRef<EditCut[] | null>(null)
+  const saveQueue = useRef<Promise<void>>(Promise.resolve())
   const [data, setData] = useState<Cleanup | null>(null)
   const [error, setError] = useState<unknown>(null)
   const [cuts, setCuts] = useState<EditCut[]>([])
@@ -84,8 +93,10 @@ export default function CleanupPage() {
   const [mode, setModeState] = useState<Mode>('edited')
   const [show, setShow] = usePref<Record<CutType, boolean>>('cleanup.show.v2', { retake: true, retry: true, offscript: true, filler: true, repeat: true, pause: true, manual: true })
   const [job, setJob] = useState<Job | null>(null)
-  const [tab, setTab] = useState<'transcript' | 'script'>('transcript')
+  const [tab, setTab] = useState<'transcript' | 'script' | 'cuts'>('transcript')
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [followPlayback, setFollowPlayback] = usePref('cleanup.followPlayback', true)
+  const followRef = useRef(followPlayback); followRef.current = followPlayback
   const [reader, setReader] = useState(false)
   const [renderStale, setRenderStale] = useState(false)
   const [playing, setPlaying] = useState(false)
@@ -96,11 +107,21 @@ export default function CleanupPage() {
   const timeEl = useRef<HTMLSpanElement>(null)
   const wave = useRef<WaveHandle>(null)
   const transcriptRef = useRef<TranscriptHandle>(null)
+  const actionMenu = useRef<HTMLDetailsElement>(null)
+
+  useEffect(() => {
+    const dismiss = (e: PointerEvent) => {
+      const menu = actionMenu.current
+      if (menu?.open && e.target instanceof Node && !menu.contains(e.target)) menu.open = false
+    }
+    document.addEventListener('pointerdown', dismiss)
+    return () => document.removeEventListener('pointerdown', dismiss)
+  }, [])
 
   const load = useCallback(async () => {
     try {
       const d = await api.cleanup(id)
-      setData(d); setCuts(withIds(d.cuts)); setSel(null); setRenderStale(false)
+      setError(null); setData(d); setCuts(withIds(d.cuts)); setSel(null); setRenderStale(false)
       if (d.job && (d.job.state === 'queued' || d.job.state === 'running')) setJob(d.job)
     } catch (e) { setError(e) }
   }, [id])
@@ -111,13 +132,37 @@ export default function CleanupPage() {
   }, [id])
 
   // ---- saving: edits are kept on the server as you make them
-  const persist = useCallback((next: EditCut[]) => {
-    pendingSave.current = true
+  const flushSave = useCallback(() => {
     window.clearTimeout(saveTimer.current)
-    saveTimer.current = window.setTimeout(() => {
-      api.saveCuts(id, plain(next)).then(() => { pendingSave.current = false }, (e) => toast({ text: 'Couldn\'t save the cuts: ' + (e as Error).message }))
-    }, 700)
-  }, [id, toast])
+    const next = latestCuts.current
+    if (!next || !pendingSave.current) return saveQueue.current
+    setSaveState('saving'); setSaveError(null)
+    const task = saveQueue.current.catch(() => {}).then(async () => {
+      try {
+        await api.saveCuts(id, plain(next))
+        if (latestCuts.current === next) { pendingSave.current = false; setSaveState('saved') }
+      } catch (err) { setSaveError(err); setSaveState('error'); throw err }
+    })
+    saveQueue.current = task
+    return task
+  }, [id])
+  const persist = useCallback((next: EditCut[]) => {
+    latestCuts.current = next; pendingSave.current = true; setSaveState('saving')
+    window.clearTimeout(saveTimer.current)
+    saveTimer.current = window.setTimeout(() => { void flushSave().catch(() => {}) }, 700)
+  }, [flushSave])
+  useEffect(() => {
+    const leave = (e: MouseEvent) => {
+      const link = e.target instanceof Element ? e.target.closest('a[href]') : null
+      if (!link || !pendingSave.current || e.button !== 0 || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return
+      const url = new URL(link.getAttribute('href')!, window.location.href)
+      if (url.origin !== window.location.origin || link.hasAttribute('download') || link.getAttribute('target') === '_blank' || url.pathname.startsWith('/files/') || url.pathname.startsWith('/api/')) return
+      e.preventDefault(); e.stopPropagation()
+      void flushSave().then(() => navigate(url.pathname + url.search + url.hash), () => {})
+    }
+    document.addEventListener('click', leave, true)
+    return () => { document.removeEventListener('click', leave, true); window.clearTimeout(saveTimer.current); if (pendingSave.current) void flushSave().catch(() => {}) }
+  }, [flushSave, navigate])
   useEffect(() => {
     const warn = (e: BeforeUnloadEvent) => { if (pendingSave.current) e.preventDefault() }
     window.addEventListener('beforeunload', warn)
@@ -156,14 +201,14 @@ export default function CleanupPage() {
   const analyze = async (settings: CleanupSettings, retranscribe = false) => {
     if (data?.edited && data.transcribed && !retranscribe && !window.confirm('Analysing again replaces your edits to the cuts. Continue?')) return
     try {
+      await flushSave()
       const d = await api.analyze(id, settings, retranscribe)
       if (d.job && (d.job.state === 'queued' || d.job.state === 'running')) { setJob(d.job); setData(d) }
       else { setData(d); setCuts(withIds(d.cuts)); setSel(null); if (d.clean) setRenderStale(true); toast({ text: 'Cuts detected again' }) }
     } catch (e) { toast({ text: (e as Error).message }) }
   }
   const render = async () => {
-    window.clearTimeout(saveTimer.current); pendingSave.current = false
-    try { setJob(await api.render(id, plain(cuts))) } catch (e) { toast({ text: (e as Error).message }) }
+    try { await flushSave(); setJob(await api.render(id, plain(cuts))) } catch (e) { toast({ text: (e as Error).message }) }
   }
 
   // ---- playback
@@ -186,7 +231,7 @@ export default function CleanupPage() {
     if (!a) return
     if (mode === 'clean') setMode('edited')
     a.currentTime = Math.max(0, t); stopAt.current = null
-    wave.current?.draw(); transcriptRef.current?.highlight(a.currentTime)
+    wave.current?.revealTime(t); transcriptRef.current?.highlight(a.currentTime, followRef.current)
   }
   const togglePlay = useCallback(() => {
     const a = audio.current
@@ -222,8 +267,9 @@ export default function CleanupPage() {
         }
       }
       if (stopAt.current && t >= stopAt.current.t) { a.pause(); stopAt.current = null }
-      wave.current?.follow(a.currentTime)
-      transcriptRef.current?.highlight(a.currentTime)
+      if (followRef.current) wave.current?.follow(a.currentTime)
+      else wave.current?.draw()
+      transcriptRef.current?.highlight(a.currentTime, followRef.current)
       if (timeEl.current) timeEl.current.textContent = fmt(a.currentTime)
       raf = requestAnimationFrame(tick)
     }
@@ -239,7 +285,7 @@ export default function CleanupPage() {
     const onKey = (e: KeyboardEvent) => {
       if (reader) { if (e.key === 'Escape') setReader(false); return }
       const el = e.target as HTMLElement
-      if (el.closest?.('input,select,textarea')) return
+      if (e.isComposing || e.repeat || e.defaultPrevented || el.closest?.('input,select,textarea,[contenteditable]:not([contenteditable="false"])')) return
       if (el.closest?.('button,a') && (e.key === ' ' || e.key === 'Enter')) return   // let the focused control act
       if (e.ctrlKey || e.metaKey || e.altKey) return
       const { selected: c, cuts: list, show: sh, change: ch } = keyState.current
@@ -271,36 +317,103 @@ export default function CleanupPage() {
   const removed = removedTotal(cuts)
   const scriptSentences = splitScript(data.script)
 
+  const visibleCuts = [...cuts].sort((a, b) => a.start - b.start).filter(c => show[c.type] || c.id === sel)
+  const pickCut = (c: EditCut) => {
+    setSel(c.id); seek(Math.max(0, c.start - .5)); wave.current?.reveal(c)
+  }
+  const stepCut = (direction: number) => {
+    if (!visibleCuts.length) return
+    const index = visibleCuts.findIndex(c => c.id === sel)
+    const next = index < 0 ? (direction > 0 ? 0 : visibleCuts.length - 1) : Math.max(0, Math.min(visibleCuts.length - 1, index + direction))
+    pickCut(visibleCuts[next])
+  }
   return (
-    <>
-      <header className="page-head">
+    <div className="recording-editor">
+      <header className="recording-head">
         <Link className="btn icon ghost" to="/recordings" aria-label="Back to recordings"><ChevronLeft aria-hidden="true" /></Link>
-        <h1>{data.title} <span className="meta">{data.transcribed ? `Whisper ${data.model ?? ''}` : 'not transcribed yet'}</span></h1>
-        <span className="grow" />
-        <Link className="btn ghost" to={`/sources/${data.source}`}>Sentences</Link>
-        <button className={'btn' + (settingsOpen ? ' primary' : '')} aria-expanded={settingsOpen} onClick={() => setSettingsOpen((o) => !o)}><Settings2 aria-hidden="true" />Settings</button>
-        <button className="btn" disabled={busy || !data.can_transcribe && !data.transcribed} onClick={() => analyze(data.settings)}
-          title="Transcribe (once) and detect the cuts with the current settings">
-          <Scissors aria-hidden="true" />{data.transcribed ? 'Analyse again' : 'Transcribe & analyse'}
-        </button>
-        <button className="btn primary" disabled={busy || !data.transcribed && cuts.length === 0} onClick={render}
-          title="Render the recording without the enabled cuts">{data.clean && !renderStale ? 'Render again' : 'Render clean take'}</button>
-        {data.clean && <a className={'btn' + (renderStale ? ' ghost' : '')} href={data.clean + '?dl=1'} title={renderStale ? 'The download is from before your latest edits' : 'Download the clean take'}>
-          <Download aria-hidden="true" />Download
-        </a>}
-      </header>
-
-      {settingsOpen && <SettingsSheet data={data} busy={busy} onAnalyze={(s, re) => analyze(s, re)} />}
-
-      {!data.transcribed && !busy && (
-        <div className="notice" style={{ marginBottom: 'var(--gutter)' }}>
-          <FileText aria-hidden="true" />
-          {data.can_transcribe
-            ? <span>Press <b>Transcribe &amp; analyse</b>: Whisper writes down what you said, then kotoba finds the retakes, fillers, repeats and long pauses for you to review. Adding the script you read first makes it sharper.</span>
-            : <span>Transcribing needs Whisper and ffmpeg, which aren't installed here. <Link to="/addons">See Add-ons</Link>. You can still draw cuts on the waveform by hand and render them.</span>}
+        <div className="recording-heading">
+          <h1>{data.title}</h1>
+          <div className="recording-summary meta">
+            <span className="num">{fmt(duration, 0)} original · {fmt(Math.max(0, duration - removed), 0)} after cuts</span>
+            <span>{cuts.filter(c => c.on).length} cuts applied</span>
+            <span className="recording-save" role="status">{saveState === 'saving' ? 'Saving…' : saveState === 'error' ? 'Not saved' : saveState === 'saved' ? 'Saved' : 'Edits save automatically'}</span>
+          </div>
         </div>
-      )}
-
+        <details ref={actionMenu} className="recording-actions" onKeyDown={e => {
+          if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus() }
+        }}>
+          <summary className="btn ghost" aria-label="Recording actions"><MoreHorizontal aria-hidden="true" /><span>Actions</span></summary>
+          <div className="recording-action-menu">
+            <button className="btn ghost" onClick={e => { setSettingsOpen(o => !o); e.currentTarget.closest('details')?.removeAttribute('open') }}><Settings2 aria-hidden="true" />Analysis settings</button>
+            <button className="btn ghost" disabled={busy || !data.can_transcribe && !data.transcribed} onClick={e => { void analyze(data.settings); e.currentTarget.closest('details')?.removeAttribute('open') }}><Scissors aria-hidden="true" />{data.transcribed ? 'Analyse again' : 'Transcribe & analyse'}</button>
+            <Link className="btn ghost" to={`/sources/${data.source}`}>View sentences</Link>
+            <MakeSentences data={data} cuts={cuts} fromScript={tab === 'script'} onDone={load} />
+            {data.clean && <a className="btn ghost" href={data.clean + '?dl=1'} title={renderStale ? 'This download is from before your latest edits' : 'Download the clean take'}><Download aria-hidden="true" />Download clean take{renderStale && ' (outdated)'}</a>}
+          </div>
+        </details>
+        <button className="btn primary recording-render" disabled={busy || !data.transcribed && cuts.length === 0} onClick={render} title="Render the recording without the enabled cuts">{busy ? 'Working…' : data.clean && !renderStale ? 'Render again' : 'Render clean take'}</button>
+      </header>
+      {saveError != null && <div className="recording-alerts"><ErrorNotice error={saveError} action={<button className="btn small" onClick={() => { void flushSave().catch(() => {}) }}>Retry saving cuts</button>} /></div>}
+      <div className="recording-workspace">
+        {settingsOpen && <section className="panel recording-settings" aria-label="Analysis settings workspace">
+          <div className="panel-head"><h2>Analysis settings</h2><span className="grow" /><button className="btn small ghost" onClick={() => setSettingsOpen(false)}><X aria-hidden="true" />Back to editing</button></div>
+          <div className="recording-settings-scroll"><SettingsSheet data={data} busy={busy} onAnalyze={(s, re) => { void analyze(s, re); setSettingsOpen(false) }} /></div>
+        </section>}
+        <div className="recording-edit-area" hidden={settingsOpen}>
+          <div className="recording-pane-bar">
+            <div className="tabs" role="group" aria-label="Editing view">
+              <button aria-pressed={tab === 'transcript'} onClick={() => setTab('transcript')}>Transcript</button>
+              <button aria-pressed={tab === 'script'} onClick={() => setTab('script')}>Script{scriptSentences.length > 0 && <span className="n num">{scriptSentences.length}</span>}</button>
+              <button className="recording-cuts-tab" aria-pressed={tab === 'cuts'} onClick={() => setTab('cuts')}>Cuts <span className="n num">{cuts.length}</span></button>
+            </div>
+            <label className="recording-follow meta"><input className="check" type="checkbox" aria-label="Follow playback" checked={followPlayback} onChange={e => setFollowPlayback(e.target.checked)} /><span>Follow<span className="recording-follow-extra"> playback</span></span></label>
+          </div>
+          <div className={'cut-cols recording-panes' + (tab === 'cuts' ? ' showing-cuts' : '')}>
+            <section className="panel cut-text" aria-label={tab === 'script' ? 'Script' : 'Transcript'}>
+              <div className="panel-head recording-transcript-head"><h2>{tab === 'script' ? 'Script' : 'Transcript'}</h2><span className="meta">{tab === 'script' ? 'Click a sentence to seek' : 'Click text to seek · struck-through text is cut'}</span></div>
+          {!data.transcribed && !busy && <div className="notice recording-transcribe-notice"><FileText aria-hidden="true" />
+            {data.can_transcribe ? <span>Use <b>Transcribe &amp; analyse</b> in the actions menu to detect speech and suggested cuts. Add your script first for better matching.</span> : <span>Whisper and ffmpeg are needed for transcription. <Link to="/addons">See Add-ons</Link>. You can still draw and render cuts.</span>}
+          </div>}
+          {tab !== 'script'
+            ? <Transcript ref={transcriptRef} utts={data.utts} cuts={cuts} busy={busy} onPick={(t, c) => { seek(c ? Math.max(0, c.start - 0.5) : t); if (c) { setSel(c.id); wave.current?.reveal(c) } }} />
+            : <ScriptPane data={data} cuts={cuts} audioTime={() => audio.current?.currentTime ?? 0} playing={playing}
+                onSaved={(script) => { setData({ ...data, script, report: null }); }} onSeek={(t) => { seek(t); wave.current?.revealTime(t) }}
+                onRead={() => setReader(true)} onAnalyze={() => analyze(data.settings)} />}
+            </section>
+            <section className="panel cut-list-panel" aria-label="Cuts">
+              <div className="panel-head">
+                <h2>Cuts <span className="meta num">{cuts.filter(c => c.on).length}/{cuts.length} applied</span></h2><span className="grow" />
+                <button className="btn small ghost" title="Apply every cut of the types shown" onClick={() => change(cuts.map(c => show[c.type] ? { ...c, on: true } : c))}>Cut shown</button>
+                <button className="btn small ghost" title="Keep all audio in cuts of the types shown" onClick={() => change(cuts.map(c => show[c.type] ? { ...c, on: false } : c))}>Keep shown</button>
+              </div>
+              <details className="recording-filters"><summary>Filter cut types <span className="meta">{TYPES.filter(t => show[t]).length}/{TYPES.length} shown</span></summary><div className="recording-filter-body">
+        <div className="legend" role="group" aria-label="Cut types shown">
+          {TYPES.map((t) => {
+            const all = cuts.filter((c) => c.type === t), on = all.filter((c) => c.on).length
+            return (
+              <label key={t} title={TYPE_HELP[t]}>
+                <input type="checkbox" className="check" checked={show[t]} onChange={(e) => setShow({ ...show, [t]: e.target.checked })} />
+                <i className={'swatch cut-' + t} aria-hidden="true" />{TYPE_NAME[t]}
+                <span className="meta num">{on}{on !== all.length ? `/${all.length}` : ''}</span>
+              </label>
+            )
+          })}
+        </div>      {cuts.some(c => c.type === 'pause') && <div className="notice">
+        <div><p>Non-speech cuts may contain music or ambience. Filters change visibility only; hidden cuts still apply.</p>
+          <button className="btn small" disabled={!cuts.some(c => c.type === 'pause' && c.on)} onClick={() => {
+            change(cuts.map(c => c.type === 'pause' ? { ...c, on: false } : c))
+            setShow({ ...show, pause: true })
+            toast({ text: 'Non-speech cuts turned off. Music and ambience in those sections will be kept.' })
+          }}>Keep all non-speech audio</button>
+          <p className="meta">To keep it after reanalysis, turn off “Automatically trim gaps without speech” in Settings. Render again to update a previously cleaned recording.</p>
+        </div>
+      </div>}
+              </div></details>
+              <CutList cuts={cuts} sel={sel} show={show} onSelect={pickCut} onChange={change} onAudition={audition} onDelete={c => { change(cuts.filter(x => x !== c)); setSel(null) }} />
+            </section>
+          </div>
+        </div>
+      </div>
       <section className="panel cut-wave" aria-label="Waveform">
         <div className="wave-bar">
           <button className="btn icon" onClick={togglePlay} aria-label={playing ? 'Pause' : 'Play'} title="Play / pause (space)">
@@ -316,87 +429,36 @@ export default function CleanupPage() {
             ))}
           </div>
           <span className="grow" />
+          <button className="btn small ghost recording-fit" aria-label="Fit recording" onClick={() => wave.current?.fit()} title="Show the full recording"><Maximize aria-hidden="true" /><span>Fit recording</span></button>
           <ZoomControl onZoom={(z) => wave.current?.zoom(z)} />
+        </div>
+        <div className="recording-selection" aria-label="Selected cut">
+          <div className="btn-row">
+            <button className="btn small icon ghost" disabled={!visibleCuts.length} onClick={() => stepCut(-1)} aria-label="Previous cut" title="Previous cut (J)"><ChevronLeft aria-hidden="true" /></button>
+            <button className="btn small icon ghost" disabled={!visibleCuts.length} onClick={() => stepCut(1)} aria-label="Next cut" title="Next cut (K)"><ChevronRight aria-hidden="true" /></button>
+          </div>
+          {selected ? <>
+            <span className="meta recording-selection-label"><b>{TYPE_NAME[selected.type]}</b> <span className="num">{fmt(selected.start, 2)} – {fmt(selected.end, 2)}</span></span>
+            <button className="btn small" aria-label="Preview result" title="Preview result (A)" onClick={() => audition(selected, false)}><Play aria-hidden="true" /><span className="recording-selection-action">Preview result</span></button>
+            <button className="btn small ghost" aria-label={selected.on ? 'Keep this audio' : 'Cut this audio'} title={selected.on ? 'Keep this audio (X)' : 'Cut this audio (X)'} onClick={() => change(cuts.map(c => c.id === selected.id ? { ...c, on: !c.on } : c))}>{selected.on ? <RotateCcw aria-hidden="true" /> : <Scissors aria-hidden="true" />}<span className="recording-selection-action">{selected.on ? 'Keep this audio' : 'Cut this audio'}</span></button>
+          </> : <span className="meta recording-selection-label">Select a cut to adjust or preview it. Drag the waveform to make a cut.</span>}
         </div>
         <Wave ref={wave} peaks={peaks} peaksError={peaksError} duration={duration} cuts={cuts} sel={sel} show={show} mode={mode} audio={audio}
           onSeek={seek} onSelect={setSel} onChange={change} />
-        <div className="hints wave-help">
+        <details className="wave-shortcuts"><summary>Editing shortcuts</summary><div className="hints wave-help">
           <span>Click: seek or pick a cut</span><span>Drag an edge: adjust</span><span>Drag empty space: new cut</span><span>Double-click a cut: on/off</span>
           <span><kbd className="kbd">space</kbd> play</span><span><kbd className="kbd">x</kbd> on/off</span><span><kbd className="kbd">del</kbd> delete</span>
           <span><kbd className="kbd">j</kbd><kbd className="kbd">k</kbd> previous / next cut</span><span><kbd className="kbd">a</kbd> hear the result</span><span><kbd className="kbd">ctrl</kbd>+wheel zoom</span>
-        </div>
+        </div></details>
         <audio ref={audio} src={media} preload="auto" hidden
           onPlay={() => setPlaying(true)} onPause={() => { setPlaying(false); wave.current?.draw() }} onEnded={() => setPlaying(false)}
           onSeeked={() => { if (timeEl.current && audio.current) timeEl.current.textContent = fmt(audio.current.currentTime) }} />
       </section>
 
-      <section className="cut-stats" aria-label="Summary">
-        <Stat big={fmt(duration, 0)} label="original" />
-        <Stat big={fmt(Math.max(0, duration - removed), 0)} label="after cuts" />
-        <Stat big={`${duration ? Math.round(removed / duration * 100) : 0}%`} label="removed" />
-        {data.report && <Stat big={`${scriptStatuses(data.report, cuts).filter((x) => x === 'ok').length}/${data.report.length}`} label="script read" />}
-        <div className="legend" role="group" aria-label="Cut types shown">
-          {TYPES.map((t) => {
-            const all = cuts.filter((c) => c.type === t), on = all.filter((c) => c.on).length
-            return (
-              <label key={t} title={TYPE_HELP[t]}>
-                <input type="checkbox" className="check" checked={show[t]} onChange={(e) => setShow({ ...show, [t]: e.target.checked })} />
-                <i className={'swatch cut-' + t} aria-hidden="true" />{TYPE_NAME[t]}
-                <span className="meta num">{on}{on !== all.length ? `/${all.length}` : ''}</span>
-              </label>
-            )
-          })}
-        </div>
-      </section>
-
-      {cuts.some(c => c.type === 'pause') && <div className="notice">
-        <div><p>Non-speech cuts may contain music or ambience. Hiding a cut type above only changes its visibility.</p>
-          <button className="btn small" disabled={!cuts.some(c => c.type === 'pause' && c.on)} onClick={() => {
-            change(cuts.map(c => c.type === 'pause' ? { ...c, on: false } : c))
-            setShow({ ...show, pause: true })
-            toast({ text: 'Non-speech cuts turned off. Music and ambience in those sections will be kept.' })
-          }}>Keep all non-speech audio</button>
-          <p className="meta">To keep it after reanalysis, turn off “Automatically trim gaps without speech” in Settings. Render again to update a previously cleaned recording.</p>
-        </div>
-      </div>}
-
-      <div className="cut-cols">
-        <section className="panel cut-text" aria-label="Transcript and script">
-          <div className="panel-head">
-            <div className="tabs" role="tablist">
-              <button role="tab" aria-selected={tab === 'transcript'} onClick={() => setTab('transcript')}>Transcript</button>
-              <button role="tab" aria-selected={tab === 'script'} onClick={() => setTab('script')}>Script{scriptSentences.length > 0 && <span className="n num">{scriptSentences.length}</span>}</button>
-            </div>
-            <span className="grow" />
-            <MakeSentences data={data} cuts={cuts} fromScript={tab === 'script'} onDone={load} />
-          </div>
-          {tab === 'transcript'
-            ? <Transcript ref={transcriptRef} utts={data.utts} cuts={cuts} busy={busy} onPick={(t, c) => { seek(c ? Math.max(0, c.start - 0.5) : t); if (c) { setSel(c.id); wave.current?.reveal(c) } }} />
-            : <ScriptPane data={data} cuts={cuts} audioTime={() => audio.current?.currentTime ?? 0} playing={playing}
-                onSaved={(script) => { setData({ ...data, script, report: null }); }} onSeek={(t) => { seek(t); wave.current?.revealTime(t) }}
-                onRead={() => setReader(true)} onAnalyze={() => analyze(data.settings)} />}
-        </section>
-
-        <section className="panel cut-list-panel" aria-label="Cuts">
-          <div className="panel-head">
-            <h2>Cuts <span className="meta num">{cuts.filter((c) => c.on).length} on</span></h2>
-            <span className="grow" />
-            <button className="btn small ghost" onClick={() => change(cuts.map((c) => (show[c.type] ? { ...c, on: true } : c)))}>All on</button>
-            <button className="btn small ghost" onClick={() => change(cuts.map((c) => (show[c.type] ? { ...c, on: false } : c)))}>All off</button>
-          </div>
-          <CutList cuts={cuts} sel={sel} show={show} onSelect={(c) => { setSel(c.id); wave.current?.reveal(c); if (audio.current) audio.current.currentTime = Math.max(0, c.start - 0.5) }}
-            onChange={change} onAudition={audition} onDelete={(c) => { change(cuts.filter((x) => x !== c)); setSel(null) }} />
-        </section>
-      </div>
-
       {job && <JobBar job={job} onClose={closeJob} />}
       {reader && <Reader title={data.title} sentences={scriptSentences} onClose={() => setReader(false)} />}
-    </>
+    </div>
   )
-}
-
-function Stat({ big, label }: { big: string; label: string }) {
-  return <div className="stat"><b className="num">{big}</b><span className="meta">{label}</span></div>
 }
 
 function ZoomControl({ onZoom }: { onZoom: (z: number) => void }) {
@@ -412,7 +474,7 @@ function ZoomControl({ onZoom }: { onZoom: (z: number) => void }) {
 
 // ------------------------------------------------------------------ waveform
 
-type WaveHandle = { draw: () => void; follow: (t: number) => void; reveal: (c: Cut) => void; revealTime: (t: number) => void; zoom: (z: number) => void }
+type WaveHandle = { draw: () => void; follow: (t: number) => void; reveal: (c: Cut) => void; revealTime: (t: number) => void; zoom: (z: number) => void; fit: () => void }
 type WaveProps = {
   peaks: { rate: number; peaks: number[] } | null; peaksError: string | null; duration: number
   cuts: EditCut[]; sel: number | null; show: Record<CutType, boolean>; mode: Mode
@@ -420,7 +482,7 @@ type WaveProps = {
   onSeek: (t: number) => void; onSelect: (id: number | null) => void; onChange: (cuts: EditCut[]) => void
   ref: React.Ref<WaveHandle>
 }
-const WAVE_H = 168, RULER = 20
+const WAVE_H = 144, RULER = 20
 const zoomToPps = (v: number) => 8 * Math.pow(400 / 8, v / 100) // 8..400 px per second
 
 /** Screentone and hatching per cut type, drawn in ink like the CSS swatches. */
@@ -464,7 +526,7 @@ function Wave({ peaks, peaksError, duration, cuts, sel, show, mode, audio, onSee
     const v = (n: string) => css.getPropertyValue(n).trim()
     const ink = v('--ink'), ink2 = v('--ink-2'), ink3 = v('--ink-3'), red = v('--red'), paper = v('--paper')
     const { peaks: pk, show: sh, sel: sl, mode: md } = props.current
-    const h = WAVE_H
+    const h = cv.clientHeight || WAVE_H
     ctx.fillStyle = paper; ctx.fillRect(0, 0, w, h)
     const mid = RULER + (h - RULER) / 2, amp = (h - RULER) / 2 - 8
     const t0 = xToT(0), t1 = xToT(w)
@@ -538,9 +600,10 @@ function Wave({ peaks, peaksError, duration, cuts, sel, show, mode, audio, onSee
     if (!cv || !wr) return
     const w = wr.clientWidth, dpr = window.devicePixelRatio || 1
     const dur = props.current.duration
-    pps.current = Math.max(dur ? w / dur : 8, zoomToPps(zoomV.current))
-    cv.width = w * dpr; cv.height = WAVE_H * dpr
-    cv.style.width = w + 'px'; cv.style.height = WAVE_H + 'px'
+    pps.current = zoomV.current < 0 ? w / Math.max(1, dur) : Math.max(dur ? w / dur : 8, zoomToPps(zoomV.current))
+    const height = parseFloat(getComputedStyle(wr).getPropertyValue('--wave-height')) || WAVE_H
+    cv.width = w * dpr; cv.height = height * dpr
+    cv.style.width = w + 'px'; cv.style.height = height + 'px'
     cv.getContext('2d')!.setTransform(dpr, 0, 0, dpr, 0, 0)
     if (spacer.current) spacer.current.style.width = Math.max(w, (dur || 0) * pps.current) + 'px'
     draw()
@@ -586,7 +649,7 @@ function Wave({ peaks, peaksError, duration, cuts, sel, show, mode, audio, onSee
     draw()
   }
   // the handle the page uses to steer the waveform
-  useImperativeHandle(ref, () => ({ draw, follow, reveal, revealTime, zoom: (z) => zoomAround((wrap.current?.clientWidth ?? 0) / 2, z) }))
+  useImperativeHandle(ref, () => ({ draw, follow, reveal, revealTime, zoom: (z) => zoomAround((wrap.current?.clientWidth ?? 0) / 2, z), fit: () => { zoomV.current = -1; layout(); if (wrap.current) wrap.current.scrollLeft = 0; draw() } }))
 
   const visible = (c: EditCut) => props.current.show[c.type] || c.id === props.current.sel
   const edgeAt = (x: number) => {
@@ -661,7 +724,7 @@ function Wave({ peaks, peaksError, duration, cuts, sel, show, mode, audio, onSee
 
 // ------------------------------------------------------------------ transcript
 
-type TranscriptHandle = { highlight: (t: number) => void }
+type TranscriptHandle = { highlight: (t: number, follow?: boolean) => void }
 function Transcript({ utts, cuts, busy, onPick, ref }: {
   utts: TChar[][]; cuts: EditCut[]; busy: boolean; onPick: (t: number, c: EditCut | null) => void; ref: React.Ref<TranscriptHandle>
 }) {
@@ -669,7 +732,7 @@ function Transcript({ utts, cuts, busy, onPick, ref }: {
   const flat = useMemo(() => utts.flat(), [utts])
   const now = useRef<HTMLElement | null>(null)
   useImperativeHandle(ref, () => ({
-    highlight: (t: number) => {
+    highlight: (t: number, follow = true) => {
       const root = box.current
       if (!root || !flat.length) return
       let lo = 0, hi = flat.length - 1
@@ -682,7 +745,7 @@ function Transcript({ utts, cuts, busy, onPick, ref }: {
       if (el) {
         el.classList.add('now')
         const r = el.getBoundingClientRect(), br = root.getBoundingClientRect()
-        if (r.top < br.top || r.bottom > br.bottom) root.scrollTop += r.top - br.top - root.clientHeight / 3
+        if (follow && (r.top < br.top || r.bottom > br.bottom)) root.scrollTop += r.top - br.top - root.clientHeight / 3
       }
     },
   }), [flat])
@@ -719,7 +782,13 @@ function CutList({ cuts, sel, show, onSelect, onChange, onAudition, onDelete }: 
 }) {
   const box = useRef<HTMLUListElement>(null)
   const list = [...cuts].sort((a, b) => a.start - b.start).filter((c) => show[c.type] || c.id === sel)
-  useEffect(() => { box.current?.querySelector('.sel')?.scrollIntoView({ block: 'nearest' }) }, [sel])
+  useEffect(() => {
+    const root = box.current, row = root?.querySelector('.sel')
+    if (!root || !row) return
+    const r = row.getBoundingClientRect(), br = root.getBoundingClientRect()
+    if (r.top < br.top) root.scrollTop += r.top - br.top
+    else if (r.bottom > br.bottom) root.scrollTop += r.bottom - br.bottom
+  }, [sel])
   if (!list.length) return <p className="meta" style={{ padding: 'var(--s-4)' }}>{cuts.length ? 'No cuts of the types shown.' : 'No cuts yet. Drag across the waveform to make one.'}</p>
   const set = (c: EditCut, patch: Partial<EditCut>) => onChange(cuts.map((x) => (x === c ? { ...x, ...patch } : x)))
   return (
@@ -732,7 +801,7 @@ function CutList({ cuts, sel, show, onSelect, onChange, onAudition, onDelete }: 
             <div className="cut-body">
               <div className="cut-head">
                 <i className={'swatch cut-' + c.type} aria-hidden="true" /><b>{TYPE_NAME[c.type]}</b>
-                <span className="meta num">{fmt(c.start, 2)} – {fmt(c.end, 2)} · {(c.end - c.start).toFixed(2)}s</span>
+                <button className="cut-time meta num" onClick={() => onSelect(c)} aria-label={`Select ${TYPE_NAME[c.type].toLowerCase()} cut at ${fmt(c.start)}`}>{fmt(c.start, 2)} – {fmt(c.end, 2)} · {(c.end - c.start).toFixed(2)}s</button>
               </div>
               {text && <div className="cut-said" lang="ja">{text}</div>}
               {c.id === sel && (
@@ -771,6 +840,7 @@ function ScriptPane({ data, cuts, audioTime, playing, onSaved, onSeek, onRead, o
   onSaved: (script: string) => void; onSeek: (t: number) => void; onRead: () => void; onAnalyze: () => void
 }) {
   const toast = useToast()
+  const action = useAction()
   const sentences = splitScript(data.script)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(data.script)
@@ -788,13 +858,11 @@ function ScriptPane({ data, cuts, audioTime, playing, onSaved, onSeek, onRead, o
     return () => window.clearInterval(t)
   }, [playing, report, audioTime])
 
-  const save = async (text: string) => {
-    try {
+  const save = async (text: string) => action.run(async () => {
       const r = await api.saveScript(data.source, text)
       onSaved(r.script); setEditing(false); setStale(data.transcribed)
       toast({ text: r.script ? `Script saved: ${r.sentences} sentences` : 'Script removed' })
-    } catch (e) { toast({ text: (e as Error).message }) }
-  }
+  })
   const importFile = async (f: File) => {
     const buf = await f.arrayBuffer()
     let text: string
@@ -810,13 +878,14 @@ function ScriptPane({ data, cuts, audioTime, playing, onSaved, onSeek, onRead, o
     return (
       <div className="cut-scroll script-edit">
         {!sentences.length && <p className="meta">Paste or import the text you read for this recording. Analysing then cuts anything that isn't in it and keeps only the last complete take of each sentence. One sentence per line, or separated by 。</p>}
-        <textarea className="textarea" lang="ja" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={'今日は学校に行きました。\n昨日は雨でした。'} spellCheck={false} rows={10} />
+        <textarea className="textarea" aria-label="Script text" lang="ja" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={'今日は学校に行きました。\n昨日は雨でした。'} spellCheck={false} rows={10} />
         <div className="btn-row">
-          <button className="btn primary small" onClick={() => save(draft)}>Save script</button>
+          <button className="btn primary small" disabled={action.busy} aria-busy={action.busy} onClick={() => save(draft)}>Save script</button>
           {sentences.length > 0 && <button className="btn small ghost" onClick={() => { setDraft(data.script); setEditing(false) }}>Cancel</button>}
           <button className="btn small" onClick={() => file.current?.click()}><Upload aria-hidden="true" />Import .txt</button>
           <span className="grow" /><span className="meta num">{n ? `${n} sentence${n > 1 ? 's' : ''}` : ''}</span>
         </div>
+        {action.error != null && <ErrorNotice error={action.error} />}
         {picker}
       </div>
     )
@@ -862,9 +931,24 @@ function ScriptPane({ data, cuts, audioTime, playing, onSaved, onSeek, onRead, o
 function Reader({ title, sentences, onClose }: { title: string; sentences: string[]; onClose: () => void }) {
   const [size, setSize] = usePref('cleanup.readerSize', 32)
   const close = useRef<HTMLButtonElement>(null)
-  useEffect(() => { close.current?.focus() }, [])
+  const dialog = useRef<HTMLDialogElement>(null)
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null
+    const el = dialog.current
+    el?.showModal(); close.current?.focus()
+    const overflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { el?.close(); document.body.style.overflow = overflow; previous?.focus() }
+  }, [])
   return (
-    <div className="reader" role="dialog" aria-modal="true" aria-label="Script reader">
+    <dialog ref={dialog} className="reader" aria-label="Script reader" onCancel={(e) => { e.preventDefault(); onClose() }}
+      onKeyDown={(e) => {
+        if (e.key !== 'Tab') return
+        const controls = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'))
+        const first = controls[0], last = controls.at(-1)
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus() }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus() }
+      }}>
       <div className="reader-bar">
         <b>{title}</b><span className="grow" />
         <button className="btn small" onClick={() => setSize(Math.max(16, size - 4))} aria-label="Smaller text">A−</button>
@@ -874,7 +958,7 @@ function Reader({ title, sentences, onClose }: { title: string; sentences: strin
       <ol className="reader-text" lang="ja" style={{ fontSize: size }}>
         {sentences.map((t, i) => <li key={i}>{t}</li>)}
       </ol>
-    </div>
+    </dialog>
   )
 }
 
@@ -906,7 +990,7 @@ function MakeSentences({ data, cuts, fromScript, onDone }: { data: Cleanup; cuts
   return (
     <span className="btn-row">
       <button className="btn small" disabled={busy} onClick={go} title="Use these as the recording's practice sentences, timed to the audio"><ListPlus aria-hidden="true" />Use as sentences</button>
-      <Link className="btn small red" to={`/practice?source=${data.source}`}><Play aria-hidden="true" />Practise</Link>
+      <Link className="btn small primary" to={`/practice?source=${data.source}`}><Play aria-hidden="true" />Practise</Link>
     </span>
   )
 }

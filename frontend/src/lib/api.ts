@@ -60,13 +60,15 @@ export class ApiError extends Error {
 }
 
 async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const r = await fetch('/api/' + path, init)
+  let r: Response
+  try { r = await fetch('/api/' + path, init) }
+  catch { throw new ApiError('Couldn’t reach kotoba. Check your connection and try again.', 0) }
   if (r.status === 204) return undefined as T
   const ctype = r.headers.get('Content-Type') || ''
   const body = ctype.includes('json') ? await r.json() : await r.text()
   if (!r.ok) {
-    const msg = typeof body === 'object' ? body.error || body.detail || JSON.stringify(body) : body
-    throw new ApiError(msg || r.statusText, r.status)
+    const msg = typeof body === 'object' && body !== null ? body.error || body.detail || Object.entries(body).map(([field, value]) => `${field}: ${Array.isArray(value) ? value.join(' ') : String(value)}`).join(' · ') : ''
+    throw new ApiError(r.status >= 500 ? 'Kotoba couldn’t finish that request. Try again in a moment.' : msg || 'The request couldn’t be completed. Check your input and try again.', r.status)
   }
   return body as T
 }
@@ -77,6 +79,16 @@ const qs = (p: Record<string, string | number | undefined | null>) => {
   for (const [k, v] of Object.entries(p)) if (v !== undefined && v !== null && v !== '') s.set(k, String(v))
   const out = s.toString()
   return out ? '?' + out : ''
+}
+
+export async function allSentences(params: { deck?: number; source?: number } = {}): Promise<Page<Sentence>> {
+  const results: Sentence[] = []
+  let page: Page<Sentence>
+  do {
+    page = await api.sentences({ ...params, limit: 200, offset: results.length })
+    results.push(...page.results)
+  } while (page.results.length && results.length < page.count)
+  return { count: page.count, results }
 }
 
 export const api = {

@@ -13,7 +13,7 @@ Constraints: standard web controls and navigation; keyboard operable (practice: 
 
 ## Direction contract
 
-THESIS: kotoba is a weekly manga magazine of your own sentences. Every sentence is a speech balloon whose tail points at the panel it came from (the screenshot crop, or the strip of native audio). It refuses the category default: grey flashcards with a progress ring.
+THESIS: kotoba is a weekly manga magazine of your own sentences. Browsing uses compact, aligned reading text; expressive speech balloons belong to practice, where the tail points at the source panel and the outline communicates recording and feedback. Newsprint stocks, Japanese lettering and score stamps connect the reading and practice surfaces.
 
 OWN-WORLD: Each section is printed on its own tinted newsprint stock (inbox salmon, library straw, decks celadon, practice white, review lavender); near-black ink frames at two weights; one magazine red for recording and misses. Japanese set as アンチック体: kanji in BIZ UDPGothic, kana in BIZ UDPMincho. Three type sizes only; rank by weight and black reversal labels. Screentone dots only for dimmed/unfocused state. Score stamps in red ink.
 

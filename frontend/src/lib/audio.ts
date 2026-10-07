@@ -103,17 +103,20 @@ export function playClip(url: string, start: number, end: number, onTime?: (t: n
 }
 
 /** The synthetic voice through jp-shadow-cut; falls back to the browser's Japanese voice. */
-export async function speak(text: string, voice: string | null, speed = 1): Promise<void> {
+export async function speak(text: string, voice: string | null, speed = 1, signal?: AbortSignal): Promise<void> {
   stopAudio()
   if (voice && voice !== 'browser') {
-    const r = await fetch('/api/engine/tts?' + new URLSearchParams({ text, voice, speed: String(speed) }))
+    const r = await fetch('/api/engine/tts?' + new URLSearchParams({ text, voice, speed: String(speed) }), { signal })
     if (r.ok) {
-      const url = URL.createObjectURL(await r.blob())
+      const blob = await r.blob()
+      if (signal?.aborted) return
+      const url = URL.createObjectURL(blob)
       const el = (player = new Audio(url))
       stopAt = null
       return new Promise((resolve) => { el.onended = el.onpause = () => { URL.revokeObjectURL(url); resolve() }; el.play().catch(() => resolve()) })
     }
   }
+  if (signal?.aborted) return
   if (!('speechSynthesis' in window)) throw new Error('No voice available: start jp-shadow-cut for VOICEVOX or Kokoro voices.')
   return new Promise((resolve) => {
     const u = new SpeechSynthesisUtterance(text)

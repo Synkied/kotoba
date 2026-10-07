@@ -1,6 +1,6 @@
 import { Inbox, Library as LibraryIcon, Layers, RotateCcw, Plus, Puzzle, Mic } from 'lucide-react'
 import { createContext, useContext, useEffect, useState } from 'react'
-import { BrowserRouter, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { api, type Stats } from './lib/api'
 import { ToastHost } from './components/ui'
 import InboxPage from './pages/Inbox'
@@ -47,6 +47,11 @@ function Shell() {
   }, [])
   useEffect(refresh, [loc.pathname])
   const stock = stockFor(loc.pathname)
+  useEffect(() => {
+    document.title = `kotoba · ${stock === 'practice' ? 'Practice' : stock === 'library' ? 'Library' : loc.pathname.startsWith('/addons') ? 'Add-ons' : stock.charAt(0).toUpperCase() + stock.slice(1)}`
+    document.getElementById('main')?.focus({ preventScroll: true })
+    window.scrollTo(0, 0)
+  }, [loc.pathname, stock])
   useEffect(() => { document.body.style.setProperty('--stock', `var(--stock-${stock})`) }, [stock])
 
   return (
@@ -62,11 +67,11 @@ function Shell() {
             {SECTIONS.map((s) => {
               const n = stats && s.count ? s.count(stats) : 0
               return (
-                <NavLink key={s.to} to={s.to} style={{ ['--sw' as string]: `var(--stock-${s.stock})` }}>
+                <Link key={s.to} to={s.to} aria-current={s.stock === stock && stock !== 'practice' ? 'page' : undefined} style={{ ['--sw' as string]: `var(--stock-${s.stock})` }}>
                   <span className="swatch" aria-hidden="true" />
                   {s.name}
                   {n > 0 && <span className={'count' + (s.hot ? ' hot' : '')} aria-label={`${n} ${s.hot ? 'due' : 'waiting'}`}>{n}</span>}
-                </NavLink>
+                </Link>
               )
             })}
           </nav>
@@ -75,7 +80,8 @@ function Shell() {
             {stats && <span className="meta" style={{ color: 'var(--spine-ink-2)' }}>{stats.sentences} sentences · {stats.attempts_today} tries today</span>}
           </div>
         </aside>
-        <main id="main" className="page" style={{ ['--stock' as string]: `var(--stock-${stock})` }}>
+        <main id="main" tabIndex={-1} className="page" style={{ ['--stock' as string]: `var(--stock-${stock})` }}>
+          <LinkToSetup />
           <Routes>
             <Route path="/" element={<Navigate to="/inbox" replace />} />
             <Route path="/inbox" element={<InboxPage />} />
@@ -98,16 +104,20 @@ function Shell() {
             const n = stats && s.count ? s.count(stats) : 0
             const Icon = s.icon
             return (
-              <NavLink key={s.to} to={s.to} style={{ ['--sw' as string]: `var(--stock-${s.stock})` }}>
+              <Link key={s.to} to={s.to} aria-current={s.stock === stock && stock !== 'practice' ? 'page' : undefined} style={{ ['--sw' as string]: `var(--stock-${s.stock})` }}>
                 <Icon aria-hidden="true" />{s.short ?? s.name}
-                {n > 0 && <span className="count">{n}</span>}
-              </NavLink>
+                {n > 0 && <span className={'count' + (s.hot ? ' hot' : '')} aria-label={`${n} ${s.hot ? 'due' : 'waiting'}`}>{n}</span>}
+              </Link>
             )
           })}
         </nav>
       </div>
     </StatsCtx.Provider>
   )
+}
+
+function LinkToSetup() {
+  return <NavLink className="mobile-setup btn small ghost" to="/addons"><Puzzle aria-hidden="true" />Add-ons</NavLink>
 }
 
 export default function App() {

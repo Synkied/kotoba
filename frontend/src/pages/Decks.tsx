@@ -2,17 +2,17 @@ import { Plus, Play } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
-import { ErrorNotice, Skeleton, useAsync } from '../components/ui'
+import { ErrorNotice, Skeleton, useAsync, useAction } from '../components/ui'
 
 export default function DecksPage() {
   const { data, error, loading, reload } = useAsync(() => api.decks(), [])
   const [name, setName] = useState('')
   const nav = useNavigate()
+  const action = useAction()
   const create = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!name.trim()) return
-    const d = await api.createDeck(name.trim())
-    nav(`/decks/${d.id}`)
+    await action.run(async () => { const d = await api.createDeck(name.trim()); nav(`/decks/${d.id}`) })
   }
   const decks = data?.results ?? []
   return (
@@ -22,9 +22,10 @@ export default function DecksPage() {
         <span className="grow" />
         <form onSubmit={create} className="btn-row">
           <label><span className="sr">New deck name</span><input className="input" style={{ width: '16rem' }} placeholder="New deck, e.g. Lesson 19" value={name} onChange={(e) => setName(e.target.value)} /></label>
-          <button className="btn primary" disabled={!name.trim()}><Plus aria-hidden="true" />Create</button>
+          <button className="btn primary" aria-busy={action.busy} disabled={!name.trim() || action.busy}><Plus aria-hidden="true" />Create</button>
         </form>
       </header>
+      {action.error != null && <ErrorNotice error={action.error} />}
       {error ? <ErrorNotice error={error} action={<button className="btn small" onClick={reload}>Try again</button>} /> :
         loading && !data ? <Skeleton /> :
         !decks.length ? (
@@ -34,7 +35,7 @@ export default function DecksPage() {
             <Link className="btn" to="/library">Open the library</Link>
           </div>
         ) : (
-          <table className="deck-table">
+          <div className="table-scroll" tabIndex={0} role="region" aria-label="Decks"><table className="deck-table">
             <thead><tr>
               <th>Deck</th><th className="n">Sentences</th><th className="n hide-s">Practised</th><th className="hide-s">Progress</th>
               <th className="n hide-s">Average</th><th className="n">Due</th><th><span className="sr">Actions</span></th>
@@ -52,7 +53,7 @@ export default function DecksPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
     </>
   )

@@ -2,18 +2,20 @@ import { Archive, Check, Pencil, Trash2, Loader, AlertTriangle } from 'lucide-re
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type Source } from '../lib/api'
-import { Balloon } from '../components/Balloon'
+import { SentenceText } from '../components/SentenceText'
 import { Furigana } from '../components/Furigana'
 import { SourcePanel } from '../components/SourcePanel'
 import { DeckPicker } from '../components/DeckPicker'
-import { ErrorNotice, SearchBox, Skeleton, clock, dayLabel, useAsync, usePref, useToast } from '../components/ui'
+import { ErrorNotice, SearchBox, Skeleton, clock, dayLabel, useAsync, usePref, useToast, useAction, shortcutBlocked } from '../components/ui'
 import { useStats } from '../App'
 
 const SHOWN_LINES = 4
 
 export default function InboxPage() {
   const [q, setQ] = useState('')
-  const { data, error, loading, reload, set } = useAsync(() => api.sources({ status: 'inbox', q, limit: 200 }), [q])
+  const [limit, setLimit] = useState(200)
+  const action = useAction()
+  const { data, error, loading, reload, set } = useAsync(() => api.sources({ status: 'inbox', q, limit }), [q, limit])
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [cursor, setCursor] = useState(0)
   const [editing, setEditing] = useState<number | null>(null)
@@ -21,6 +23,12 @@ export default function InboxPage() {
   const toast = useToast()
   const { refresh } = useStats()
   const items = useMemo(() => data?.results ?? [], [data])
+
+  useEffect(() => { setSelected(new Set()); setCursor(0); setLimit(200) }, [q])
+  useEffect(() => { setCursor((c) => Math.max(0, Math.min(c, items.length - 1))) }, [items.length])
+
+  const pending = items.some((s) => s.job === 'waiting' || s.job === 'running')
+  useEffect(() => { if (!pending) return; const timer = window.setInterval(reload, 5000); return () => window.clearInterval(timer) }, [pending, reload])
 
   const days = useMemo(() => {
     const out: { key: string; items: Source[] }[] = []
@@ -40,30 +48,29 @@ export default function InboxPage() {
 
   const move = useCallback(async (ids: number[], status: 'kept' | 'archived') => {
     if (!ids.length) return
+    await action.run(async () => {
     await api.bulk({ ids, status })
     drop(ids)
     toast({
       text: `${status === 'kept' ? 'Kept' : 'Archived'} ${ids.length > 1 ? ids.length + ' sources' : ''}`.trim(),
       undo: async () => { await api.bulk({ ids, status: 'inbox' }); reload(); refresh() },
     })
-  }, [drop, toast, reload, refresh])
+    })
+  }, [drop, toast, reload, refresh, action])
 
   const remove = useCallback(async (ids: number[]) => {
     if (!ids.length || !window.confirm(`Delete ${ids.length > 1 ? ids.length + ' sources' : 'this source'} and its sentences? This can't be undone.`)) return
-    await api.bulk({ ids, delete: true })
-    drop(ids)
-    toast({ text: 'Deleted' })
-  }, [drop, toast])
+    await action.run(async () => { await api.bulk({ ids, delete: true }); drop(ids); toast({ text: 'Deleted' }) })
+  }, [drop, toast, action])
 
   const toggle = (id: number) => setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return
-      if (e.metaKey || e.ctrlKey || e.altKey || editing !== null) return
+      if (shortcutBlocked(e) || editing !== null || action.busy) return
       const cur = items[cursor]
       const target = selected.size ? [...selected] : cur ? [cur.id] : []
-      if (e.key === 'j') setCursor((c) => Math.min(items.length - 1, c + 1))
+      if (e.key === 'j') setCursor((c) => Math.max(0, Math.min(items.length - 1, c + 1)))
       else if (e.key === 'k') setCursor((c) => Math.max(0, c - 1))
       else if (e.key === 'x' && cur) toggle(cur.id)
       else if (e.key === 'Enter') move(target, 'kept')
@@ -75,11 +82,11 @@ export default function InboxPage() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [items, cursor, selected, editing, move, remove])
+  }, [items, cursor, selected, editing, move, remove, action.busy])
   useEffect(() => { document.querySelector('.entry.cursor')?.scrollIntoView({ block: 'nearest' }) }, [cursor])
 
   const ids = [...selected]
-  const allChecked = items.length > 0 && selected.size === items.length
+  const allChecked = items.length > 0 && items.every((s) => selected.has(s.id))
 
   return (
     <>
@@ -89,12 +96,15 @@ export default function InboxPage() {
         <div className="search"><SearchBox value={q} onChange={setQ} placeholder="Search the inbox (tokyo finds 東京)" /></div>
       </header>
 
+      {action.error != null && <ErrorNotice error={action.error} />}
+      <fieldset className="action-scope" disabled={action.busy} aria-busy={action.busy}>
       {error ? <ErrorNotice error={error} action={<button className="btn small" onClick={reload}>Try again</button>} /> :
         loading && !data ? <Skeleton /> :
         !items.length ? (
           <div className="empty">
             <h2>{q ? 'Nothing matches' : 'Inbox zero'}</h2>
             <p>{q ? `No inbox items match “${q}”.` : 'Everything you collect lands here first: screen captures, recordings, subtitles and pasted text. Keep what you want to practise, archive the rest.'}</p>
+            {q && <button className="btn" onClick={() => setQ('')}>Clear search</button>}
             {!q && <Link className="btn primary" to="/collect">Collect something</Link>}
           </div>
         ) : (
@@ -142,20 +152,25 @@ export default function InboxPage() {
                 </section>
               )
             })}
+            {data && items.length < data.count && <button className="btn" disabled={loading} onClick={() => setLimit((n) => n + 200)}>{loading ? 'Loading…' : 'Load more sources'}</button>}
           </>
         )}
+      </fieldset>
     </>
   )
 }
 
 function LabelAdder({ ids, onDone }: { ids: number[]; onDone: () => void }) {
   const [v, setV] = useState('')
+  const action = useAction()
   return (
-    <form onSubmit={async (e) => { e.preventDefault(); if (!v.trim()) return; await api.bulk({ ids, add_label: v.trim() }); setV(''); onDone() }}
+    <form onSubmit={async (e) => { e.preventDefault(); if (!v.trim()) return; await action.run(async () => { await api.bulk({ ids, add_label: v.trim() }); setV(''); onDone() }) }}
       style={{ display: 'flex', gap: 4 }}>
       <label><span className="sr">Add a label</span>
         <input className="input" style={{ height: 'var(--control-h-s)', minHeight: 0, width: '10rem' }} placeholder="Add label…" value={v} onChange={(e) => setV(e.target.value)} />
       </label>
+      <button className="btn small" disabled={!v.trim() || action.busy}>Add</button>
+      {action.error != null && <ErrorNotice error={action.error} />}
     </form>
   )
 }
@@ -166,14 +181,16 @@ function InboxEntry({ s, selected, cursor, furigana, editing, onEdit, onToggle, 
 }) {
   const [draft, setDraft] = useState(s.text)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<unknown>(null)
   const first = s.sentences[0]
   const label = s.title || first?.text || 'Untitled'
   const save = async () => {
-    setSaving(true)
-    try { onSaved(await api.updateSource(s.id, { text: draft })); onEdit(false) } finally { setSaving(false) }
+    if (saving) return
+    setSaving(true); setSaveError(null)
+    try { onSaved(await api.updateSource(s.id, { text: draft })); onEdit(false) } catch (err) { setSaveError(err) } finally { setSaving(false) }
   }
   return (
-    <article className={'entry' + (cursor ? ' cursor' : '')} aria-selected={selected} onClick={onFocus} aria-label={label}>
+    <article className={'entry' + (cursor ? ' cursor' : '')} data-selected={selected} onClick={onFocus} aria-label={label}>
       <input type="checkbox" className="check" checked={selected} onChange={onToggle} aria-label={`Select “${label}”`} />
       <Link to={`/sources/${s.id}`} aria-label={`Open ${label}`}>
         <SourcePanel kind={s.kind} image={s.image} start={first?.start} end={s.sentences.at(-1)?.end} alt={s.text.slice(0, 80)} />
@@ -184,11 +201,12 @@ function InboxEntry({ s, selected, cursor, furigana, editing, onEdit, onToggle, 
           <div style={{ display: 'grid', gap: 8 }}>
             <label className="field"><span>Text, one sentence per line</span>
               <textarea className="textarea" lang="ja" value={draft} autoFocus onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Escape') onEdit(false); if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) save() }} />
+                onKeyDown={(e) => { if (e.key === 'Escape' && !saving) { setDraft(s.text); onEdit(false) }; if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) save() }} />
             </label>
+            {saveError != null && <ErrorNotice error={saveError} />}
             <div className="btn-row">
               <button className="btn small primary" onClick={save} aria-busy={saving} disabled={saving}>Save</button>
-              <button className="btn small ghost" onClick={() => { setDraft(s.text); onEdit(false) }}>Cancel</button>
+              <button className="btn small ghost" disabled={saving} onClick={() => { setDraft(s.text); setSaveError(null); onEdit(false) }}>Cancel</button>
               <span className="meta">Fix OCR mistakes or split lines. <kbd className="kbd">Ctrl</kbd>+<kbd className="kbd">Enter</kbd> saves.</span>
             </div>
           </div>
@@ -196,8 +214,8 @@ function InboxEntry({ s, selected, cursor, furigana, editing, onEdit, onToggle, 
           <JobState s={s} />
         ) : s.sentences.length ? (
           <div className="lines">
-            {s.sentences.slice(0, SHOWN_LINES).map((x, i) => (
-              <Balloon key={x.id} tail={i === 0 ? 'left' : 'none'}><Furigana text={x.text} pairs={x.furigana} show={furigana} /></Balloon>
+            {s.sentences.slice(0, SHOWN_LINES).map(x => (
+              <SentenceText key={x.id}><Furigana text={x.text} pairs={x.furigana} show={furigana} /></SentenceText>
             ))}
             {s.sentences.length > SHOWN_LINES && <Link className="more-lines" to={`/sources/${s.id}`}>+ {s.sentences.length - SHOWN_LINES} more sentences</Link>}
           </div>
@@ -221,13 +239,13 @@ function InboxEntry({ s, selected, cursor, furigana, editing, onEdit, onToggle, 
 }
 
 function JobState({ s }: { s: Source }) {
-  if (s.job === 'failed') return <div className="notice error"><AlertTriangle aria-hidden="true" /><span>Transcription failed: {s.job_error}</span></div>
+  if (s.job === 'failed') return <div className="notice error" role="alert"><AlertTriangle aria-hidden="true" /><span>Transcription failed: {s.job_error} <Link to={`/recordings/${s.id}`}>Open recording to try again</Link></span></div>
   return (
     <div className="notice">
       <Loader aria-hidden="true" />
       <span>
         <b>{s.job === 'running' ? 'Transcribing now' : 'Waiting to be transcribed.'}</b>{' '}
-        {s.job === 'waiting' && <>Whisper runs on the desktop with jp-shadow-cut. Start it with <code>python manage.py transcribe --jpcut ~/jp-shadow-cut</code>.</>}
+        {s.job === 'waiting' && <>kotoba transcribes uploads automatically when Whisper is available. <Link to="/addons">Check transcription setup</Link>.</>}
       </span>
     </div>
   )

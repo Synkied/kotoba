@@ -17,6 +17,7 @@
   --ink-3: #5f574d;          /* meta text; >= 4.5:1 on every stock */
   --paper: #fffdf8;          /* balloons, inputs, sheets */
   --on-ink: #fbf7ee;         /* text on black reversal plates */
+  --on-red: #fffdf8;
   --red: #cc1f1a;            /* recording, misses, stamps. Nothing decorative. */
   --red-ink: #b0130e;        /* red used as text on stock */
   --red-wash: #f7d4cf;
@@ -69,6 +70,7 @@
     --ink-3: #a99f8f;
     --paper: #1f1d1a;
     --on-ink: #161513;
+    --on-red: #161513;
     --red: #ff5b4f;
     --red-ink: #ff7a6f;
     --red-wash: #4a1d19;
@@ -84,7 +86,7 @@
   --stock-inbox: #2a1e1a; --stock-library: #28241a; --stock-decks: #1c241b;
   --stock-practice: #161513; --stock-review: #211d2a; --stock-collect: #22201c; --stock-recordings: #1a2127;
   --ink: #f2ecdf; --ink-2: #d2c9b9; --ink-3: #a99f8f; --paper: #1f1d1a; --on-ink: #161513;
-  --red: #ff5b4f; --red-ink: #ff7a6f; --red-wash: #4a1d19;
+  --on-red: #161513; --red: #ff5b4f; --red-ink: #ff7a6f; --red-wash: #4a1d19;
   --spine: #0d0c0a; --spine-2: #221f1b; --spine-ink: #efe8da; --spine-ink-2: #9d9486;
   --tone-dot: rgb(242 236 223 / .26);
   --lift: 0 1px 0 rgb(0 0 0 / .4), 0 8px 22px -10px rgb(0 0 0 / .7);

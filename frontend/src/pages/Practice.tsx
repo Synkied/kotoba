@@ -1,13 +1,13 @@
 import { ChevronLeft, ChevronRight, Mic, Square, Volume2, RotateCcw, AudioLines, Bot, LoaderCircle } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { api, type Score, type Sentence } from '../lib/api'
-import { Recorder, decode, playClip, speak, stopAudio } from '../lib/audio'
+import { api, allSentences, type Score, type Sentence } from '../lib/api'
+import { Recorder, playClip, speak, stopAudio } from '../lib/audio'
 import { Balloon } from '../components/Balloon'
 import { Furigana, Units } from '../components/Furigana'
 import { SourcePanel, fmtTime } from '../components/SourcePanel'
 import { Stamp, Stamps } from '../components/Stamp'
-import { ErrorNotice, Skeleton, useAsync, usePref, useToast } from '../components/ui'
+import { ErrorNotice, Skeleton, useAsync, usePref, useToast, shortcutBlocked } from '../components/ui'
 import { useStats } from '../App'
 
 export default function PracticePage() {
@@ -22,21 +22,20 @@ export default function PracticePage() {
       return { title: 'Sentence practice', back: `/sentences/${s.id}`, sentences: [s] }
     }
     if (deck) {
-      const [d, s] = await Promise.all([api.deck(deck), api.sentences({ deck })])
+      const [d, s] = await Promise.all([api.deck(deck), allSentences({ deck })])
       return { title: d.name, back: `/decks/${deck}`, sentences: s.results }
     }
     if (source) {
       const s = await api.source(source)
       return { title: s.title || 'Source', back: `/sources/${source}`, sentences: s.sentences }
     }
-    const all = await api.sentences({ limit: 500 })
-    const pick = ids ? all.results.filter((s) => ids.includes(s.id)) : all.results.slice(0, 20)
+    const pick = ids ? await Promise.all([...new Set(ids)].map((id) => api.sentence(id))) : (await api.sentences({ limit: 20 })).results
     return { title: 'Selected sentences', back: '/library', sentences: pick }
   }, [sentence, deck, source, params.get('ids')])
 
   if (error) return <ErrorNotice error={error} />
   if (loading || !data) return <Skeleton rows={3} />
-  return <PracticeSession title={data.title} back={data.back} sentences={data.sentences} />
+  return <PracticeSession key={params.toString()} title={data.title} back={data.back} sentences={data.sentences} />
 }
 
 type Result = Score & { model: 'native' | 'tts' | 'none' }
@@ -53,6 +52,8 @@ export function PracticeSession({ title, back, sentences: initial, onFinish }: {
   const [playing, setPlaying] = useState(false)
   const [playhead, setPlayhead] = useState<number | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const [unsaved, setUnsaved] = useState<{ sentence: Sentence; result: Result } | null>(null)
+  const [saving, setSaving] = useState(false)
   const [model, setModel] = usePref<'native' | 'tts'>('model', 'native')
   const [voice, setVoice] = usePref<string>('voice', 'browser')
   const [along, setAlong] = usePref('along', false)
@@ -60,6 +61,7 @@ export function PracticeSession({ title, back, sentences: initial, onFinish }: {
   const [engine, setEngine] = useState<'unknown' | 'ready' | 'loading' | 'idle' | 'off' | 'error' | 'missing'>('unknown')
   const [voices, setVoices] = useState<{ id: string; name: string }[]>([])
   const rec = useRef(new Recorder())
+  const starting = useRef(false)
   const levelRef = useRef<HTMLElement>(null)
   const toast = useToast()
   const { refresh } = useStats()
@@ -85,7 +87,8 @@ export function PracticeSession({ title, back, sentences: initial, onFinish }: {
   rec.current.onLevel = (rms) => { if (levelRef.current) levelRef.current.style.transform = `scaleX(${Math.min(1, rms * 9)})` }
 
   const listen = useCallback(async () => {
-    if (!s) return
+    if (!s || scoring) return
+    if (playing) { stopAudio(); return }
     setErr(null); setPlaying(true)
     try {
       if (useNative) {
@@ -96,11 +99,11 @@ export function PracticeSession({ title, back, sentences: initial, onFinish }: {
       }
     } catch (e) { setErr((e as Error).message) }
     finally { setPlaying(false); setPlayhead(null) }
-  }, [s, useNative, voice])
+  }, [s, useNative, voice, scoring, playing])
 
   const startRec = useCallback(async () => {
-    if (rec.current.active || scoring || engine === 'loading') return
-    setErr(null)
+    if (!s || starting.current || rec.current.active || scoring || saving || engine === 'loading') return
+    starting.current = true; setErr(null); setUnsaved(null)
     try {
       await rec.current.start()
       setRecording(true)
@@ -109,17 +112,18 @@ export function PracticeSession({ title, back, sentences: initial, onFinish }: {
       const name = (e as Error).name
       setErr(name === 'NotAllowedError' ? 'Microphone access is blocked. Allow it in the browser’s site settings.'
         : name === 'NotFoundError' ? 'No microphone found.' : !window.isSecureContext ? 'The microphone needs HTTPS (or localhost). Open kotoba through tailscale serve.' : (e as Error).message)
-    }
-  }, [along, listen, scoring, engine])
+    } finally { starting.current = false }
+  }, [s, along, listen, scoring, saving, engine])
 
   const save = useCallback(async (sentence: Sentence, r: Result) => {
-    setResults((m) => ({ ...m, [sentence.id]: r }))
+    setSaving(true); setErr(null)
     try {
       const out = await api.attempt({ sentence: sentence.id, model: r.model, overall: r.overall, accuracy: r.accuracy,
         clarity: r.clarity, fluency: r.fluency, said: r.said, units: r.units })
+      setResults((m) => ({ ...m, [sentence.id]: r }))
       setSentences((list) => list.map((x) => (x.id === sentence.id ? out.sentence : x)))
-      refresh()
-    } catch (e) { setErr('The score was not saved: ' + (e as Error).message) }
+      setUnsaved(null); refresh()
+    } catch (e) { setUnsaved({ sentence, result: r }); setErr('The score was not saved: ' + (e as Error).message) } finally { setSaving(false) }
   }, [refresh])
 
   const stopRec = useCallback(async () => {
@@ -153,25 +157,25 @@ export function PracticeSession({ title, back, sentences: initial, onFinish }: {
   })
 
   const go = useCallback((d: number) => {
-    stopAudio(); if (rec.current.active) { rec.current.stop(); setRecording(false) }
+    if (recording || scoring || saving || rec.current.active) return
+    stopAudio(); setPlaying(false); setPlayhead(null)
     setErr(null)
     setI((x) => Math.max(0, Math.min(sentences.length, x + d)))
-  }, [sentences.length])
+  }, [sentences.length, recording, scoring, saving])
 
   // keyboard: L listen, Space record/stop, N/→ next, P/← previous, F furigana
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement) return
-      if (e.metaKey || e.ctrlKey || e.altKey) return
+      if (shortcutBlocked(e) || done || scoring || saving) return
       if (e.key === ' ') { e.preventDefault(); if (recording) stopRec(); else if (!scoring) startRec() }
       else if (e.key === 'l') listen()
-      else if (e.key === 'n' || e.key === 'ArrowRight') go(1)
-      else if (e.key === 'p' || e.key === 'ArrowLeft') go(-1)
+      else if (e.key === 'n' || e.key === 'ArrowRight') { e.preventDefault(); go(1) }
+      else if (e.key === 'p' || e.key === 'ArrowLeft') { e.preventDefault(); go(-1) }
       else if (e.key === 'f') setFurigana(!furigana)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [recording, scoring, startRec, stopRec, listen, go, furigana, setFurigana])
+  }, [recording, scoring, startRec, stopRec, listen, go, furigana, setFurigana, done, saving])
   useEffect(() => () => { stopAudio(); if (rec.current.active) rec.current.stop() }, [])
 
   if (!sentences.length) {
@@ -231,7 +235,7 @@ export function PracticeSession({ title, back, sentences: initial, onFinish }: {
           <div className="stage">
             <div className="strip">
               {i > 0 && (
-                <button className="btn ghost" style={{ justifySelf: 'start', height: 'auto', padding: 0, fontWeight: 400 }} onClick={() => go(-1)} aria-label="Previous sentence">
+                <button className="btn ghost" style={{ justifySelf: 'start', height: 'auto', padding: 0, fontWeight: 400 }} disabled={recording || scoring || saving} onClick={() => go(-1)} aria-label="Previous sentence">
                   <Balloon dim tail="none"><Furigana text={sentences[i - 1].text} pairs={[]} show={false} /></Balloon>
                 </button>
               )}
@@ -241,7 +245,7 @@ export function PracticeSession({ title, back, sentences: initial, onFinish }: {
                 </span>
               </Balloon>
               {i < sentences.length - 1 && (
-                <button className="btn ghost next" style={{ height: 'auto', padding: 0, fontWeight: 400 }} onClick={() => go(1)} aria-label="Next sentence">
+                <button className="btn ghost next" style={{ height: 'auto', padding: 0, fontWeight: 400 }} disabled={recording || scoring || saving} onClick={() => go(1)} aria-label="Next sentence">
                   <Balloon dim tail="none">{sentences[i + 1].text}</Balloon>
                 </button>
               )}
@@ -250,25 +254,25 @@ export function PracticeSession({ title, back, sentences: initial, onFinish }: {
             <div className="level" aria-hidden="true"><i ref={levelRef as never} /></div>
 
             <div className="controls">
-              <button className="btn" onClick={listen} disabled={playing || recording} aria-busy={playing}>
-                <Volume2 aria-hidden="true" />{playing ? 'Playing…' : 'Listen'}
+              <button className="btn" onClick={listen} disabled={recording || scoring || saving} aria-busy={playing}>
+                <Volume2 aria-hidden="true" />{playing ? 'Stop audio' : 'Listen'}
               </button>
-              <button className={'btn rec ' + (recording ? 'red on' : 'red')} onClick={recording ? stopRec : startRec} disabled={scoring || (engine === 'loading' && !recording)} aria-busy={scoring || engine === 'loading'} aria-pressed={recording}>
+              <button className={'btn rec ' + (recording ? 'red on' : 'red')} onClick={recording ? stopRec : startRec} disabled={scoring || saving || (engine === 'loading' && !recording)} aria-busy={scoring || engine === 'loading'} aria-pressed={recording}>
                 {recording ? <Square aria-hidden="true" /> : scoring || engine === 'loading' ? <LoaderCircle className="loading-spinner" aria-hidden="true" /> : <Mic aria-hidden="true" />}
                 {scoring ? 'Scoring…' : recording ? 'Stop' : engine === 'loading' ? 'Loading Whisper…' : res ? 'Say it again' : 'Say it'}
               </button>
-              <button className="btn primary" onClick={() => go(1)}>Next<ChevronRight aria-hidden="true" /></button>
+              <button className="btn primary" disabled={recording || scoring || saving} onClick={() => go(1)}>Next<ChevronRight aria-hidden="true" /></button>
             </div>
 
-            {err && <ErrorNotice error={err} />}
+            {err && <ErrorNotice error={err} action={unsaved && <button className="btn small" disabled={saving} onClick={() => save(unsaved.sentence, unsaved.result)}>Retry saving score</button>} />}
 
             {res ? <ResultBlock r={res} s={s} /> : engine !== 'ready' && engine !== 'unknown' && engine !== 'loading' && (
               <div className="self-grade" role="group" aria-label="Grade yourself">
                 <span className="meta">No scoring engine. Grade yourself after saying it:</span>
-                <button className="btn small" onClick={() => selfGrade(30)}>Again</button>
-                <button className="btn small" onClick={() => selfGrade(65)}>Hard</button>
-                <button className="btn small" onClick={() => selfGrade(82)}>Good</button>
-                <button className="btn small" onClick={() => selfGrade(96)}>Easy</button>
+                <button className="btn small" disabled={saving} onClick={() => selfGrade(30)}>Again</button>
+                <button className="btn small" disabled={saving} onClick={() => selfGrade(65)}>Hard</button>
+                <button className="btn small" disabled={saving} onClick={() => selfGrade(82)}>Good</button>
+                <button className="btn small" disabled={saving} onClick={() => selfGrade(96)}>Easy</button>
               </div>
             )}
 
@@ -278,7 +282,8 @@ export function PracticeSession({ title, back, sentences: initial, onFinish }: {
               <span><kbd className="kbd">Space</kbd> record / stop</span>
               <span><kbd className="kbd">N</kbd> next</span>
               <span><kbd className="kbd">F</kbd> furigana</span>
-              <label style={{ display: 'inline-flex', gap: 6, alignItems: 'center', cursor: 'pointer' }}>
+              </div>
+            <div className="practice-settings"><label style={{ display: 'inline-flex', gap: 6, alignItems: 'center', cursor: 'pointer' }}>
                 <input type="checkbox" className="check" style={{ width: 14, height: 14 }} checked={along} onChange={(e) => setAlong(e.target.checked)} />
                 Speak along (play the model while recording)
               </label>
@@ -324,7 +329,7 @@ function EngineLine({ engine, onLoad }: { engine: string; onLoad: () => Promise<
   const cls = engine === 'ready' ? 'ok' : engine === 'loading' || engine === 'idle' ? 'warn' : 'off'
   return (
     <span className="engine-line" role="status">
-      {engine === 'loading' ? <LoaderCircle className="loading-spinner" size={16} aria-hidden="true" /> : <span className={'dot ' + cls} aria-hidden="true" />}{text}
+      {engine === 'loading' ? <LoaderCircle className="loading-spinner" size={16} aria-hidden="true" /> : <span className={'dot ' + cls} aria-hidden="true" />}<span className="engine-text">{text}</span>
       {(engine === 'idle' || engine === 'error') && (
         <button className="btn small" onClick={onLoad}>Load Whisper</button>
       )}
@@ -336,44 +341,49 @@ function EngineLine({ engine, onLoad }: { engine: string; onLoad: () => Promise<
 /** The native clip's waveform, with the sentence span marked and a playhead. */
 function WavePanel({ s, playhead }: { s: Sentence; playhead: number | null }) {
   const canvas = useRef<HTMLCanvasElement>(null)
-  const [buf, setBuf] = useState<AudioBuffer | null>(null)
+  const [peaks, setPeaks] = useState<{ rate: number; duration: number; peaks: number[] } | null>(null)
   const [failed, setFailed] = useState(false)
   useEffect(() => {
     let live = true
-    setBuf(null); setFailed(false)
-    api.source(s.source).then((src) => src.media ? decode(src.media) : Promise.reject())
-      .then((b) => live && setBuf(b), () => live && setFailed(true))
+    setPeaks(null); setFailed(false)
+    api.peaks(s.source).then((p) => live && setPeaks(p), () => live && setFailed(true))
     return () => { live = false }
   }, [s.source])
   useEffect(() => {
     const c = canvas.current
-    if (!c || !buf || s.start == null || s.end == null) return
-    const pad = 0.4, a = Math.max(0, s.start - pad), b = Math.min(buf.duration, s.end + pad)
+    if (!c || !peaks || s.start == null || s.end == null) return
+    const draw = () => {
+    const pad = 0.4, a = Math.max(0, s.start! - pad), b = Math.min(peaks.duration, s.end! + pad)
     const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight
     c.width = w * dpr; c.height = h * dpr
     const g = c.getContext('2d')!
     g.scale(dpr, dpr)
     const css = getComputedStyle(c)
     const ink = css.getPropertyValue('--ink').trim(), faint = css.getPropertyValue('--ink-3').trim()
-    const data = buf.getChannelData(0), rate = buf.sampleRate
+    const data = peaks.peaks, rate = peaks.rate
     const bars = Math.floor(w / 3)
     for (let k = 0; k < bars; k++) {
       const t0 = a + ((b - a) * k) / bars, t1 = a + ((b - a) * (k + 1)) / bars
       let peak = 0
-      for (let j = Math.floor(t0 * rate); j < Math.floor(t1 * rate); j += 4) peak = Math.max(peak, Math.abs(data[j] || 0))
-      const inSpan = t0 >= s.start && t1 <= s.end
+      for (let j = Math.floor(t0 * rate); j < Math.floor(t1 * rate); j++) peak = Math.max(peak, Math.abs(data[j] || 0))
+      const inSpan = t0 >= s.start! && t1 <= s.end!
       const played = playhead != null && t1 <= playhead
       g.fillStyle = inSpan ? (played ? faint : ink) : faint
       g.globalAlpha = inSpan ? 1 : 0.4
       const bh = Math.max(1.5, peak * h * 0.95)
       g.fillRect(k * 3, (h - bh) / 2, 2, bh)
     }
-  }, [buf, s.start, s.end, playhead])
+    }
+    draw()
+    const resize = new ResizeObserver(draw); resize.observe(c)
+    return () => resize.disconnect()
+  }, [peaks, s.start, s.end, playhead])
   return (
     <div className="panel big wave-panel" style={{ aspectRatio: 'auto' }}>
       <span className="kind">{s.source_kind === 'video' ? 'Video' : 'Audio'}</span>
       <div style={{ height: 8 }} />
-      {failed ? <p className="meta">The waveform could not be drawn.</p> : <canvas ref={canvas} role="img" aria-label="Waveform of the native clip" />}
+      {!peaks && !failed && <p className="meta" role="status">Drawing the waveform…</p>}
+      {failed ? <p className="meta">The waveform could not be drawn. You can still listen to the clip.</p> : <canvas ref={canvas} role="img" aria-label="Waveform of the native clip" />}
       <div className="times num"><span>{fmtTime(s.start)}</span><span>{s.end != null && s.start != null ? `${(s.end - s.start).toFixed(1)} s` : ''}</span><span>{fmtTime(s.end)}</span></div>
     </div>
   )
@@ -389,7 +399,7 @@ function Summary({ sentences, results, back, again, onFinish, toast }: {
   useEffect(() => { if (scored.length) toast({ text: `${scored.length} attempts stamped` }) }, []) // eslint-disable-line
   return (
     <section className="empty" style={{ maxWidth: '44rem' }}>
-      <h2>{scored.length ? 'Session done' : 'You skipped through'}</h2>
+      <h2>{scored.length ? 'Session done' : 'Session finished'}</h2>
       <p>{scored.length ? `${scored.length} of ${sentences.length} sentences said${avg !== null ? `, average ${avg}` : ''}. Weak ones come back in Review.` : 'Nothing was recorded this time.'}</p>
       {weak.length > 0 && (
         <div className="strip" style={{ width: '100%' }}>
@@ -402,7 +412,7 @@ function Summary({ sentences, results, back, again, onFinish, toast }: {
         </div>
       )}
       <div className="btn-row">
-        {weak.length > 0 && <button className="btn red" onClick={() => again(weak)}><RotateCcw aria-hidden="true" />Practise the {weak.length} weak ones</button>}
+        {weak.length > 0 && <button className="btn primary" onClick={() => again(weak)}><RotateCcw aria-hidden="true" />Practise the {weak.length} weak ones</button>}
         <button className="btn" onClick={() => again(sentences)}>Start over</button>
         {onFinish ? <button className="btn primary" onClick={onFinish}>Done</button> : <Link className="btn primary" to={back}>Done</Link>}
       </div>

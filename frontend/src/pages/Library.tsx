@@ -1,13 +1,13 @@
-import { Copy, Check, Play } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { Copy, Check, Play, Tag } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api, type Source, type SourceKind } from '../lib/api'
-import { Balloon } from '../components/Balloon'
+import { SentenceText } from '../components/SentenceText'
 import { Furigana } from '../components/Furigana'
 import { SourcePanel } from '../components/SourcePanel'
 import { Stamps } from '../components/Stamp'
 import { DeckPicker } from '../components/DeckPicker'
-import { ErrorNotice, SearchBox, Skeleton, clock, dayLabel, useAsync, usePref } from '../components/ui'
+import { ErrorNotice, SearchBox, Skeleton, clock, dayLabel, useAsync, usePref, useToast, useAction } from '../components/ui'
 
 const KINDS: { id: SourceKind | ''; name: string }[] = [
   { id: '', name: 'All' }, { id: 'capture', name: 'Captures' }, { id: 'audio', name: 'Audio' },
@@ -22,11 +22,16 @@ export default function LibraryPage() {
   const [furigana, setFurigana] = usePref('furigana', true)
   const [roman, setRoman] = usePref('roman', false)
   const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [labelDraft, setLabelDraft] = useState<string | null>(null)
+  const labelAction = useAction()
+  const toast = useToast()
+  const [limit, setLimit] = useState(200)
+  useEffect(() => { setSelected(new Set()); setLabelDraft(null); setLimit(200) }, [q, kind, category, label])
   const nav = useNavigate()
   const facets = useAsync(() => api.facets(), [])
   const { data, error, loading, reload } = useAsync(
-    () => api.sources({ status: 'kept', q, kind: kind || undefined, limit: 200, category, label }),
-    [q, kind, category, label])
+    () => api.sources({ status: 'kept', q, kind: kind || undefined, limit, category, label }),
+    [q, kind, category, label, limit])
 
   // identical captures show once, with a ×N count (as screen_ocr's history did)
   const groups = useMemo(() => {
@@ -48,6 +53,22 @@ export default function LibraryPage() {
   }, [data])
 
   const toggle = (id: number) => setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  const selectedSources = (data?.results ?? []).filter(s => s.sentences.some(x => selected.has(x.id)))
+  const addLabel = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await labelAction.run(async () => {
+      const name = labelDraft?.trim()
+      if (!name) return
+      if (selectedSources.some(s => !s.labels.includes(name) && s.labels.length >= 3)) {
+        throw new Error('A selected source already has three labels. Edit its labels before adding another.')
+      }
+      await api.bulk({ ids: selectedSources.map(s => s.id), add_label: name })
+      toast({ text: `Added “${name}” to ${selectedSources.length} source${selectedSources.length === 1 ? '' : 's'}` })
+      setLabelDraft(null)
+      reload()
+      facets.reload()
+    })
+  }
   const filtered = q || kind || category || label
 
   return (
@@ -65,45 +86,38 @@ export default function LibraryPage() {
             {KINDS.map((k) => <button key={k.id} className="chip" aria-pressed={kind === k.id} onClick={() => setKind(k.id)}>{k.name}</button>)}
           </div>
         </div>
-        {!!facets.data?.labels.length && (
-          <div className="group">
-            <span className="meta">Labels</span>
-            <div className="chips">
-              {facets.data.labels.map((l) => (
-                <button key={l.name} className="chip" aria-pressed={label === l.name} onClick={() => setLabel(label === l.name ? '' : l.name)}>
-                  {l.name} <span className="n">{l.count}</span>
-                </button>
-              ))}
-            </div>
+        <details className="filter-details" open={category || label ? true : undefined}>
+          <summary>Labels and categories{category || label ? ' · filtered' : ''}</summary>
+          <div className="btn-row">
+            <label className="field"><span>Label</span><select className="select" value={label} onChange={(e) => setLabel(e.target.value)}><option value="">All labels</option>{facets.data?.labels.map(l => <option key={l.name} value={l.name}>{l.name} ({l.count})</option>)}</select></label>
+            <label className="field"><span>Category</span><select className="select" value={category} onChange={(e) => setCategory(e.target.value)}><option value="">All categories</option>{facets.data?.categories.map(c => <option key={c.name} value={c.name}>{c.name} ({c.count})</option>)}</select></label>
           </div>
-        )}
-        {!!facets.data?.categories.length && (
-          <div className="group">
-            <span className="meta">Category</span>
-            <div className="chips">
-              {facets.data.categories.map((c) => (
-                <button key={c.name} className="chip" aria-pressed={category === c.name} onClick={() => setCategory(category === c.name ? '' : c.name)}>
-                  {c.name} <span className="n">{c.count}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        </details>
         <div className="group">
           <span className="meta">Show</span>
           <label className="chip" style={{ cursor: 'pointer' }}><input type="checkbox" className="check" style={{ width: 14, height: 14 }} checked={furigana} onChange={(e) => setFurigana(e.target.checked)} />Furigana</label>
           <label className="chip" style={{ cursor: 'pointer' }}><input type="checkbox" className="check" style={{ width: 14, height: 14 }} checked={roman} onChange={(e) => setRoman(e.target.checked)} />Romaji</label>
         </div>
+        {filtered && <button className="btn small ghost" onClick={() => { setQ(''); setKind(''); setCategory(''); setLabel('') }}>Clear filters</button>}
       </div>
 
       {selected.size > 0 && (
         <div className="toolbar active" role="toolbar" aria-label="Selection">
           <span className="num" style={{ fontWeight: 700 }}>{selected.size} sentences selected</span>
-          <DeckPicker small sentenceIds={() => [...selected]} onDone={() => setSelected(new Set())} />
+          <DeckPicker small sentenceIds={() => [...selected]} onDone={() => { setSelected(new Set()); setLabelDraft(null) }} />
           <button className="btn small" style={{ background: 'var(--on-ink)', color: 'var(--ink)' }}
             onClick={() => nav('/practice?ids=' + [...selected].join(','))}><Play aria-hidden="true" />Practise these</button>
+          <button className="btn small ghost" disabled={labelAction.busy} onClick={() => setLabelDraft('')}><Tag aria-hidden="true" />Add label</button>
           <span className="grow" />
-          <button className="btn small ghost" onClick={() => setSelected(new Set())}>Clear</button>
+          <button className="btn small ghost" disabled={labelAction.busy} onClick={() => { setSelected(new Set()); setLabelDraft(null) }}>Clear</button>
+          {labelDraft !== null && <form className="bulk-label-form" onSubmit={addLabel}>
+            <label className="field"><span>Label for {selectedSources.length} selected source{selectedSources.length === 1 ? '' : 's'}</span>
+              <input className="input" autoFocus maxLength={40} value={labelDraft} disabled={labelAction.busy} onChange={e => setLabelDraft(e.target.value)} placeholder="e.g. lesson 18" /></label>
+            <button className="btn small" disabled={labelAction.busy || !labelDraft.trim()}>{labelAction.busy ? 'Adding…' : 'Add label'}</button>
+            <button type="button" className="btn small ghost" disabled={labelAction.busy} onClick={() => setLabelDraft(null)}>Cancel</button>
+            <p className="meta">Labels apply to the whole source, including its other sentences. Existing labels are kept.</p>
+            {labelAction.error != null && <ErrorNotice error={labelAction.error} />}
+          </form>}
         </div>
       )}
 
@@ -124,6 +138,7 @@ export default function LibraryPage() {
             </section>
           )
         })}
+      {data && data.results.length < data.count && <button className="btn" disabled={loading} onClick={() => setLimit((n) => n + 200)}>{loading ? 'Loading…' : 'Load more sources'}</button>}
     </>
   )
 }
@@ -141,12 +156,12 @@ function LibrarySource({ s, n, furigana, roman, selected, toggle }: {
         {s.title && <h3><Link to={`/sources/${s.id}`} style={{ textDecoration: 'none' }}>{s.title}</Link></h3>}
         <div className="rows">
           {shown.map((x, i) => (
-            <div className="row" key={x.id} style={{ gridTemplateColumns: 'auto minmax(0,1fr) auto', borderBottom: i === shown.length - 1 ? 0 : undefined }}>
+            <div className="row row-select" key={x.id} style={{ borderBottom: i === shown.length - 1 ? 0 : undefined }}>
               <input type="checkbox" className="check" checked={selected.has(x.id)} onChange={() => toggle(x.id)} aria-label={`Select ${x.text}`} />
-              <Balloon tail={i === 0 ? 'left' : 'none'}>
+              <SentenceText>
                 <Furigana text={x.text} pairs={x.furigana} show={furigana} />
                 {roman && x.roman && <span className="roman">{x.roman.split('\t')[0]}</span>}
-              </Balloon>
+              </SentenceText>
               <div className="acts"><Link className="btn small ghost" to={`/sentences/${x.id}`}>Details</Link><Stamps stamps={x.stamps} max={3} /><CopyButton text={x.text} /></div>
             </div>
           ))}
@@ -168,9 +183,12 @@ function LibrarySource({ s, n, furigana, roman, selected, toggle }: {
 
 export function CopyButton({ text }: { text: string }) {
   const [done, setDone] = useState(false)
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const toast = useToast()
+  useEffect(() => () => clearTimeout(timer.current), [])
   return (
     <button className="btn small icon ghost" aria-label={done ? 'Copied' : 'Copy'} title="Copy"
-      onClick={async () => { try { await navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 1400) } catch { /* insecure context */ } }}>
+      onClick={async () => { try { await navigator.clipboard.writeText(text); setDone(true); clearTimeout(timer.current); timer.current = setTimeout(() => setDone(false), 1400); toast({ text: 'Copied' }) } catch { toast({ text: 'Couldn’t copy. Select the text and copy it manually, or open kotoba over HTTPS.' }) } }}>
       {done ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
     </button>
   )

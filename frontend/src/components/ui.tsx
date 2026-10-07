@@ -1,11 +1,30 @@
-import { Search as SearchIcon, AlertTriangle } from 'lucide-react'
+import { Search as SearchIcon, AlertTriangle, X } from 'lucide-react'
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+
+export function shortcutBlocked(e: KeyboardEvent) {
+  return e.defaultPrevented || e.isComposing || e.repeat || e.metaKey || e.ctrlKey || e.altKey ||
+    (e.target instanceof Element && !!e.target.closest('input, textarea, select, button, a, [contenteditable]:not([contenteditable="false"]), [role="dialog"]'))
+}
+
+export function useAction() {
+  const lock = useRef(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<unknown>(null)
+  const run = useCallback(async (fn: () => Promise<void>) => {
+    if (lock.current) return
+    lock.current = true; setBusy(true); setError(null)
+    try { await fn() } catch (err) { setError(err) }
+    finally { lock.current = false; setBusy(false) }
+  }, [])
+  const clearError = useCallback(() => setError(null), [])
+  return { busy, error, run, clearError }
+}
 
 export function SearchBox({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
   const ref = useRef<HTMLInputElement>(null)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === '/' && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+      if (e.key === '/' && !shortcutBlocked(e)) {
         e.preventDefault(); ref.current?.focus()
       }
     }
@@ -36,26 +55,30 @@ export function ErrorNotice({ error, action }: { error: unknown; action?: ReactN
   )
 }
 
-type Toast = { text: string; undo?: () => void }
+type Toast = { text: string; undo?: () => void | Promise<void> }
 const ToastCtx = createContext<(t: Toast) => void>(() => {})
 export const useToast = () => useContext(ToastCtx)
 
 export function ToastHost({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<Toast | null>(null)
   const timer = useRef<number | undefined>(undefined)
+  const undoAction = useAction()
+  const { clearError } = undoAction
   const show = useCallback((t: Toast) => {
-    setToast(t)
+    clearError(); setToast(t)
     window.clearTimeout(timer.current)
-    timer.current = window.setTimeout(() => setToast(null), t.undo ? 6000 : 3000)
-  }, [])
+    if (!t.undo) timer.current = window.setTimeout(() => setToast(null), 5000)
+  }, [clearError])
+  useEffect(() => () => window.clearTimeout(timer.current), [])
   return (
     <ToastCtx.Provider value={show}>
       {children}
       <div aria-live="polite">
         {toast && (
           <div className="toast" role="status">
-            {toast.text}
-            {toast.undo && <button className="btn small" onClick={() => { toast.undo?.(); setToast(null) }}>Undo</button>}
+            <span>{toast.text}{undoAction.error != null && <span role="alert" className="toast-error">Undo failed. Check your connection and try Undo again.</span>}</span>
+            {toast.undo && <button className="btn small" disabled={undoAction.busy} onClick={() => undoAction.run(async () => { await toast.undo?.(); setToast(null) })}>Undo</button>}
+            <button className="btn small icon" aria-label="Dismiss notification" onClick={() => setToast(null)}><X aria-hidden="true" /></button>
           </div>
         )}
       </div>
@@ -84,7 +107,9 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]) {
     return () => { live = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, tick])
-  return { ...state, reload: () => setTick((t) => t + 1), set: (data: T) => setState({ data, loading: false }) }
+  const reload = useCallback(() => setTick((t) => t + 1), [])
+  const set = useCallback((data: T) => setState({ data, loading: false }), [])
+  return { ...state, reload, set }
 }
 
 export const dayLabel = (iso: string) => {

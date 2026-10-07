@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import { api } from '../lib/api'
-import { ErrorNotice, Skeleton, useAsync } from '../components/ui'
-import { Balloon } from '../components/Balloon'
+import { ErrorNotice, Skeleton, useAsync, usePref } from '../components/ui'
+import { SentenceText } from '../components/SentenceText'
+import { Furigana } from '../components/Furigana'
 import { Stamps } from '../components/Stamp'
 import { PracticeSession } from './Practice'
 
@@ -15,6 +16,7 @@ const when = (iso: string) => {
 
 export default function ReviewPage() {
   const { data, error, loading, reload } = useAsync(() => api.review(), [])
+  const [furigana] = usePref('furigana', true)
   const [running, setRunning] = useState(false)
   if (error) return <ErrorNotice error={error} action={<button className="btn small" onClick={reload}>Try again</button>} />
   if (loading || !data) return <Skeleton rows={3} />
@@ -32,11 +34,11 @@ export default function ReviewPage() {
             {data.due.length ? `${data.due.length} sentence${data.due.length > 1 ? 's' : ''} scored low or are due again.` : ''}
             {data.new.length ? ` ${data.new.length} new from your library join them.` : ''}
           </p>
-          <div><button className="btn red" style={{ height: 48, padding: '0 var(--s-6)', fontSize: 'var(--t-m)' }} onClick={() => setRunning(true)} autoFocus>Start review</button></div>
+          <div><button className="btn primary" style={{ height: 48, padding: '0 var(--s-6)', fontSize: 'var(--t-m)' }} onClick={() => setRunning(true)} autoFocus>Start review</button></div>
           <div className="rows">
-            {queue.slice(0, 12).map((s, k) => (
-              <div className="row" key={s.id} style={{ gridTemplateColumns: 'minmax(0,1fr) auto' }}>
-                <Balloon tail="none" dim={k > 4}>{s.text}</Balloon>
+            {queue.slice(0, 12).map(s => (
+              <div className="row row-simple" key={s.id}>
+                <SentenceText><Furigana text={s.text} pairs={s.furigana} show={furigana} /></SentenceText>
                 <div className="acts"><Link className="btn small ghost" to={`/sentences/${s.id}`}>Details</Link>{s.last == null ? <span className="plate hollow">new</span> : <Stamps stamps={s.stamps} max={3} />}</div>
               </div>
             ))}

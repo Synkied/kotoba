@@ -27,11 +27,10 @@ export function Units({ units, pairs = [], show = false }: { units: Unit[]; pair
     at = start + surface.length
     return [{ start, end: at, pair: [surface, reading] as [string, string] }]
   })
-  let offset = 0
+  const offsets = units.reduce<number[]>((out, u) => [...out, out[out.length - 1] + u.text.length], [0])
   return <>{units.map((u, i) => {
-    const start = offset
-    offset += u.text.length
-    const readings = spans.filter(p => p.start >= start && p.end <= offset).map(p => p.pair)
+    const start = offsets[i], end = offsets[i + 1]
+    const readings = spans.filter(p => p.start >= start && p.end <= end).map(p => p.pair)
     return <span key={i} className={'unit ' + u.status} title={u.status === 'ok' ? undefined : u.status}><Furigana text={u.text} pairs={readings} show={show} /></span>
   })}</>
 }

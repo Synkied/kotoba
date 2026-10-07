@@ -1,6 +1,6 @@
 import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 
-/** The signature: every sentence is a speech balloon, cut like manga's electronic-sound
+/** Practice sentences use a speech balloon, cut like manga's electronic-sound
  *  balloon (ruled straight edges, clipped corners, a wedge tail). Its outline is its state.
  *  round  = the model line / a sentence at rest (the name predates the ruled outline)
  *  burst  = you are speaking (recording): the edges crackle
@@ -102,7 +102,7 @@ export function Balloon({ shape = 'round', tail = 'left', big, dim, live, classN
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
-  const cls = ['balloon', shape, big && 'big', dim && 'dim tone', live && 'live', className].filter(Boolean).join(' ')
+  const cls = ['balloon', shape, tail === 'left' && 'has-tail', big && 'big', dim && 'dim tone', live && 'live', className].filter(Boolean).join(' ')
   return (
     <div ref={ref} className={cls} lang={lang}>
       {box[0] > 0 && (
