@@ -2,7 +2,7 @@ export type Stamp = { id: number; created_at: string; overall: number; accuracy:
 export type Sentence = {
   id: number; source: number; source_kind: SourceKind; source_title: string; position: number
   text: string; roman: string; furigana: [string, string][]; start: number | null; end: number | null
-  note: string; reading_overrides: [string, string][]; has_audio: boolean; image: string | null; due: string | null; reps: number; lapses: number
+  note: string; translations: Record<string, string>; reading_overrides: [string, string][]; has_audio: boolean; image: string | null; due: string | null; reps: number; lapses: number
   best: number | null; last: number | null; stamps: Stamp[]; decks: { id: number; name: string }[]; created_at: string
 }
 export type SourceKind = 'capture' | 'audio' | 'video' | 'subtitle' | 'text'
@@ -52,6 +52,20 @@ export type Addons = {
   queue: { waiting: number; failed: number; jobs: Job[] }
   screen_ocr: { last_capture: string | null }
   dictionary: DictionaryStatus
+}
+/** translator and cloud come with the quick read: who does the work, and whether it costs credits */
+export type Language = { to: string; name: string; translator?: string; cloud?: boolean }
+export type TranslatorKind = 'ollama' | 'llamacpp' | 'anthropic' | 'openai'
+export type Translator = {
+  id: string; kind: TranslatorKind; name: string; url: string; model: string
+  key_set: boolean; key_hint: string; cloud: boolean; builtin: boolean
+}
+/** What the form sends: an empty key keeps the saved one. */
+export type TranslatorDraft = { id?: string; kind: TranslatorKind; name: string; url: string; model: string; key: string }
+export type TranslatorCheck = { url: string; model: string; cloud: boolean; ready: boolean; error: string | null; models: string[] }
+export type TranslationStatus = Language & TranslatorCheck & {
+  languages: { code: string; name: string }[]; translated: number; sentences: number
+  active: string; translators: Translator[]; defaults: Record<TranslatorKind, string>
 }
 export type DictionaryStatus = { state: 'missing' | 'downloading' | 'ready' | 'error'; error: string | null; lang: string; version?: string }
 export type DictEntry = {
@@ -142,7 +156,16 @@ export const api = {
   sentences: (p: { q?: string; category?: string; label?: string; deck?: number; source?: number; status?: string; limit?: number; offset?: number }) =>
     req<Page<Sentence>>('sentences' + qs({ limit: 200, ...p })),
   sentence: (id: number) => req<Sentence>(`sentences/${id}`),
-  updateSentence: (id: number, data: Partial<Pick<Sentence, 'text' | 'note' | 'reading_overrides'>>) => req<Sentence>(`sentences/${id}`, json('PATCH', data)),
+  updateSentence: (id: number, data: Partial<Pick<Sentence, 'text' | 'note' | 'reading_overrides' | 'translations'>>) => req<Sentence>(`sentences/${id}`, json('PATCH', data)),
+  translate: (id: number, force = false) => req<Sentence>(`sentences/${id}/translate`, json('POST', { force })),
+  language: () => req<Language>('translation?quick=1'),
+  translation: () => req<TranslationStatus>('translation'),
+  setLanguage: (to: string) => req<TranslationStatus>('translation', json('PATCH', { to })),
+  chooseTranslator: (active: string) => req<TranslationStatus>('translation', json('PATCH', { active })),
+  addTranslator: (t: TranslatorDraft, activate: boolean) => req<Translator>('translation/translators', json('POST', { ...t, activate })),
+  updateTranslator: (id: string, t: TranslatorDraft, activate: boolean) => req<Translator>(`translation/translators/${id}`, json('PATCH', { ...t, activate })),
+  removeTranslator: (id: string) => req<void>(`translation/translators/${id}`, { method: 'DELETE' }),
+  testTranslator: (t: TranslatorDraft) => req<TranslatorCheck>('translation/translators/test', json('POST', t)),
   deleteSentence: (id: number) => req<void>(`sentences/${id}`, { method: 'DELETE' }),
   decks: () => req<Page<Deck>>('decks?limit=500'),
   deck: (id: number) => req<Deck>(`decks/${id}`),

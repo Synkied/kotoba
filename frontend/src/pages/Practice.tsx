@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Mic, Square, Volume2, RotateCcw, AudioLines, Bot, LoaderCircle } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ChevronRight, Mic, Square, Volume2, RotateCcw, X, AudioLines, Bot, LoaderCircle } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, allSentences, type Score, type Sentence } from '../lib/api'
@@ -7,8 +7,9 @@ import { Balloon } from '../components/Balloon'
 import { Furigana, Units } from '../components/Furigana'
 import { SourcePanel, fmtTime } from '../components/SourcePanel'
 import { Stamp, Stamps } from '../components/Stamp'
-import { ErrorNotice, Skeleton, useAsync, usePref, useToast, shortcutBlocked } from '../components/ui'
+import { ErrorNotice, Skeleton, useAsync, usePref, useToast, useVoiceLoading, shortcutBlocked } from '../components/ui'
 import { useStats } from '../App'
+import { MeaningHint, ReadingAids, useAids } from '../components/ReadingAids'
 
 export default function PracticePage() {
   const [params] = useSearchParams()
@@ -19,7 +20,8 @@ export default function PracticePage() {
   const { data, error, loading } = useAsync(async () => {
     if (sentence) {
       const s = await api.sentence(sentence)
-      return { title: 'Sentence practice', back: `/sentences/${s.id}`, sentences: [s] }
+      const back = params.get('from') === 'source' ? `/sources/${s.source}` : `/sentences/${s.id}`
+      return { title: 'Sentence practice', back, sentences: [s] }
     }
     if (deck) {
       const [d, s] = await Promise.all([api.deck(deck), allSentences({ deck })])
@@ -57,13 +59,16 @@ export function PracticeSession({ title, back, sentences: initial, onFinish }: {
   const [model, setModel] = usePref<'native' | 'tts'>('model', 'native')
   const [voice, setVoice] = usePref<string>('voice', 'browser')
   const [along, setAlong] = usePref('along', false)
-  const [furigana, setFurigana] = usePref('furigana', true)
+  const aids = useAids()
+  const { furigana, setFurigana, roman, setRoman, translation, setTranslation } = aids
+  const [meaningFor, setMeaningFor] = useState<number | null>(null)  // the sentence whose meaning is unfolded
   const [engine, setEngine] = useState<'unknown' | 'ready' | 'loading' | 'idle' | 'off' | 'error' | 'missing'>('unknown')
   const [voices, setVoices] = useState<{ id: string; name: string }[]>([])
   const rec = useRef(new Recorder())
   const starting = useRef(false)
   const levelRef = useRef<HTMLElement>(null)
   const toast = useToast()
+  const voiceLoading = useVoiceLoading()
   const { refresh } = useStats()
 
   const s = sentences[i]
@@ -137,10 +142,22 @@ export function PracticeSession({ title, back, sentences: initial, onFinish }: {
     setScoring(true)
     try {
       const score = await api.score(pcm, s.text)
+      if (!score.said.trim()) { setErr('No speech heard in that take. Say it again, a little closer to the microphone.'); return }
       await save(s, { ...score, model: useNative ? 'native' : 'tts' })
     } catch (e) { setErr((e as Error).message) }
     finally { setScoring(false) }
   }, [s, engine, save, useNative])
+
+  // drop the take unscored, ready to say it again
+  const discardRec = useCallback(() => {
+    if (!rec.current.active) return
+    stopAudio(); setPlaying(false); setPlayhead(null)
+    rec.current.stop()
+    setRecording(false); setErr(null)
+    if (levelRef.current) levelRef.current.style.transform = 'scaleX(0)'
+  }, [])
+
+  const dismissErr = useCallback(() => { setErr(null); setUnsaved(null) }, [])
 
   useEffect(() => {
     rec.current.onAutoStop = () => { void stopRec() }
@@ -163,19 +180,24 @@ export function PracticeSession({ title, back, sentences: initial, onFinish }: {
     setI((x) => Math.max(0, Math.min(sentences.length, x + d)))
   }, [sentences.length, recording, scoring, saving])
 
-  // keyboard: L listen, Space record/stop, N/→ next, P/← previous, F furigana
+  // keyboard: L listen, Space record/stop, Esc discard, N/→ next, P/← previous, F furigana, R romaji, T meaning
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Esc (discard the take, or put away an error) still works with the record button focused, which it is after a click
+      const inField = e.target instanceof Element && !!e.target.closest('input, textarea, select, [role="dialog"]')
+      if (e.key === 'Escape' && !e.defaultPrevented && !inField && (recording || err)) { e.preventDefault(); if (recording) discardRec(); else dismissErr(); return }
       if (shortcutBlocked(e) || done || scoring || saving) return
       if (e.key === ' ') { e.preventDefault(); if (recording) stopRec(); else if (!scoring) startRec() }
       else if (e.key === 'l') listen()
       else if (e.key === 'n' || e.key === 'ArrowRight') { e.preventDefault(); go(1) }
       else if (e.key === 'p' || e.key === 'ArrowLeft') { e.preventDefault(); go(-1) }
       else if (e.key === 'f') setFurigana(!furigana)
+      else if (e.key === 'r') setRoman(!roman)
+      else if (e.key === 't' && s) { if (!translation) setTranslation(true); setMeaningFor(meaningFor === s.id ? null : s.id) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [recording, scoring, startRec, stopRec, listen, go, furigana, setFurigana, done, saving])
+  }, [recording, scoring, startRec, stopRec, discardRec, err, dismissErr, listen, go, furigana, setFurigana, roman, setRoman, translation, setTranslation, meaningFor, s, done, saving])
   useEffect(() => () => { stopAudio(); if (rec.current.active) rec.current.stop() }, [])
 
   if (!sentences.length) {
@@ -230,6 +252,7 @@ export function PracticeSession({ title, back, sentences: initial, onFinish }: {
             </div>
             {!canNative && <p className="meta">{s.source_kind === 'capture' ? 'From a screen capture: no native audio, so the synthetic voice reads it.' : 'This sentence has no timed audio.'}</p>}
             <p className="meta"><Link to={`/sources/${s.source}`}>{s.source_title}</Link>{s.start != null && <> · <span className="num">{fmtTime(s.start)}</span></>}</p>
+            <Keys meaning={translation} />
           </div>
 
           <div className="stage">
@@ -243,7 +266,11 @@ export function PracticeSession({ title, back, sentences: initial, onFinish }: {
                 <span className="text" aria-live="polite">
                   {res && res.units.length ? <Units units={res.units} pairs={s.furigana} show={furigana} /> : <Furigana text={s.text} pairs={s.furigana} show={furigana} />}
                 </span>
+                {roman && s.roman && <span className="roman">{s.roman.split('\t')[0]}</span>}
               </Balloon>
+              <ReadingAids aids={aids} roman={!!s.roman} keys />
+              {translation && <MeaningHint s={s} open={meaningFor === s.id} onOpen={() => setMeaningFor(s.id)}
+                onTranslated={(n) => setSentences((list) => list.map((x) => (x.id === n.id ? n : x)))} />}
               {i < sentences.length - 1 && (
                 <button className="btn ghost next" style={{ height: 'auto', padding: 0, fontWeight: 400 }} disabled={recording || scoring || saving} onClick={() => go(1)} aria-label="Next sentence">
                   <Balloon dim tail="none">{sentences[i + 1].text}</Balloon>
@@ -254,18 +281,35 @@ export function PracticeSession({ title, back, sentences: initial, onFinish }: {
             <div className="level" aria-hidden="true"><i ref={levelRef as never} /></div>
 
             <div className="controls">
-              <button className="btn" onClick={listen} disabled={recording || scoring || saving} aria-busy={playing}>
-                <Volume2 aria-hidden="true" />{playing ? 'Stop audio' : 'Listen'}
-              </button>
+              {recording ? (
+                <button className="btn" onClick={discardRec} title="Stop without scoring (Esc)"><X aria-hidden="true" />Discard</button>
+              ) : (
+                <button className="btn" onClick={listen} disabled={scoring || saving} aria-busy={playing}>
+                  {voiceLoading ? <LoaderCircle className="loading-spinner" aria-hidden="true" /> : <Volume2 aria-hidden="true" />}{voiceLoading ? 'Loading voice…' : playing ? 'Stop audio' : 'Listen'}
+                </button>
+              )}
               <button className={'btn rec ' + (recording ? 'red on' : 'red')} onClick={recording ? stopRec : startRec} disabled={scoring || saving || (engine === 'loading' && !recording)} aria-busy={scoring || engine === 'loading'} aria-pressed={recording}>
                 {recording ? <Square aria-hidden="true" /> : scoring || engine === 'loading' ? <LoaderCircle className="loading-spinner" aria-hidden="true" /> : <Mic aria-hidden="true" />}
                 {scoring ? 'Scoring…' : recording ? 'Stop' : engine === 'loading' ? 'Loading Whisper…' : res ? 'Say it again' : 'Say it'}
               </button>
               <button className="btn primary" disabled={recording || scoring || saving} onClick={() => go(1)}>Next<ChevronRight aria-hidden="true" /></button>
+              {err && (
+                <div className="notice error take-error" role="alert">
+                  <AlertTriangle aria-hidden="true" />
+                  <span className="grow">{err}</span>
+                  {unsaved && <button className="btn small" disabled={saving} onClick={() => save(unsaved.sentence, unsaved.result)}>Retry saving score</button>}
+                  <button className="btn small icon ghost" aria-label="Dismiss" title="Dismiss (Esc)" onClick={dismissErr}><X aria-hidden="true" /></button>
+                </div>
+              )}
+            </div>
+            <div className="practice-settings"><label style={{ display: 'inline-flex', gap: 6, alignItems: 'center', cursor: 'pointer' }}>
+                <input type="checkbox" className="check" style={{ width: 14, height: 14 }} checked={along} onChange={(e) => setAlong(e.target.checked)} />
+                Speak along (play the model while recording)
+              </label>
+              <span className="meta">Recording stops by itself after 1.5 seconds of silence.</span>
             </div>
 
-            {err && <ErrorNotice error={err} action={unsaved && <button className="btn small" disabled={saving} onClick={() => save(unsaved.sentence, unsaved.result)}>Retry saving score</button>} />}
-
+            {!res && s.stamps.length > 0 && <History s={s} />}
             {res ? <ResultBlock r={res} s={s} /> : engine !== 'ready' && engine !== 'unknown' && engine !== 'loading' && (
               <div className="self-grade" role="group" aria-label="Grade yourself">
                 <span className="meta">No scoring engine. Grade yourself after saying it:</span>
@@ -276,22 +320,21 @@ export function PracticeSession({ title, back, sentences: initial, onFinish }: {
               </div>
             )}
 
-            <div className="hints">
-              <span>Stops automatically after 1.5 seconds of silence</span>
-              <span><kbd className="kbd">L</kbd> listen</span>
-              <span><kbd className="kbd">Space</kbd> record / stop</span>
-              <span><kbd className="kbd">N</kbd> next</span>
-              <span><kbd className="kbd">F</kbd> furigana</span>
-              </div>
-            <div className="practice-settings"><label style={{ display: 'inline-flex', gap: 6, alignItems: 'center', cursor: 'pointer' }}>
-                <input type="checkbox" className="check" style={{ width: 14, height: 14 }} checked={along} onChange={(e) => setAlong(e.target.checked)} />
-                Speak along (play the model while recording)
-              </label>
-            </div>
           </div>
         </div>
       )}
     </>
+  )
+}
+
+/** The keyboard, kept beside the source where scores and errors never push it out of sight. */
+function Keys({ meaning }: { meaning: boolean }) {
+  const keys: [string, string][] = [['L', 'listen'], ['Space', 'record / stop'], ['Esc', 'discard'], ['N', 'next'], ['P', 'previous'],
+    ['F', 'furigana'], ['R', 'romaji'], ...(meaning ? [['T', 'meaning'] as [string, string]] : [])]
+  return (
+    <dl className="keys" aria-label="Keyboard shortcuts">
+      {keys.map(([k, what]) => <div key={k}><dt><kbd className="kbd">{k}</kbd></dt><dd>{what}</dd></div>)}
+    </dl>
   )
 }
 
@@ -314,6 +357,28 @@ function ResultBlock({ r, s }: { r: Result; s: Sentence }) {
           </div>
         )}
         <div style={{ display: 'flex', gap: 'var(--s-3)', alignItems: 'center' }}><span className="meta">Earlier</span><Stamps stamps={s.stamps.slice(1)} max={8} /></div>
+      </div>
+    </section>
+  )
+}
+
+/** Before saying it: how the last tries went, from any earlier session. */
+function History({ s }: { s: Sentence }) {
+  const [last, ...earlier] = s.stamps
+  const when = new Date(last.created_at)
+  const days = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(when).setHours(0, 0, 0, 0)) / 864e5)
+  const day = days === 0 ? 'today' : days === 1 ? 'yesterday' : days < 7 ? `${days} days ago` : when.toLocaleDateString()
+  return (
+    <section className="result history" aria-label="Earlier scores">
+      <Stamp s={last} />
+      <div style={{ display: 'grid', gap: 'var(--s-2)' }}>
+        <p className="meta">Last time, {day}{s.best != null && s.best > last.overall ? <> · best <span className="num">{s.best}</span></> : null}</p>
+        <dl>
+          <div><dt>Accuracy</dt><dd>{last.accuracy}</dd></div>
+          <div><dt>Clarity</dt><dd>{last.clarity}</dd></div>
+          <div><dt>Fluency</dt><dd>{last.fluency}</dd></div>
+        </dl>
+        {earlier.length > 0 && <div style={{ display: 'flex', gap: 'var(--s-3)', alignItems: 'center' }}><span className="meta">Before</span><Stamps stamps={earlier} max={8} /></div>}
       </div>
     </section>
   )

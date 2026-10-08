@@ -6,7 +6,8 @@ import { Furigana } from '../components/Furigana'
 import { SentenceAudio } from '../components/SentenceAudio'
 import { DeckPicker } from '../components/DeckPicker'
 import { Stamps } from '../components/Stamp'
-import { ErrorNotice, Skeleton, useAsync, usePref, useToast } from '../components/ui'
+import { ErrorNotice, Skeleton, useAsync, useToast } from '../components/ui'
+import { ReadingAids, Translation, useAids, useLanguage } from '../components/ReadingAids'
 
 export default function SentencePage() {
   const id = Number(useParams().id)
@@ -14,8 +15,7 @@ export default function SentencePage() {
 }
 function Detail({ id }: { id: number }) {
   const detail = useAsync(async () => { const sentence = await api.sentence(id); return { sentence, source: await api.source(sentence.source) } }, [id])
-  const [furigana, setFurigana] = usePref('furigana', true)
-  const [roman] = usePref('roman', false)
+  const aids = useAids()
   const [note, setNote] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<unknown>(null)
@@ -29,8 +29,9 @@ function Detail({ id }: { id: number }) {
       <p className="meta">From <Link to={`/sources/${source.id}`}>{source.title || s.source_title}</Link></p></div>
     </header>
     <div className="sentence-layout"><div className="sentence-main">
-      <section className="sentence-reading" aria-label="Sentence text"><SentenceText><Furigana text={s.text} pairs={s.furigana} show={furigana} />{roman && s.roman && <span className="roman">{s.roman.split('\t')[0]}</span>}</SentenceText>
-      <label className="sentence-toggle"><input className="check" type="checkbox" checked={furigana} onChange={e => setFurigana(e.target.checked)} /> Show furigana</label>
+      <section className="sentence-reading" aria-label="Sentence text"><SentenceText><Furigana text={s.text} pairs={s.furigana} show={aids.furigana} />{aids.roman && s.roman && <span className="roman">{s.roman.split('\t')[0]}</span>}
+        {aids.translation && <Translation s={s} onTranslated={updated => detail.set({ source, sentence: updated })} />}</SentenceText>
+      <ReadingAids aids={aids} roman={!!s.roman} />
       <div className="sentence-actions">
       <Link className="btn primary" to={`/practice?sentence=${s.id}`}>Practise sentence</Link>
       <button className="btn" onClick={async () => { try { await navigator.clipboard.writeText(window.location.href); toast({ text: 'Sentence link copied' }) } catch { toast({ text: 'Copy the link from your address bar' }) } }}>Copy link</button>
@@ -39,6 +40,7 @@ function Detail({ id }: { id: number }) {
       {source.media ? <SentenceAudio sentence={s} source={source} /> : <p className="meta">This sentence has no source audio.</p>}
       {s.image && <img className="sentence-image" src={s.image} alt="Original source capture" />}
       <ReadingEditor sentence={s} onSaved={updated => detail.set({ source, sentence: updated })} />
+      <TranslationEditor key={s.id} sentence={s} onSaved={updated => detail.set({ source, sentence: updated })} />
       <section className="sentence-section"><h2>Notes</h2><form className="sentence-notes" onSubmit={async e => {
         e.preventDefault(); setSaving(true); setSaveError(null)
         try { const updated = await api.updateSentence(s.id, { note: note ?? s.note }); detail.set({ source, sentence: updated }); setNote(null); toast({ text: 'Note saved' }) } catch (err) { setSaveError(err) } finally { setSaving(false) }
@@ -72,5 +74,39 @@ function ReadingEditor({ sentence: s, onSaved }: { sentence: Sentence; onSaved: 
   </form>}
   {s.reading_overrides.length > 0 && <button className="btn ghost" disabled={busy} onClick={() => void save([])}>Reset to automatic</button>}
   {error != null && <ErrorNotice error={error} />}
+  </section>
+}
+
+/** The translation in the chosen language: fix it by hand, or ask for a fresh one. */
+function TranslationEditor({ sentence: s, onSaved }: { sentence: Sentence; onSaved: (s: Sentence) => void }) {
+  const lang = useLanguage()
+  const [draft, setDraft] = useState<string | null>(null)
+  const [busy, setBusy] = useState<'save' | 'translate' | null>(null)
+  const [error, setError] = useState<unknown>(null)
+  const toast = useToast()
+  if (!lang) return null
+  const saved = s.translations[lang.to] ?? ''
+  const run = async (what: 'save' | 'translate') => {
+    setBusy(what); setError(null)
+    try {
+      const updated = what === 'save'
+        ? await api.updateSentence(s.id, { translations: { ...s.translations, [lang.to]: draft ?? saved } })
+        : await api.translate(s.id, true)
+      onSaved(updated); setDraft(null)
+      toast({ text: what === 'save' ? 'Translation saved' : 'Translated again' })
+    } catch (err) { setError(err) } finally { setBusy(null) }
+  }
+  return <section className="sentence-section"><h2>{lang.name}</h2>
+    <form className="sentence-notes" onSubmit={e => { e.preventDefault(); void run('save') }}>
+      <label><span className="sr">{lang.name} translation</span>
+        <textarea className="input" rows={2} lang={lang.to} value={draft ?? saved} onChange={e => setDraft(e.target.value)}
+          placeholder={`What it means in ${lang.name}. Write your own, or ask the translator.`} /></label>
+      {error != null && <ErrorNotice error={error} action={<Link to="/addons">Set up translation</Link>} />}
+      <div className="btn-row">
+        <button className="btn primary" disabled={busy !== null || draft === null || draft === saved}>{busy === 'save' ? 'Saving…' : 'Save translation'}</button>
+        <button type="button" className="btn" disabled={busy !== null} onClick={() => void run('translate')} aria-busy={busy === 'translate'}>
+          {busy === 'translate' ? 'Translating…' : saved ? 'Translate again' : 'Translate'}</button>
+      </div>
+    </form>
   </section>
 }

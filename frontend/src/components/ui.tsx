@@ -119,7 +119,9 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, tick])
   const reload = useCallback(() => setTick((t) => t + 1), [])
-  const set = useCallback((data: T) => setState({ data, loading: false }), [])
+  // an updater sees the latest data, for results that land one after another
+  const set = useCallback((data: T | ((prev: T) => T)) => setState((st) =>
+    ({ data: typeof data === 'function' ? (data as (prev: T) => T)(st.data as T) : data, loading: false })), [])
   return { ...state, reload, set }
 }
 

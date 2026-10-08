@@ -10,7 +10,8 @@ import { MAX_LABELS, parseLabels } from '../lib/labels'
 import { SourcePanel, fmtTime } from '../components/SourcePanel'
 import { Stamps } from '../components/Stamp'
 import { DeckPicker } from '../components/DeckPicker'
-import { ErrorNotice, Skeleton, clock, dayLabel, useAsync, usePref, useToast, useAction } from '../components/ui'
+import { ErrorNotice, Skeleton, clock, dayLabel, useAsync, useToast, useAction } from '../components/ui'
+import { ReadingAids, TranslateAll, Translation, useAids } from '../components/ReadingAids'
 import { CopyButton } from './Library'
 
 export default function SourcePage() {
@@ -20,8 +21,7 @@ export default function SourcePage() {
 
 function SourcePageDetail({ id }: { id: number }) {
   const { data: s, error, set, reload } = useAsync(() => api.source(id), [id])
-  const [furigana] = usePref('furigana', true)
-  const [roman] = usePref('roman', false)
+  const aids = useAids()
   const player = useRef<PlayerHandle>(null)
   // the playhead, once playback has started: it lights up the sentence being spoken
   const [head, setHead] = useState<{ t: number; playing: boolean } | null>(null)
@@ -112,11 +112,15 @@ function SourcePageDetail({ id }: { id: number }) {
         {head?.playing && !follow && current != null && (
           <button className="btn primary follow-voice" onClick={() => setFollow(true)}><ListEnd aria-hidden="true" />Back to the current line</button>
         )}
+        {s.sentences.length > 0 && <div className="aids-bar">
+          <ReadingAids aids={aids} roman={s.sentences.some((x) => x.roman)} />
+          {aids.translation && <TranslateAll sentences={s.sentences} />}
+        </div>}
         <ol className="rows" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-          {s.sentences.map(x => <SentenceRow key={x.id} x={x} furigana={furigana} roman={roman} audio={!!s.media && x.start != null}
+          {s.sentences.map(x => <SentenceRow key={x.id} x={x} furigana={aids.furigana} roman={aids.roman} translation={aids.translation} audio={!!s.media && x.start != null}
             current={current === x.id} past={head != null && x.end != null && timed.includes(x) && x.end <= head.t && current !== x.id}
             playing={current === x.id && !!head?.playing} follow={!!head?.playing && follow}
-            onPlay={() => play(x)} onPlayFrom={() => playFrom(x)} onSaved={(nx) => set({ ...s, sentences: s.sentences.map((y) => (y.id === nx.id ? nx : y)) })} />)}
+            onPlay={() => play(x)} onPlayFrom={() => playFrom(x)} onSaved={(nx) => set((prev) => ({ ...prev, sentences: prev.sentences.map((y) => (y.id === nx.id ? nx : y)) }))} />)}
           {!s.sentences.length && <li className="empty"><h2>No sentences yet</h2><p>{s.job ? 'They appear once the audio is transcribed.' : 'This source has no text.'}</p></li>}
         </ol>
         </div>
@@ -126,8 +130,8 @@ function SourcePageDetail({ id }: { id: number }) {
   )
 }
 
-function SentenceRow({ x, furigana, roman, audio, current, past, playing, follow, onPlay, onPlayFrom, onSaved }: {
-  x: Sentence; furigana: boolean; roman: boolean; audio: boolean; current: boolean; past: boolean; playing: boolean; follow: boolean
+function SentenceRow({ x, furigana, roman, translation, audio, current, past, playing, follow, onPlay, onPlayFrom, onSaved }: {
+  x: Sentence; furigana: boolean; roman: boolean; translation: boolean; audio: boolean; current: boolean; past: boolean; playing: boolean; follow: boolean
   onPlay: () => void; onPlayFrom: () => void; onSaved: (x: Sentence) => void
 }) {
   const [draft, setDraft] = useState<string | null>(null)
@@ -138,12 +142,16 @@ function SentenceRow({ x, furigana, roman, audio, current, past, playing, follow
   useEffect(() => {
     const el = row.current
     if (!current || !follow || !el) return
+    // wide screens scroll the list itself under a fixed header; narrow ones scroll the window under the docked player
+    const list = el.closest('.rows')
+    const own = list instanceof HTMLElement && getComputedStyle(list).overflowY !== 'visible'
     const player = document.querySelector('.source-layout .source-audio')
-    const top = player && getComputedStyle(player).position === 'sticky' ? player.getBoundingClientRect().bottom : 0
-    const r = el.getBoundingClientRect(), room = window.innerHeight - top
+    const top = own ? list.getBoundingClientRect().top : player && getComputedStyle(player).position === 'sticky' ? player.getBoundingClientRect().bottom : 0
+    const r = el.getBoundingClientRect(), room = (own ? list.getBoundingClientRect().bottom : window.innerHeight) - top
     if (r.top >= top + room * .1 && r.bottom <= top + room * .7) return
     const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    window.scrollBy({ top: r.top - (top + room * .25), behavior: calm ? 'auto' : 'smooth' })
+    const scroller: HTMLElement | Window = own ? list : window
+    scroller.scrollBy({ top: r.top - (top + room * .25), behavior: calm ? 'auto' : 'smooth' })
   }, [current, follow])
   return (
     <li ref={row} className={'row ' + (audio ? 'row-lead' : 'row-simple') + (current ? ' now' : '') + (past ? ' past' : '')} aria-current={current ? 'true' : undefined}>
@@ -165,13 +173,15 @@ function SentenceRow({ x, furigana, roman, audio, current, past, playing, follow
         <SentenceText>
           <Furigana text={x.text} pairs={x.furigana} show={furigana} />
           {roman && x.roman && <span className="roman">{x.roman.split('\t')[0]}</span>}
+          {translation && <Translation s={x} onTranslated={onSaved} />}
         </SentenceText>
       )}
       <div className="acts">
+        <Link className="btn small ghost" to={`/practice?sentence=${x.id}&from=source`} title="Practise this sentence only"><Play aria-hidden="true" />Practise</Link>
         <Link className="btn small ghost" to={`/sentences/${x.id}`}>Details</Link>
-        <Stamps stamps={x.stamps} max={3} />
         <CopyButton text={x.text} />
         <button className="btn small icon ghost" aria-label="Fix the text" title="Fix the text" onClick={() => setDraft(x.text)}><Pencil aria-hidden="true" /></button>
+        <span className="record"><Stamps stamps={x.stamps} max={3} /></span>
       </div>
     </li>
   )

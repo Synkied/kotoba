@@ -242,6 +242,39 @@ button.chip:hover { background: color-mix(in srgb, var(--stock) 80%, var(--ink))
   display: block; margin-top: var(--s-1); font-size: var(--t-s);
   color: var(--ink-3); line-height: 1.4;
 }
+/* reading aids: furigana, romaji, translation; pressed chips right under the text */
+.aids { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.aids-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-2); }
+.sentence-text .translation, .meaning .translation {
+  display: block; margin-top: var(--s-1); font-size: var(--t-s); line-height: 1.5;
+  color: var(--ink-2); overflow-wrap: break-word;
+}
+.translation.pending { color: var(--ink-3); }
+.translation.failed { color: var(--ink-2); }
+/* translate again: a quiet mark at the end of the line, full colour only when reached for */
+.translation .again { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin: -4px 0; vertical-align: middle; color: var(--ink-3); text-decoration: none; }
+.translation .again svg { width: 14px; height: 14px; }
+.translation .again:hover:not(:disabled), .translation .again:focus-visible { color: var(--ink); }
+.translation .again:disabled { cursor: progress; }
+.translation[aria-busy='true'] .again svg { animation: again-spin 1s linear infinite; }
+@keyframes again-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .translation[aria-busy='true'] .again svg { animation: none; } }
+@media (pointer: coarse) { .translation .again { width: 44px; height: 44px; margin: -14px -10px; } }
+.translation .again-error { color: var(--ink-2); }
+button.link {
+  padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer;
+  text-decoration: underline; text-underline-offset: .2em; text-decoration-thickness: 1px;
+}
+/* practice: the meaning stays folded under screentone until asked for */
+.meaning { justify-self: stretch; margin: 0; }
+button.meaning {
+  display: flex; align-items: center; min-height: var(--control-h); padding: 0 var(--s-3);
+  border: var(--frame-thin) solid var(--ink-3); border-radius: 3px; background: transparent;
+  font-size: var(--t-s); text-align: left; cursor: pointer; transition: color 120ms cubic-bezier(.2,.7,.2,1);
+}
+button.meaning > span { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: var(--s-2); }
+button.meaning:hover { color: var(--ink); }
+.meaning.open .translation { margin: 0; font-size: var(--t-m); color: var(--ink); }
 ruby rt { font-size: .5em; color: var(--ink-2); font-weight: 400; letter-spacing: 0; }
 .unit.missed { color: var(--red-ink); text-decoration: underline solid; text-decoration-thickness: 2px; text-underline-offset: .3em; }
 .unit.partial { color: var(--red-ink); }
@@ -312,11 +345,14 @@ ruby rt { font-size: .5em; color: var(--ink-2); font-weight: 400; letter-spacing
 .row .tc { font: 400 var(--t-s)/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-3); min-width: 4.5em; }
 .row .acts { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: var(--s-2); }
 .row-simple { grid-template-columns: minmax(0, 1fr) auto; }
+/* scores go last in a slot of their own, so the buttons stay put whether a line has stamps or not */
+.row .acts .record { display: flex; justify-content: flex-end; width: 6.5rem; white-space: nowrap; }
 .row-select { grid-template-columns: auto minmax(0, 1fr) auto; }
 @media (max-width: 1100px) {
   .row { grid-template-columns: minmax(0, 1fr); }
   .row-select { grid-template-columns: auto minmax(0, 1fr); }
   .row .acts { grid-column: 1 / -1; justify-content: flex-start; }
+  .row .acts .record { justify-content: flex-start; width: auto; margin-left: var(--s-2); }
   .row .lead { grid-column: 1 / -1; }
 }
 @media (max-width: 760px) {
@@ -431,6 +467,10 @@ ruby rt { font-size: .5em; color: var(--ink-2); font-weight: 400; letter-spacing
 .result dl { display: grid; grid-template-columns: repeat(3, auto); justify-content: start; gap: 0 var(--s-6); margin: 0; }
 .result dt { font-size: var(--t-s); color: var(--ink-3); }
 .result dd { margin: 0; font-weight: 700; font-size: var(--t-l); font-variant-numeric: tabular-nums; line-height: 1.2; }
+/* the record from earlier sessions, quieter than a fresh score */
+.result.history { color: var(--ink-2); }
+.result.history dd { font-size: var(--t-m); color: var(--ink-2); }
+.result.history > .stamp { --size: 56px; font-size: 1.125rem; margin-inline: var(--s-3); }
 .practice-head h1 { font-size: clamp(1.75rem, 4vw, 2.25rem); flex-wrap: wrap; }
 .practice-head h1 .meta { font-size: var(--t-m); }
 .result .heard { display: grid; gap: var(--s-3); font-size: var(--t-l); line-height: 1.65; color: var(--ink); min-width: 0; }
@@ -447,9 +487,10 @@ ruby rt { font-size: .5em; color: var(--ink-2); font-weight: 400; letter-spacing
 @media (prefers-reduced-motion: reduce) {
   .loading-spinner { animation: none; }
 }
-.engine-line .dot.off { box-shadow: inset 0 0 0 1.5px var(--ink-3); background: transparent; }
 .hints { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-4); font-size: var(--t-s); color: var(--ink-3); }
 .hints span { display: inline-flex; align-items: center; gap: 6px; }
+@media (max-width: 760px) { .hints { display: none; } }
+.engine-line .dot.off { box-shadow: inset 0 0 0 1.5px var(--ink-3); background: transparent; }
 @media (max-width: 900px) {
   .practice { grid-template-columns: 1fr; }
   .practice .source-panel { position: static; }
@@ -459,7 +500,6 @@ ruby rt { font-size: .5em; color: var(--ink-2); font-weight: 400; letter-spacing
   .controls { position: sticky; bottom: calc(68px + env(safe-area-inset-bottom)); z-index: 5; padding: var(--s-2) 0; background: var(--stock); }
   .controls .btn { flex: 1; padding: 0 var(--s-3); }
   .controls .rec { min-width: 0; flex: 2; }
-  .hints { display: none; }
   .balloon.big { font-size: 1.375rem; }
   .result { grid-template-columns: 1fr; justify-items: start; }
 }
@@ -812,7 +852,6 @@ code.inline { font: 400 .95em var(--mono); padding: 0 3px; background: color-mix
 .sentence-aside { padding-left: var(--s-5); border-left: 1px solid var(--ink-3); }
 .sentence-reading { display: grid; gap: var(--s-3); }
 .sentence-reading .sentence-text { padding: 0; font-size: var(--t-l); }
-.sentence-toggle { display: inline-flex; align-items: center; gap: var(--s-2); min-height: var(--control-h); font-size: var(--t-s); color: var(--ink-2); }
 .sentence-actions { display: flex; flex-wrap: wrap; align-items: start; gap: var(--s-2); padding-top: var(--s-2); }
 .sentence-detail .btn { height: auto; min-height: var(--control-h); padding-block: var(--s-2); white-space: normal; }
 .sentence-detail .select { font-size: var(--t-s); height: var(--control-h); max-width: 100%; }
@@ -879,7 +918,7 @@ code.inline { font: 400 .95em var(--mono); padding: 0 3px; background: color-mix
 .sheet .code, .install .code { min-width: 0; }
 .source-aside > audio { min-width: 0; }
 .seg input:disabled + span { opacity: .45; cursor: not-allowed; }
-.practice-settings { font-size: var(--t-s); color: var(--ink-2); }
+.practice-settings { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-4); font-size: var(--t-s); color: var(--ink-2); }
 .strip > button.btn { max-width: 100%; white-space: normal; text-align: left; border: 0; }
 .strip > button.btn .balloon { max-width: calc(100% - var(--balloon-left-space) - var(--s-5)); }
 .sentence-layout { margin-top: var(--s-5); }
@@ -1077,7 +1116,7 @@ code.inline { font: 400 .95em var(--mono); padding: 0 3px; background: color-mix
 .source-content .row .sentence-text { transition: color var(--t-state) var(--ease); }
 /* while listening the per-line tools stay out of the script's way; stamps stay, they're the record */
 @media (hover: hover) and (pointer: fine) {
-  .source-content .row .acts > :not(.stamps) { opacity: 0; transition: opacity var(--t-fast) var(--ease); }
+  .source-content .row .acts > :not(.record) { opacity: 0; transition: opacity var(--t-fast) var(--ease); }
   .source-content .row:hover .acts > *, .source-content .row:focus-within .acts > * { opacity: 1; }
 }
 .follow-voice { position: fixed; z-index: 7; right: var(--s-6); bottom: var(--s-6); box-shadow: var(--lift); }
@@ -1122,3 +1161,74 @@ body:has(.selection-dock) .toast { bottom: calc(var(--s-5) + 72px); }
   body:has(.selection-dock) .toast { bottom: calc(76px + 128px + env(safe-area-inset-bottom)); }
 }
 @media (prefers-reduced-motion: reduce) { .toolbar.selection-dock { animation: none; } }
+
+/* practice: the keys sit with the source, errors float off the take instead of pushing it down */
+.practice .keys {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: var(--s-2) var(--s-4);
+  margin: 0; padding-top: var(--s-3); border-top: var(--frame-thin) solid color-mix(in srgb, var(--ink) 25%, transparent);
+  font-size: var(--t-s); color: var(--ink-3);
+}
+.practice .keys div { display: flex; align-items: center; gap: var(--s-2); min-width: 0; }
+.practice .keys dt, .practice .keys dd { margin: 0; }
+@media (min-width: 761px) { .controls { position: relative; } }  /* phones keep it sticky, which anchors the error too */
+.take-error {
+  position: absolute; z-index: 6; left: 0; right: 0; top: calc(100% + var(--s-2));
+  align-items: center; box-shadow: var(--lift);
+  animation: take-error-in var(--t-state) var(--ease);
+}
+.take-error > .grow { flex: 1; min-width: 0; }
+.take-error .btn { flex: none; height: var(--control-h-s); font-size: var(--t-s); padding: 0 var(--s-3); }
+.take-error .btn.icon { width: var(--control-h-s); padding: 0; color: var(--ink-2); }
+@keyframes take-error-in { from { opacity: 0; translate: 0 -4px; } }
+@media (max-width: 760px) {
+  .practice .keys { display: none; }
+  /* the controls dock at the bottom of a phone, so the error opens upward, over the sentence */
+  .take-error { top: auto; bottom: calc(100% + var(--s-2)); flex-wrap: wrap; }
+  @keyframes take-error-in { from { opacity: 0; translate: 0 4px; } }
+}
+
+/* add-ons: translators, one in use at a time */
+.translators { border: 0; padding: 0; margin: 0; display: grid; gap: var(--s-2); min-width: 0; }
+.translators legend { padding: 0; margin-bottom: var(--s-2); font-weight: 700; font-size: var(--t-s); }
+.translators legend .meta { font-weight: 400; margin-left: var(--s-2); }
+.translator {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-4); padding: var(--s-3);
+  border: var(--frame-thin) solid color-mix(in srgb, var(--ink) 22%, transparent); min-width: 0;
+}
+.translator:has(input:checked) { border-color: var(--ink); background: var(--paper); }
+.translator > label { flex: 1 1 18rem; display: flex; gap: var(--s-3); align-items: flex-start; cursor: pointer; min-width: 0; }
+.translator input[type="radio"] { accent-color: var(--ink); width: 16px; height: 16px; margin: 3px 0 0; flex: none; }
+.translator .what { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.translator .failed, .translator-form .test-result.failed { color: var(--red-ink); }
+.translator .hint { font-size: var(--t-s); }
+.translator-form {
+  display: grid; gap: var(--s-3); padding: var(--s-4); min-width: 0;
+  border: var(--frame-thin) solid var(--ink); background: var(--paper);
+  animation: take-error-in var(--t-state) var(--ease);
+}
+.translator-form .seg { justify-self: start; max-width: 100%; }
+.translator-form .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-3) var(--s-4); }
+.translator-form .form-grid .wide { grid-column: 1 / -1; }
+.translator-form .field .meta { font-weight: 400; }
+.translator-form .test-result { display: flex; gap: var(--s-2); align-items: flex-start; margin: 0; }
+.translator-form .test-result.ok { color: var(--ink); }
+.translator-form .test-result svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+.translator-form .btn-row .grow { flex: 1; }
+@media (max-width: 600px) {
+  .translator-form .seg { display: grid; grid-template-columns: 1fr 1fr; justify-self: stretch; }
+  .translator-form .seg label + label span { border-left: 0; }
+  .translator-form .seg label:nth-child(even) span { border-left: var(--frame-thin) solid var(--ink); }
+  .translator-form .seg label:nth-child(n+3) span { border-top: var(--frame-thin) solid var(--ink); }
+  .translator-form .form-grid { grid-template-columns: 1fr; }
+}
+/* wide screens: the page fills the viewport, the header stays put, and only the columns scroll,
+   the script on the right and the player column on its own when it runs long */
+@media (min-width: 901px) {
+  .page:has(.source-layout) { height: 100dvh; display: flex; flex-direction: column; padding-bottom: var(--s-4); }
+  .page:has(.source-layout) > .action-scope { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .page:has(.source-layout) .page-head { flex: none; }
+  .source-layout { flex: 1; min-height: 0; align-items: stretch; }
+  .source-aside { position: static; max-height: none; align-content: start; }
+  .source-content { display: flex; flex-direction: column; min-height: 0; }
+  .source-content > .rows { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+}

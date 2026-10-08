@@ -116,10 +116,10 @@ function DeckPageDetail({ id }: { id: number }) {
                   {playing === s.id ? <Square aria-hidden="true" /> : <Play aria-hidden="true" />}{playing === s.id ? 'Stop' : 'Listen'}
                 </button>
                 <Link className="btn small ghost" to={`/sentences/${s.id}`}>Details</Link>
-                <Stamps stamps={s.stamps} max={3} />
                 <button className="btn small icon ghost" onClick={() => reorder(k, k - 1)} disabled={k === 0} aria-label="Move up"><ArrowUp aria-hidden="true" /></button>
                 <button className="btn small icon ghost" onClick={() => reorder(k, k + 1)} disabled={k === items.length - 1} aria-label="Move down"><ArrowDown aria-hidden="true" /></button>
                 <button className="btn small icon ghost" onClick={() => remove(s)} aria-label="Remove from deck"><X aria-hidden="true" /></button>
+                <span className="record"><Stamps stamps={s.stamps} max={3} /></span>
               </div>
             </li>
           ))}
