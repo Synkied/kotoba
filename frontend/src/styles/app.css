@@ -391,6 +391,18 @@ ruby rt { font-size: .5em; color: var(--ink-2); font-weight: 400; letter-spacing
 .meter { display: flex; height: 8px; width: 120px; border: 1px solid var(--ink); background: var(--paper); }
 .meter i { display: block; background: var(--ink); }
 @media (max-width: 760px) { .deck-table .hide-s { display: none; } }
+.deck-table .folder-row th {
+  padding: var(--s-5) var(--s-3) var(--s-2); border-bottom: 1px solid var(--ink); background: none;
+  font-size: var(--t-m); color: var(--ink); white-space: normal;
+}
+.deck-table tbody:first-of-type .folder-row th { padding-top: var(--s-3); }
+.deck-table .folder-row button { text-decoration: none; display: inline-flex; align-items: center; gap: var(--s-2); font: inherit; font-weight: 700; }
+.deck-table .folder-row svg { width: 1em; height: 1em; }
+.deck-table .folder-row .meta { margin-left: var(--s-3); font-weight: 400; }
+.deck-table tr.folder-row:hover th { background: none; }
+.folder-field { display: inline-flex; align-items: center; gap: var(--s-2); font-size: var(--t-s); color: var(--ink-2); }
+.folder-field svg { width: 1em; height: 1em; }
+.folder-field .input { height: var(--control-h-s); width: 12rem; font-size: var(--t-s); }
 
 /* ---------------------------------------------------------------- practice */
 .practice { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--gutter); align-items: start; }

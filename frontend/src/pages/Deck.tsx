@@ -1,7 +1,7 @@
-import { ArrowDown, ArrowUp, ChevronLeft, Play, Square, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronLeft, Folder, Play, Square, Trash2, X } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
-import { api, allSentences, type Sentence } from '../lib/api'
+import { api, allSentences, byFolder, type Deck, type Sentence } from '../lib/api'
 import { SentenceText } from '../components/SentenceText'
 import { Furigana } from '../components/Furigana'
 import { SourcePanel, fmtTime } from '../components/SourcePanel'
@@ -92,6 +92,7 @@ function DeckPageDetail({ id }: { id: number }) {
         <button className="btn ghost" onClick={async () => { if (window.confirm(`Delete the deck “${deck.data!.name}”? Its sentences stay in the library.`)) { await action.run(async () => { await api.deleteDeck(id); nav('/decks') }) } }}><Trash2 aria-hidden="true" />Delete deck</button>
         {items.length > 0 && <Link className="btn primary" to={`/practice?deck=${id}`}><Play aria-hidden="true" />Practise</Link>}
       </header>
+      <FolderField deck={deck.data} onSaved={deck.set} run={action.run} />
       {list.error ? <ErrorNotice error={list.error} action={<button className="btn" onClick={list.reload}>Try again</button>} /> : list.loading && !list.data ? <Skeleton /> : !items.length ? (
         <div className="empty">
           <h2>This deck is empty</h2>
@@ -126,5 +127,27 @@ function DeckPageDetail({ id }: { id: number }) {
       )}
       </fieldset>
     </>
+  )
+}
+
+/** Which folder the deck is listed under on the Decks page; saved when you leave the field. */
+function FolderField({ deck, onSaved, run }: { deck: Deck; onSaved: (d: Deck) => void; run: (f: () => Promise<void>) => Promise<unknown> }) {
+  const all = useAsync(() => api.decks(), [])
+  const [value, setValue] = useState(deck.folder)
+  const folders = byFolder(all.data?.results ?? []).map(([f]) => f).filter(Boolean)
+  const save = async () => {
+    if (value.trim() === deck.folder) return setValue(deck.folder)
+    await run(async () => { const d = await api.updateDeck(deck.id, { folder: value }); onSaved(d); setValue(d.folder) })
+  }
+  return (
+    <p style={{ margin: '0 0 var(--s-4)' }}>
+      <label className="folder-field">
+        <Folder aria-hidden="true" />Folder
+        <input className="input" list="deck-folders" placeholder="None" value={value} onChange={(e) => setValue(e.target.value)}
+          onBlur={() => void save()} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') setValue(deck.folder) }} />
+      </label>
+      <datalist id="deck-folders">{folders.map((f) => <option key={f} value={f} />)}</datalist>
+      {deck.folder && <> <Link className="meta" to={`/decks?folder=${encodeURIComponent(deck.folder)}`}>Other decks in {deck.folder}</Link></>}
+    </p>
   )
 }

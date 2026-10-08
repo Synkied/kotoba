@@ -72,3 +72,10 @@ class LabelTests(TestCase):
         s = Source.objects.create(kind="text", text="x")
         r = self.client.patch(f"/api/sources/{s.id}", {"labels": ["a, b"]}, content_type="application/json")
         self.assertEqual(r.json()["labels"], ["a", "b"])
+
+    def test_deck_folder_is_saved_tidied(self):
+        r = self.client.post("/api/decks", {"name": "Lesson 1", "folder": "  Minna   no Nihongo "}, content_type="application/json")
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual(r.json()["folder"], "Minna no Nihongo")
+        r = self.client.patch(f"/api/decks/{r.json()['id']}", {"folder": ""}, content_type="application/json")
+        self.assertEqual(r.json()["folder"], "")

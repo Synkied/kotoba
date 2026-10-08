@@ -98,6 +98,7 @@ class Sentence(models.Model):
 class Deck(models.Model):
     name = models.CharField(max_length=120)
     description = models.TextField(blank=True)
+    folder = models.CharField(max_length=80, blank=True)  # decks with the same folder are listed together
     sentences = models.ManyToManyField(Sentence, through="DeckItem", related_name="decks")
     created_at = models.DateTimeField(default=timezone.now)
 

@@ -121,7 +121,10 @@ class DeckSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Deck
-        fields = ["id", "name", "description", "created_at", "size", "due", "practised", "average"]
+        fields = ["id", "name", "description", "folder", "created_at", "size", "due", "practised", "average"]
+
+    def validate_folder(self, value):
+        return " ".join(value.split())
 
 
 class AttemptSerializer(serializers.ModelSerializer):

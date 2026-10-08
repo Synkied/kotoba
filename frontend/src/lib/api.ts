@@ -11,7 +11,7 @@ export type Source = {
   category: string; labels: string[]; image: string | null; media: string | null; duration: number | null
   job: '' | 'waiting' | 'running' | 'failed'; job_error: string; created_at: string; sentences: Sentence[]
 }
-export type Deck = { id: number; name: string; description: string; created_at: string; size: number; due: number; practised: number; average: number | null }
+export type Deck = { id: number; name: string; description: string; folder: string; created_at: string; size: number; due: number; practised: number; average: number | null }
 export type Stats = { inbox: number; due: number; sentences: number; decks: number; attempts_today: number; waiting: number }
 export type Facets = { categories: { name: string; count: number }[]; labels: { name: string; count: number }[] }
 export type Unit = { text: string; status: 'ok' | 'unclear' | 'missed' | 'partial'; conf: number | null }
@@ -146,8 +146,8 @@ export const api = {
   deleteSentence: (id: number) => req<void>(`sentences/${id}`, { method: 'DELETE' }),
   decks: () => req<Page<Deck>>('decks?limit=500'),
   deck: (id: number) => req<Deck>(`decks/${id}`),
-  createDeck: (name: string) => req<Deck>('decks', json('POST', { name })),
-  updateDeck: (id: number, data: Partial<Pick<Deck, 'name' | 'description'>>) => req<Deck>(`decks/${id}`, json('PATCH', data)),
+  createDeck: (name: string, folder = '') => req<Deck>('decks', json('POST', { name, folder })),
+  updateDeck: (id: number, data: Partial<Pick<Deck, 'name' | 'description' | 'folder'>>) => req<Deck>(`decks/${id}`, json('PATCH', data)),
   deleteDeck: (id: number) => req<void>(`decks/${id}`, { method: 'DELETE' }),
   addToDeck: (id: number, sentences: number[]) => req<Deck>(`decks/${id}/add`, json('POST', { sentences })),
   removeFromDeck: (id: number, sentences: number[]) => req<void>(`decks/${id}/remove`, json('POST', { sentences })),
@@ -175,4 +175,11 @@ export const api = {
   render: (id: number, cuts: Cut[]) => req<Job>(`sources/${id}/render`, json('POST', { cuts })),
   peaks: (id: number) => req<{ rate: number; duration: number; peaks: number[] }>(`sources/${id}/peaks`),
   voices: () => req<{ voices: { id: string; name: string; engine?: string }[] }>('engine/tts/status'),
+}
+
+/** Decks grouped by folder: named folders A–Z, then the decks in none. */
+export function byFolder(decks: Deck[]): [string, Deck[]][] {
+  const groups = new Map<string, Deck[]>()
+  for (const d of decks) groups.set(d.folder, [...(groups.get(d.folder) ?? []), d])
+  return [...groups].sort(([a], [b]) => (!a ? 1 : !b ? -1 : a.localeCompare(b)))
 }
