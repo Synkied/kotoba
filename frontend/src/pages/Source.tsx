@@ -1,4 +1,4 @@
-import { ChevronLeft, Play, Volume2, Pencil, Check, Archive, Inbox as InboxIcon, Scissors, SkipBack, SkipForward, ListEnd } from 'lucide-react'
+import { BookOpen, ChevronLeft, Play, Volume2, Pencil, Check, Archive, Inbox as InboxIcon, Scissors, SkipBack, SkipForward, ListEnd } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, type Sentence, type Source } from '../lib/api'
@@ -90,6 +90,9 @@ function SourcePageDetail({ id }: { id: number }) {
             <dt>Collected</dt><dd style={{ margin: 0 }}>{date}, {clock(s.created_at)}</dd>
             <dt>Status</dt><dd style={{ margin: 0 }}>{{ inbox: 'In the inbox', kept: 'In the library', archived: 'Archived' }[s.status]}</dd>
             {s.duration && <><dt>Length</dt><dd style={{ margin: 0 }} className="num">{fmtTime(s.duration)}</dd></>}
+            {s.lessons.length > 0 && <><dt>{s.lessons.length === 1 ? 'Lesson' : 'Lessons'}</dt><dd style={{ margin: 0 }} className="source-lessons">
+              {s.lessons.map(l => <Link key={l.id} to={`/lessons/${l.id}`}><BookOpen aria-hidden="true" />{l.title}{l.done && <span className="sr"> (done)</span>}{l.done && <Check aria-hidden="true" className="source-lesson-done" />}</Link>)}
+            </dd></>}
           </dl>
           <div style={{ display: 'grid', gap: 8 }}>
             {labels === null ? (

@@ -17,7 +17,7 @@ from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 
 from . import dictionary, ingest, romanize, srs, translate
-from .models import Attempt, Deck, DeckItem, Sentence, Source, fold
+from .models import Attempt, Deck, DeckItem, Lesson, Sentence, Source, fold
 # not in every system mime table; browsers need it to play rendered takes
 mimetypes.add_type("audio/mp4", ".m4a")
 
@@ -60,7 +60,7 @@ class SourceViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "patch", "delete", "post"]
 
     def get_queryset(self):
-        qs = Source.objects.prefetch_related("sentences__attempts", "sentences__decks")
+        qs = Source.objects.prefetch_related("sentences__attempts", "sentences__decks", "lessons")
         p = self.request.query_params
         if p.get("status"):
             qs = qs.filter(status=p["status"])
@@ -405,6 +405,7 @@ def stats(request):
         "due": Sentence.objects.filter(due__lte=now).exclude(source__status=Source.Status.ARCHIVED).count(),
         "sentences": Sentence.objects.exclude(source__status=Source.Status.ARCHIVED).count(),
         "decks": Deck.objects.count(),
+        "lessons": Lesson.objects.filter(done_at__isnull=True).count(),
         "attempts_today": Attempt.objects.filter(created_at__date=timezone.localdate()).count(),
         "waiting": Source.objects.filter(job__in=[Source.Job.WAITING, Source.Job.RUNNING]).count(),
     })

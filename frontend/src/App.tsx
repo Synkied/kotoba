@@ -1,4 +1,4 @@
-import { Inbox, Library as LibraryIcon, Layers, RotateCcw, Plus, Puzzle, Mic, Headphones } from 'lucide-react'
+import { Inbox, Library as LibraryIcon, Layers, RotateCcw, Plus, Puzzle, Mic, BookOpen } from 'lucide-react'
 import { createContext, useContext, useEffect, useState } from 'react'
 import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { api, type Stats } from './lib/api'
@@ -15,14 +15,15 @@ import CollectPage from './pages/Collect'
 import AddonsPage from './pages/Addons'
 import RecordingsPage from './pages/Recordings'
 import CleanupPage from './pages/Cleanup'
-import ListeningPage from './pages/Listening'
+import LessonsPage from './pages/Lessons'
+import LessonPage from './pages/Lesson'
 
 type Section = { to: string; name: string; short?: string; stock: string; icon: typeof Inbox; count?: (s: Stats) => number; hot?: boolean }
 const SECTIONS: Section[] = [
   { to: '/inbox', name: 'Inbox', stock: 'inbox', icon: Inbox, count: (s) => s.inbox },
   { to: '/library', name: 'Library', stock: 'library', icon: LibraryIcon },
   { to: '/decks', name: 'Decks', stock: 'decks', icon: Layers },
-  { to: '/listening', name: 'Listening', short: 'Listen', stock: 'listening', icon: Headphones },
+  { to: '/lessons', name: 'Lessons', stock: 'lessons', icon: BookOpen, count: (s) => s.lessons },
   { to: '/review', name: 'Review', stock: 'review', icon: RotateCcw, count: (s) => s.due, hot: true },
   { to: '/recordings', name: 'Recordings', short: 'Audio', stock: 'recordings', icon: Mic },
   { to: '/collect', name: 'Collect', stock: 'collect', icon: Plus },
@@ -92,7 +93,9 @@ function Shell() {
             <Route path="/sources/:id" element={<SourcePage />} />
             <Route path="/decks" element={<DecksPage />} />
             <Route path="/decks/:id" element={<DeckPage />} />
-            <Route path="/listening" element={<ListeningPage />} />
+            <Route path="/lessons" element={<LessonsPage />} />
+            <Route path="/lessons/:id" element={<LessonPage />} />
+            <Route path="/listening" element={<Navigate to="/lessons" replace />} />
             <Route path="/practice" element={<PracticePage />} />
             <Route path="/review" element={<ReviewPage />} />
             <Route path="/collect" element={<CollectPage />} />

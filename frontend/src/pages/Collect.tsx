@@ -5,7 +5,7 @@ import { api } from '../lib/api'
 import { CopyButton } from './Library'
 import { useStats } from '../App'
 import { useToast } from '../components/ui'
-import ListeningPackageImport from '../components/ListeningPackageImport'
+import { NewLesson } from './Lessons'
 
 export default function CollectPage() {
   const nav = useNavigate()
@@ -18,8 +18,9 @@ export default function CollectPage() {
   const [err, setErr] = useState<string | null>(null)
   const [over, setOver] = useState(false)
   const file = useRef<HTMLInputElement>(null)
-  const [packageSelection, setPackageSelection] = useState<{ key: number; files: File[] }>({ key: 0, files: [] })
-  const packagePanel = useRef<HTMLDivElement>(null)
+  // a PDF is study material: it and the files dropped with it start a lesson
+  const [lessonFiles, setLessonFiles] = useState<{ key: number; files: File[] } | null>(null)
+  const lessonPanel = useRef<HTMLDivElement>(null)
 
   const paste = async (e: React.FormEvent) => {
     e.preventDefault(); if (locked.current || !text.trim()) return
@@ -32,8 +33,8 @@ export default function CollectPage() {
     const list = [...files]
     if (!list.length) return
     if (list.some(file => /\.pdf$/i.test(file.name))) {
-      setPackageSelection(previous => ({ key: previous.key + 1, files: list }))
-      packagePanel.current?.scrollIntoView({ behavior: 'auto', block: 'start' })
+      setLessonFiles(previous => ({ key: (previous?.key ?? 0) + 1, files: list }))
+      requestAnimationFrame(() => lessonPanel.current?.scrollIntoView({ behavior: 'auto', block: 'start' }))
       if (file.current) file.current.value = ''
       return
     }
@@ -63,7 +64,7 @@ export default function CollectPage() {
       <header className="page-head"><h1>Collect</h1></header>
       {err && <div className="notice error" role="alert" style={{ marginBottom: 'var(--s-4)' }}>{err}</div>}
       <div className="collect">
-        <div ref={packagePanel}><ListeningPackageImport key={packageSelection.key} initialFiles={packageSelection.files} onImported={lesson => nav(`/listening?lesson=${lesson.id}`)} /></div>
+        {lessonFiles && <div ref={lessonPanel}><NewLesson key={lessonFiles.key} initialFiles={lessonFiles.files} onCancel={() => setLessonFiles(null)} /></div>}
         <form className="sheet" onSubmit={paste}>
           <h2><ClipboardPaste aria-hidden="true" />Paste text</h2>
           <p>Lyrics, a dialogue, a page of your textbook. Each line or sentence becomes a sentence you can practise.</p>
@@ -76,7 +77,7 @@ export default function CollectPage() {
         <section className="sheet">
           <h2><Upload aria-hidden="true" />Upload files</h2>
           <p>Audio or video is transcribed by Whisper in kotoba into timed sentences you can shadow. Drop a subtitle file (.srt, .vtt, .ass) with its video to skip transcription. Images go in as captures.</p>
-          <p>A PDF with its audio files opens the quiz package importer above.</p>
+          <p>A PDF is study material: it starts a new lesson, together with any recordings dropped with it.</p>
           <label className={'drop' + (over ? ' over' : '') + (busy ? ' disabled' : '')} aria-busy={busy === 'files'}
             onDragOver={(e) => { e.preventDefault(); if (!busy) setOver(true) }} onDragLeave={() => setOver(false)}
             onDrop={(e) => { e.preventDefault(); setOver(false); upload(e.dataTransfer.files) }}>

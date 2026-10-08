@@ -1026,47 +1026,146 @@ code.inline { font: 400 .95em var(--mono); padding: 0 3px; background: color-mix
 }
 @media (prefers-reduced-motion: reduce) { .source-card { transition: none; } }
 
-/* Listening keeps the worksheet beside the answers, with native audio first. */
-:root { --stock-listening: var(--stock-practice); }
-.listening-lesson-head { margin-bottom: var(--s-5); }
-.listening-lesson-head h2 { margin-bottom: var(--s-2); }
-.listening-lesson-picker { display: flex; gap: var(--s-3); align-items: center; margin-bottom: var(--s-4); }
-.listening-exercise-nav { display: flex; flex-wrap: wrap; gap: var(--s-2); padding-bottom: var(--s-5); margin-bottom: var(--s-5); border-bottom: var(--frame-bold) solid var(--ink); }
-.listening-exercise-nav .btn { flex: 1 1 140px; flex-direction: column; align-items: start; padding: var(--s-3) var(--s-4); gap: var(--s-1); }
-.listening-exercise-nav [aria-current='step'] { background: var(--ink); color: var(--on-ink); }
-.listening-exercise-nav [aria-current='step'] .meta { color: inherit; }
-.listening-title { margin-bottom: var(--s-3); }
-.listening-instructions { max-width: 70ch; margin-bottom: var(--s-5); }
-.listening-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: var(--s-6); }
-.listening-source { min-width: 0; }
-.listening-player { padding: var(--s-4); border: var(--frame-bold) solid var(--ink); background: var(--paper); }
-.listening-player audio { display: block; width: 100%; margin-bottom: var(--s-3); }
-.listening-speed { display: flex; align-items: center; gap: var(--s-2); margin-left: auto; }
-.listening-speed select { width: auto; }
-.listening-figure { margin: var(--s-4) 0; }
-.listening-figure img { display: block; width: 100%; height: auto; background: white; border: var(--frame-thin) solid var(--ink); }
-.listening-figure figcaption { margin-top: var(--s-2); font-size: var(--t-s); color: var(--ink-3); }
-.listening-example { display: flex; flex-wrap: wrap; gap: var(--s-3); padding: var(--s-3) 0; border-top: var(--frame-thin) solid var(--ink); }
-.listening-answer-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--s-4); }
-.listening-answer-head h3 { margin: 0; }
-.listening-question { min-width: 0; margin: 0 0 var(--s-5); padding: 0; border: 0; }
-.listening-question legend { margin-bottom: var(--s-3); line-height: 1.8; }
-.listening-choices { display: flex; flex-wrap: wrap; gap: var(--s-2); }
-.listening-choice { display: inline-flex; align-items: center; gap: var(--s-2); min-height: 44px; min-width: 54px; padding: var(--s-2) var(--s-3); border: var(--frame-thin) solid var(--ink); background: var(--paper); cursor: pointer; }
-.listening-choice.selected { color: var(--on-ink); background: var(--ink); }
-.listening-choice input { margin: 0; accent-color: var(--ink); }
-.listening-choice:has(input:focus-visible) { outline: 3px solid var(--ink); outline-offset: 3px; }
-.listening-question:disabled .listening-choice { cursor: default; }
-.listening-question:disabled .selected input { opacity: 1; }
-.listening-text { width: 100%; min-height: 44px; }
-.listening-question:disabled .listening-text { opacity: 1; color: var(--ink); }
-.listening-miss { color: var(--red-ink); }
-.listening-submit, .listening-result { padding-top: var(--s-4); border-top: var(--frame-thin) solid var(--ink); }
-.listening-result p { max-width: 65ch; }
-.listening-step { display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--s-3); margin-top: var(--s-7); padding-top: var(--s-4); border-top: var(--frame-thin) solid var(--ink); }
-.listening-layout .btn, .listening-step .btn, .listening-speed select, .listening-lesson-picker select { min-height: 44px; }
-@media (max-width: 900px) { .listening-layout { grid-template-columns: minmax(0, 1fr); } .listening-figure { max-width: 34rem; } }
-@media (max-width: 760px) { .tabbar a { font-size: 11px; } .listening-step .btn { flex: 1 1 140px; } }
+/* Lessons: material to study, on its own mint stock. The worksheet reads large on the
+   left; notes and the sources practised from it sit beside it. */
+.lessons-search { max-width: 28rem; margin-bottom: var(--s-5); }
+.new-lesson { margin-bottom: var(--s-6); max-width: 46rem; }
+.new-lesson .drop { min-height: 120px; }
+.lesson-files-pending { list-style: none; margin: 0; padding: 0; }
+.lesson-files-pending li { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-2) 0; border-bottom: 1px solid color-mix(in srgb, var(--ink) 16%, transparent); }
+.lesson-files-pending li > span:first-child { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.lesson-card .source-card-body { padding-right: 0; }
+.lesson-card[data-done] h3 { font-weight: 400; }
+.lesson-card .btn[aria-pressed='true'] { background: var(--ink); color: var(--on-ink); }
+.page-head .btn[aria-pressed='true'] { background: var(--ink); color: var(--on-ink); }
+.inline-icon { width: 14px; height: 14px; margin-right: var(--s-1); vertical-align: -2px; }
+
+/* Lesson: a study desk. The worksheet takes the page; the side column holds the
+   listening panel (a small player, the transcript following the voice under it)
+   and folding drawers for notes, sources and files. */
+.lesson-desk { display: grid; grid-template-columns: minmax(0, 7fr) minmax(22rem, 5fr); gap: var(--gutter) var(--s-5); align-items: start; }
+.lesson-side { display: flex; flex-direction: column; gap: var(--gutter); min-width: 0; }
+.lesson-sheet { display: flex; flex-direction: column; border: var(--frame-bold) solid var(--ink); background: var(--paper); min-width: 0; }
+.lesson-sheet iframe { display: block; width: 100%; height: min(82vh, 60rem); border: 0; background: var(--paper); }
+.lesson-sheet .tabs { flex-wrap: wrap; }
+.lesson-file-name { font-size: var(--t-m); font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.lesson-empty { border: var(--frame-bold) dashed var(--ink-3); }
+.lesson-empty .lesson-add-files { margin-top: var(--s-2); }
+
+/* the listening panel */
+.listen { display: flex; flex-direction: column; min-height: 0; border: var(--frame-bold) solid var(--ink); background: var(--paper); }
+.listen-head { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-2) var(--s-3); border-bottom: var(--frame-thin) solid var(--ink); min-height: 48px; }
+.listen-head > svg { width: 18px; height: 18px; flex: none; }
+.listen-name { font-size: var(--t-m); min-width: 0; overflow-wrap: anywhere; }
+.listen-pick { flex: 1; min-width: 0; }
+.listen-pick .select { width: 100%; font-weight: 700; }
+.listen-head .meta { white-space: nowrap; }
+.listen-video { display: block; width: 100%; max-height: 16rem; background: #000; border-bottom: var(--frame-thin) solid var(--ink); }
+.listen-deck { display: grid; gap: var(--s-1); padding: var(--s-3) var(--s-3) var(--s-2); border-bottom: var(--frame-thin) solid var(--ink); }
+
+/* the rail: the recording's lines laid end to end, so you see where you are in the dialogue */
+.listen-rail { position: relative; height: 22px; }
+.listen-rail::before { content: ''; position: absolute; inset: 10px 0; background: color-mix(in srgb, var(--ink) 18%, transparent); }
+.listen-rail[data-lines]::before { display: none; }
+.listen-rail i { position: absolute; top: 6px; height: 10px; min-width: 2px; background: color-mix(in srgb, var(--ink) 22%, var(--paper)); transition: background-color var(--t-state) var(--ease); }
+.listen-rail i[data-state='past'] { background: color-mix(in srgb, var(--ink) 55%, var(--paper)); }
+.listen-rail i[data-state='now'] { background: var(--ink); top: 4px; height: 14px; }
+.listen-rail i[data-loop] { outline: var(--frame-thin) solid var(--ink); outline-offset: 2px; }
+.listen-rail .listen-fill { left: 0; top: 10px; height: 2px; background: var(--ink); }
+.listen-playhead { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--ink); pointer-events: none; }
+.listen-playhead::before { content: ''; position: absolute; top: -5px; left: -4px; border: 5px solid transparent; border-top-color: var(--ink); border-bottom: 0; }
+.listen-rail input { position: absolute; inset: -6px 0; width: 100%; height: calc(100% + 12px); margin: 0; opacity: 0; cursor: pointer; }
+.listen-rail input:disabled { cursor: default; }
+.listen-rail:has(input:focus-visible) { outline: 2px solid var(--ink); outline-offset: 4px; }
+.listen-times { display: flex; justify-content: space-between; gap: var(--s-2); font: 400 var(--t-s)/1.2 var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-3); }
+.listen-transport { display: flex; align-items: center; gap: var(--s-1); margin-top: var(--s-1); }
+.listen-transport .grow { flex: 1; }
+.listen-play { width: 44px; height: 44px; }
+.listen-play svg { width: 20px; height: 20px; }
+.listen-repeat[aria-pressed='true'] { background: var(--ink); color: var(--on-ink); }
+.listen-speed .select { width: auto; }
+
+/* the transcript, following the voice */
+.listen-script { position: relative; flex: 1; min-height: 14rem; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.listen-aids { position: sticky; top: 0; z-index: 1; padding: var(--s-2) var(--s-3); background: var(--paper); border-bottom: 1px solid color-mix(in srgb, var(--ink) 16%, transparent); }
+.listen-lines { list-style: none; margin: 0; padding: var(--s-1) 0 var(--s-6); }
+.listen-lines li { display: grid; grid-template-columns: 3.5em minmax(0, 1fr); gap: var(--s-2); align-items: baseline; padding: var(--s-2) var(--s-3); transition: background-color var(--t-state) var(--ease), box-shadow var(--t-state) var(--ease); }
+.listen-lines .tc { font: 400 var(--t-s)/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-3); background: none; border: 0; padding: 2px var(--s-1); margin-left: calc(-1 * var(--s-1)); cursor: pointer; justify-self: start; }
+.listen-lines .tc:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.listen-text { line-height: 1.7; overflow-wrap: anywhere; transition: color var(--t-state) var(--ease); }
+.listen-text .roman { display: block; font-size: var(--t-s); color: var(--ink-3); line-height: 1.4; }
+.listen-lines li[data-state='past'] .listen-text { color: var(--ink-3); }
+.listen-lines li[data-state='now'] { background: color-mix(in srgb, var(--stock) 55%, var(--paper)); box-shadow: inset 4px 0 0 var(--ink); }
+.listen-lines li[data-state='now'] .tc { background: var(--ink); color: var(--on-ink); }
+.listen-next { margin: 0 var(--s-3) var(--s-4); }
+.listen-follow { position: sticky; bottom: var(--s-3); display: flex; width: max-content; margin: 0 auto var(--s-3); box-shadow: var(--lift); }
+.listen-state { display: grid; justify-items: start; gap: var(--s-3); padding: var(--s-5) var(--s-4); max-width: 34rem; }
+.listen-state p { margin: 0; }
+.listen-state .spin { width: 20px; height: 20px; animation: loading-spin 1s linear infinite; }
+.listen-keys { margin: 0; padding: var(--s-2) var(--s-3); border-top: 1px solid color-mix(in srgb, var(--ink) 16%, transparent); }
+@media (pointer: coarse) { .listen-keys { display: none; } }
+
+/* drawers: notes, sources and files fold away */
+.drawer { border: var(--frame-thin) solid var(--ink); background: color-mix(in srgb, var(--paper) 55%, var(--stock)); }
+.drawer > summary { display: flex; align-items: center; gap: var(--s-2); min-height: 44px; padding: var(--s-1) var(--s-3); cursor: pointer; list-style: none; }
+.drawer > summary::-webkit-details-marker { display: none; }
+.drawer > summary:hover { background: color-mix(in srgb, var(--paper) 70%, var(--stock)); }
+.drawer > summary:focus-visible { outline: 2px solid var(--ink); outline-offset: -4px; }
+.drawer > summary h2 { font-size: var(--t-m); flex: none; }
+.drawer-mark { width: 16px; height: 16px; flex: none; transition: transform var(--t-state) var(--ease); }
+.drawer[open] > summary { border-bottom: 1px solid color-mix(in srgb, var(--ink) 16%, transparent); }
+.drawer[open] .drawer-mark { transform: rotate(90deg); }
+.drawer-meta { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+.drawer[open] .drawer-meta.preview { visibility: hidden; }
+.drawer-body { display: grid; gap: var(--s-3); padding: var(--s-3); background: var(--paper); }
+
+.lesson-file-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.lesson-file-list li { padding: var(--s-1) 0; border-bottom: 1px solid color-mix(in srgb, var(--ink) 16%, transparent); }
+.lesson-file-row { display: flex; align-items: center; gap: var(--s-2); }
+.lesson-file-row .lesson-file-name { flex: 1; font-weight: 400; }
+.lesson-file-icon { width: 16px; height: 16px; flex: none; color: var(--ink-2); }
+.lesson-file-job { font-size: var(--t-s); color: var(--ink-2); white-space: nowrap; text-underline-offset: 3px; }
+.lesson-file-job.failed { color: var(--red-ink); }
+.lesson-image { display: block; max-width: 100%; margin: var(--s-1) 0 var(--s-2); border: var(--frame-thin) solid var(--ink); background: var(--paper); }
+.lesson-add-files { justify-self: start; position: relative; }
+.lesson-add-files:focus-within { outline: 2px solid var(--ink); outline-offset: 3px; }
+.lesson-notes .textarea { width: 100%; min-height: 9rem; resize: vertical; }
+.lesson-notes .btn-row { margin-top: var(--s-2); }
+.lesson-link { justify-self: start; }
+.lesson-source-list { list-style: none; margin: 0; padding: 0; }
+.lesson-source-list:empty { display: none; }
+.lesson-source-list li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-2); padding: var(--s-2) 0; border-bottom: 1px solid color-mix(in srgb, var(--ink) 16%, transparent); }
+.lesson-source-list li > :first-child { min-width: 0; overflow-wrap: anywhere; font-weight: 700; }
+.lesson-source-list .grow { flex: 1; }
+.lesson-source-picker { display: grid; gap: var(--s-3); padding: var(--s-3); border: var(--frame-thin) solid var(--ink); }
+.lesson-source-picker > .btn { justify-self: start; }
+
+/* wide screens: the desk fills the viewport under the header; the worksheet and the
+   transcript each scroll on their own, so the player never leaves sight */
+@media (min-width: 1001px) {
+  .page:has(.lesson-desk) { height: 100dvh; display: flex; flex-direction: column; padding-bottom: var(--s-4); }
+  .page:has(.lesson-desk) > .page-head, .page:has(.lesson-desk) > .notice { flex: none; }
+  .lesson-desk { flex: 1; min-height: 0; align-items: stretch; }
+  .lesson-sheet { min-height: 0; }
+  .lesson-sheet iframe { flex: 1; height: auto; min-height: 0; }
+  .lesson-side { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+  .lesson-side > .listen { flex: 1 0 24rem; }
+  .lesson-desk.no-sheet > .listen { min-height: 0; }
+  .lesson-desk.no-sheet { grid-template-columns: minmax(0, 7fr) minmax(20rem, 4fr); }
+}
+/* narrow: one column, the listening panel first (phones show PDFs poorly inline) */
+@media (max-width: 1000px) {
+  .lesson-desk { grid-template-columns: minmax(0, 1fr); }
+  .lesson-side { display: contents; }
+  .lesson-desk .listen { order: -1; }
+  .listen-script { max-height: 55vh; }
+  .lesson-sheet iframe { height: 70vh; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .listen-rail i, .listen-lines li, .listen-text, .drawer-mark { transition: none; }
+}
+@media (pointer: coarse) { .lesson-card .btn, .lesson-desk .btn, .listen-speed .select, .listen-pick .select { min-height: 44px; } .listen-lines .tc { min-height: 32px; } }
+@media (max-width: 760px) { .tabbar a { font-size: 11px; } }
 
 /* Word lookup: tap a word in any sentence. The word is reversed (ink plate, paper
    text) while its sheet is open, like the character under the playhead. */
@@ -1126,25 +1225,6 @@ code.inline { font: 400 .95em var(--mono); padding: 0 3px; background: color-mix
 .sentence-selection-more[open] > summary { margin-bottom: var(--s-2); }
 @media (pointer: coarse) { .sentence-selection-more > summary { min-height: 44px; } }
 @media (prefers-reduced-motion: reduce) { .source-content .row .sentence-text, .source-content .row .acts > * { transition: none; } }
-
-.listening-import { margin-bottom: var(--s-6); }
-.listening-import .drop { min-height: 130px; margin-bottom: var(--s-4); }
-.listening-import > p { max-width: 70ch; }
-.listening-import-files { padding: 0; margin: var(--s-4) 0; list-style: none; }
-.listening-import-files li { display: flex; justify-content: space-between; align-items: center; gap: var(--s-3); padding: var(--s-3) 0; border-bottom: var(--frame-thin) solid var(--ink); }
-.listening-import-files li > div:first-child { min-width: 0; display: grid; gap: var(--s-1); overflow-wrap: anywhere; }
-.listening-import-files .btn-row { flex: none; }
-.listening-import .btn, .listening-editor .btn, .listening-editor select, .listening-editor input { min-height: 44px; }
-.listening-editor-fields { min-width: 0; padding: 0; border: 0; margin: 0 0 var(--s-5); }
-.listening-editor-question { min-width: 0; border: var(--frame-thin) solid var(--ink); padding: var(--s-4); margin: var(--s-5) 0; }
-.listening-editor-choices { display: grid; gap: var(--s-3); margin-bottom: var(--s-4); }
-.listening-editor-choices .btn-row { align-items: end; flex-wrap: nowrap; }
-.listening-editor-choices .field { min-width: 0; flex: 1; margin: 0; }
-.listening-editor-choices .field input { width: 100%; }
-.listening-answer-head { flex-wrap: wrap; gap: var(--s-2); }
-.listening-worksheet-text { white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font); line-height: 1.9; padding: var(--s-4); background: var(--paper); max-height: 32rem; overflow-y: auto; }
-.listening-pdf { width: 100%; height: 32rem; border: var(--frame-thin) solid var(--ink); margin-top: var(--s-4); }
-@media (max-width: 480px) { .listening-import-files li { flex-wrap: wrap; } .listening-import-files .btn-row { margin-left: auto; } }
 
 /* library selection: docked over the bottom of the page so selecting never shifts the cards */
 .toolbar.selection-dock {
@@ -1232,3 +1312,13 @@ body:has(.selection-dock) .toast { bottom: calc(var(--s-5) + 72px); }
   .source-content { display: flex; flex-direction: column; min-height: 0; }
   .source-content > .rows { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 }
+.lesson-title { font: inherit; height: auto; padding: 0; text-align: left; white-space: normal; }
+.lesson-rename { flex: 1 1 24rem; min-width: 0; }
+.lesson-rename > label { flex: 1; min-width: 0; }
+.lesson-rename .input { width: 100%; font-size: var(--t-m); font-weight: 600; }
+
+/* a source studied in lessons leads back to them */
+.source-lessons { display: grid; gap: var(--s-1); }
+.source-lessons a { display: inline-flex; align-items: baseline; gap: var(--s-1); color: var(--ink); font-weight: 700; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.source-lessons svg { width: 14px; height: 14px; flex: none; align-self: center; }
+.source-lessons .source-lesson-done { color: var(--ink-3); }

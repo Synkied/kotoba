@@ -138,43 +138,33 @@ class Attempt(models.Model):
         ordering = ["-created_at"]
 
 
-class ListeningLesson(models.Model):
-    slug = models.SlugField(unique=True)
+class Lesson(models.Model):
+    """Material to study: a worksheet, a textbook chapter, a lesson's recordings, with the
+    sources practised from it. Done lessons go to the archive; pinned ones stay at hand."""
+
     title = models.CharField(max_length=200)
-    description = models.TextField(blank=True)
-    pdf = models.FileField(upload_to="listening/")
-    pages = models.JSONField(default=list, blank=True)
-
-    class Meta:
-        ordering = ["id"]
-
-
-class ListeningExercise(models.Model):
-    lesson = models.ForeignKey(ListeningLesson, related_name="exercises", on_delete=models.CASCADE)
-    position = models.PositiveIntegerField()
-    title = models.CharField(max_length=200)
-    instructions = models.TextField()
-    example = models.TextField(blank=True)
-    audio = models.FileField(upload_to="listening/")
-    image = models.FileField(upload_to="listening/", blank=True)
-    image_alt = models.TextField(blank=True)
-    questions = models.JSONField(default=list)
-    worksheet_page = models.PositiveIntegerField(default=1)
-    revision = models.PositiveIntegerField(default=1)
-
-    class Meta:
-        ordering = ["position"]
-        constraints = [models.UniqueConstraint(fields=["lesson", "position"], name="listening_lesson_position")]
-
-
-class ListeningAttempt(models.Model):
-    exercise = models.ForeignKey(ListeningExercise, related_name="attempts", on_delete=models.CASCADE)
-    responses = models.JSONField()
-    feedback = models.JSONField(default=list)
-    score = models.PositiveIntegerField(null=True)
-    total = models.PositiveIntegerField()
-    revision = models.PositiveIntegerField(default=1)
+    notes = models.TextField(blank=True)
+    pinned = models.BooleanField(default=False)
+    done_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    sources = models.ManyToManyField(Source, related_name="lessons", blank=True)
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
-        ordering = ["-created_at", "-id"]
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.title
+
+
+class LessonFile(models.Model):
+    """A file kept with a lesson as it came: a PDF, a recording, a picture."""
+
+    lesson = models.ForeignKey(Lesson, related_name="files", on_delete=models.CASCADE)
+    file = models.FileField(upload_to="lessons/")
+    name = models.CharField(max_length=200)
+    position = models.PositiveIntegerField(default=0)
+    # a recording's transcript: the library source made from a copy of it
+    source = models.ForeignKey(Source, related_name="lesson_files", null=True, blank=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        ordering = ["position", "id"]

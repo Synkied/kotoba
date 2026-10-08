@@ -10,9 +10,11 @@ export type Source = {
   id: number; kind: SourceKind; status: 'inbox' | 'kept' | 'archived'; title: string; text: string
   category: string; labels: string[]; image: string | null; media: string | null; duration: number | null
   job: '' | 'waiting' | 'running' | 'failed'; job_error: string; created_at: string; sentences: Sentence[]
+  /** the lessons it's studied in */
+  lessons: { id: number; title: string; done: boolean }[]
 }
 export type Deck = { id: number; name: string; description: string; folder: string; created_at: string; size: number; due: number; practised: number; average: number | null }
-export type Stats = { inbox: number; due: number; sentences: number; decks: number; attempts_today: number; waiting: number }
+export type Stats = { inbox: number; due: number; sentences: number; decks: number; lessons: number; attempts_today: number; waiting: number }
 export type Facets = { categories: { name: string; count: number }[]; labels: { name: string; count: number }[] }
 export type Unit = { text: string; status: 'ok' | 'unclear' | 'missed' | 'partial'; conf: number | null }
 export type Score = {
@@ -81,18 +83,13 @@ export type Word = {
 }
 export type Page<T> = { count: number; results: T[] }
 
-export type ListeningQuestion = { id: string; prompt: string; choices?: { value: string; label: string }[]; placeholder?: string }
-export type ListeningAttempt = {
-  id: number; responses: Record<string, string>; score: number | null; total: number; created_at: string
-  feedback: { id: string; correct: boolean | null; answer: string | null; explanation: string }[]
+/** source/job: the library source transcribed from this recording, and how that's going */
+export type LessonFile = { id: number; name: string; kind: 'pdf' | 'audio' | 'video' | 'image' | 'text'; url: string; source: number | null; job: Source['job'] | null; job_error: string }
+export type LessonSource = { id: number; title: string; kind: SourceKind; status: Source['status']; sentences: number; job: Source['job']; media: string | null }
+export type Lesson = {
+  id: number; title: string; notes: string; pinned: boolean; done_at: string | null; created_at: string
+  files: LessonFile[]; sources: LessonSource[]; can_transcribe: boolean
 }
-export type ListeningExercise = {
-  id: number; position: number; title: string; instructions: string; example: string
-  audio: string; image: string | null; image_alt: string; questions: ListeningQuestion[]
-  has_answer_key: boolean; attempt_count: number; latest_attempt: ListeningAttempt | null
-  worksheet_page: number; worksheet_text: string; revision: number
-}
-export type ListeningLesson = { id: number; title: string; description: string; pdf: string; page_count: number; exercises: ListeningExercise[] }
 
 export class ApiError extends Error {
   status: number
@@ -132,14 +129,22 @@ export async function allSentences(params: { deck?: number; source?: number } = 
 }
 
 export const api = {
-  listening: () => req<ListeningLesson[]>('listening'),
-  listeningAttempt: (id: number, responses: Record<string, string>, revision?: number) => req<ListeningAttempt>(`listening/exercises/${id}/attempts`, json('POST', { responses, revision })),
-  importListeningPackage: (files: File[], title: string) => {
+  lessons: (p: { state?: 'done'; q?: string } = {}) => req<Lesson[]>('lessons' + qs(p)),
+  lesson: (id: number) => req<Lesson>(`lessons/${id}`),
+  createLesson: (title: string, files: File[]) => {
     const form = new FormData(); form.append('title', title)
     files.forEach(file => form.append('files', file))
-    return req<ListeningLesson>('listening/packages', { method: 'POST', body: form })
+    return req<Lesson>('lessons', { method: 'POST', body: form })
   },
-  editListeningExercise: (id: number, data: Pick<ListeningExercise, 'title' | 'instructions' | 'worksheet_page' | 'questions' | 'revision'>) => req<ListeningExercise>(`listening/exercises/${id}`, json('PATCH', data)),
+  updateLesson: (id: number, data: Partial<Pick<Lesson, 'title' | 'notes' | 'pinned'>> & { done?: boolean; sources?: number[] }) =>
+    req<Lesson>(`lessons/${id}`, json('PATCH', data)),
+  deleteLesson: (id: number) => req<void>(`lessons/${id}`, { method: 'DELETE' }),
+  addLessonFiles: (id: number, files: File[]) => {
+    const form = new FormData(); files.forEach(file => form.append('files', file))
+    return req<Lesson>(`lessons/${id}/files`, { method: 'POST', body: form })
+  },
+  removeLessonFile: (id: number, file: number) => req<void>(`lessons/${id}/files/${file}`, { method: 'DELETE' }),
+  transcribeLessonFile: (id: number, file: number) => req<Lesson>(`lessons/${id}/files/${file}/transcribe`, { method: 'POST' }),
   stats: () => req<Stats>('stats'),
   lookup: (text: string, at: number, signal?: AbortSignal) =>
     req<{ word: Word | null; dictionary: DictionaryStatus }>('lookup' + qs({ text, at }), { signal }),

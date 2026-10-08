@@ -1,18 +1,16 @@
 from django.urls import path
 from rest_framework.routers import SimpleRouter
 
-from . import views, listening
+from . import views, lessons
 
 router = SimpleRouter(trailing_slash=False)
 router.register("sources", views.SourceViewSet, basename="source")
 router.register("sentences", views.SentenceViewSet, basename="sentence")
 router.register("decks", views.DeckViewSet, basename="deck")
+router.register("lessons", lessons.LessonViewSet, basename="lesson")
 
 urlpatterns = [
-    path("listening", listening.lessons),
-    path("listening/packages", listening.upload),
-    path("listening/exercises/<int:exercise_id>", listening.edit_exercise),
-    path("listening/exercises/<int:exercise_id>/attempts", listening.submit),
+    path("lessons/<int:pk>/files/<int:fid>", lessons.lesson_file),
     path("captures", views.captures),               # screen-ocr --server pushes here
     path("collect/text", views.collect_text),
     path("collect/file", views.collect_file),

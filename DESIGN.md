@@ -4,7 +4,7 @@ A weekly manga magazine of your own sentences. Tokens live in `frontend/src/styl
 
 ## World
 - **Stocks.** Each section is printed on its own tinted newsprint. The page ground (`--stock`) changes per section and does the wayfinding:
-  inbox `#f4dfd5` salmon · library `#f0e7c6` straw · decks `#dce8d2` celadon · practice `#fbfaf6` white · review `#e5dff1` lavender · collect `#e8e4db` natural.
+  inbox `#f4dfd5` salmon · library `#f0e7c6` straw · decks `#dce8d2` celadon · practice `#fbfaf6` white · review `#e5dff1` lavender · lessons `#d5e9e3` mint · collect `#e8e4db` natural.
   Dark mode turns these into deep inks (`#2a1e1a` …) on "beta" black pages.
 - **Ink.** `--ink #1a1714`, `--ink-2 #463f37`, `--ink-3 #5f574d` (≥5.4:1 on every stock). Balloons, inputs and sheets use `--paper #fffdf8`.
 - **One red.** `--red #cc1f1a` (text: `--red-ink #b0130e`) is only for recording, misses, due counts and score stamps. Never decorative.
@@ -59,6 +59,16 @@ The recording editor (from jp-shadow-cut) lives on its own stock, a cold blue-gr
 - **The selected cut gets the bold panel frame,** with grips on both edges. The playhead is an ink rule with a triangular cap, not red.
 - **Background jobs appear in a framed sheet.** Transcribing and rendering show in a sheet docked bottom right, with an ink progress bar and the log on demand.
 
+## Lessons: the study desk
+
+A lesson page is a desk for reading and listening at once, on the mint stock.
+- **The worksheet takes the page.** On wide screens the PDF fills the left column to the bottom of the viewport. The side column scrolls on its own.
+- **Listening panel** (bold frame, paper): the recording picker, then a small player, then the transcript following the voice. The rail under the player lays the transcript's lines end to end as ink blocks (past lines half ink, the current one solid and taller) with the triangular-cap playhead. A repeated line gets a thin outline. Without a transcript it is a plain progress rule.
+- **Transcript lines** match the Source page: a mono time code to play from, current line on a paper wash with an inset ink rule and a reversed time code, and spoken lines in `--ink-3`. Scrolling away stops the follow; "Back to the current line" returns.
+- **Keys:** Space plays or pauses, the left and right arrows step through lines, and R repeats the current line.
+- **Drawers** (thin frame, `<details>`) hold notes, sources and files. Each remembers whether it was open. A closed Notes drawer previews its first line.
+- **≤1000px:** one column with the listening panel first, because phones show PDFs poorly inline.
+
 ## Motion
 120ms for hover, 160ms for state changes, ease `cubic-bezier(.2,.7,.2,1)`. No page-load choreography. `prefers-reduced-motion` turns motion off.
 
@@ -70,7 +80,7 @@ The recording editor (from jp-shadow-cut) lives on its own stock, a cold blue-gr
 ## Interface refinements
 
 - Sentence rows keep the text in its own reading area at narrow widths (≤1100px); actions wrap beneath. Row variants live in CSS rather than inline column definitions. Long headings wrap, including editable deck names.
-- Controls are at least 44px tall on phones and devices with a coarse pointer. The mobile navigation has seven sections including Listen; Add-ons is available above the page header.
+- Controls are at least 44px tall on phones and devices with a coarse pointer. The mobile navigation has seven sections including Lessons; Add-ons is available above the page header.
 - Inbox organization filters use a native disclosure with label/category selects. Changing a search or filter clears the visible selection. Inbox and Library provide Load more; deck practice loads all deck sentences.
 - Red remains reserved for recording, due counts, misses, and score stamps. Practice entry actions use ink. `--on-red` supplies a contrasting foreground in both themes.
 - Failed mutations retain drafts and show actionable errors; deck order/removal updates after server success. Undo remains until used, dismissed, or replaced by another notification.
