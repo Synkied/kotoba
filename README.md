@@ -29,7 +29,22 @@ make dev                # hot reload: open http://localhost:5173
 
 `make` lists every target. The Add-ons page shows what is installed and what's missing.
 
+**Settings** go in a `.env` file at the top of the repository: `cp .env.example .env`, uncomment what you need, then `make up` again (or restart `make run`). Docker and local runs both read it, and it stays out of git and out of the image. Every variable below can go there.
+
 Whisper picks its model by itself: large-v3 on a GPU, large-v3-turbo (int8) on a CPU. Override it with `KOTOBA_WHISPER_MODEL`, `KOTOBA_WHISPER_DEVICE` and `KOTOBA_WHISPER_COMPUTE`. A VOICEVOX or AivisSpeech engine is found at `KOTOBA_VOICEVOX` (default `http://127.0.0.1:50021`).
+
+### Translations
+
+Sentences can show a translation (turn it on with the language chip under any sentence; pick the language on the Add-ons page). An LLM does the translating, with the neighbouring lines as context. Set one up on the **Add-ons** page: choose Ollama, llama.cpp, Claude or any OpenAI-compatible API, fill in its address, key and model, Test it, and save. Keep as many as you like and pick the one in use. Keys are stored in `settings.json` in the data folder (readable only by you) and are never sent back to the browser.
+
+The variables below describe one more translator, "From the environment", which is used until you pick another. It is local by default:
+
+- **Ollama** (the default, at `http://127.0.0.1:11434/v1`): `ollama pull qwen2.5:7b`. Under Docker, let Ollama listen beyond localhost (`OLLAMA_HOST=0.0.0.0`); the container reaches it at `host.docker.internal`.
+- **llama.cpp**: `llama-server -m model.gguf --port 8080` with `KOTOBA_LLM_URL=http://127.0.0.1:8080/v1`.
+- **Any OpenAI-compatible API** (LM Studio, vLLM, OpenRouter, OpenAI): set `KOTOBA_LLM_URL`, `KOTOBA_LLM_MODEL` and `KOTOBA_LLM_KEY`.
+- **Claude**: `make install EXTRAS="whisper voice claude"`, then `KOTOBA_LLM_URL=anthropic` and `ANTHROPIC_API_KEY` (or `KOTOBA_LLM_KEY`). The model defaults to `claude-opus-5-5`; set `KOTOBA_LLM_MODEL` for another one.
+
+With an API, sentences leave your machine; the Add-ons page says so. `KOTOBA_LLM_MODEL` can stay empty for a local server: kotoba uses the first model it lists. Nothing is translated until you ask: each sentence has a Translate button once the translation toggle is on, and a source page has Translate all, which first says whether it will use API credits or this computer. `make translate` (or `make translate TO=fr`) does every sentence at once. A translation can be corrected by hand on the sentence's page.
 
 Phone and tablet access: `tailscale serve --bg 8780`, then `KOTOBA_HOSTS=<pi>.<tailnet>.ts.net`. The microphone needs HTTPS, which tailscale serve provides.
 

@@ -44,7 +44,7 @@ class SentenceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Sentence
         fields = ["id", "source", "source_kind", "source_title", "position", "text", "roman", "furigana",
-                  "reading_overrides", "start", "end", "note", "has_audio", "image", "due", "reps", "lapses", "best", "last",
+                  "reading_overrides", "start", "end", "note", "translations", "has_audio", "image", "due", "reps", "lapses", "best", "last",
                   "stamps", "decks", "created_at"]
         read_only_fields = ["roman", "furigana", "due", "reps", "lapses", "best", "last", "created_at"]
 
@@ -65,6 +65,15 @@ class SentenceSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError({"reading_overrides": "Readings must be hiragana and match the sentence spans in order."})
         if self.instance and text != self.instance.text and pairs is None:
             attrs["reading_overrides"] = []
+        if "translations" in attrs:
+            from .translate import LANGUAGES
+            given = attrs["translations"]
+            if not isinstance(given, dict) or any(k not in LANGUAGES or not isinstance(v, str) or len(v) > 2000
+                                                   for k, v in given.items()):
+                raise serializers.ValidationError({"translations": "Translations map a language code to text."})
+            attrs["translations"] = {k: v.strip() for k, v in given.items() if v.strip()}
+        elif self.instance and text != self.instance.text:
+            attrs["translations"] = {}  # they translated the old text
         return attrs
 
     def get_source_title(self, s):

@@ -1,4 +1,5 @@
 # docker compose up -d  →  http://localhost:8780     (or: make up)
+# Settings: cp .env.example .env, then edit it. Compose reads it for the values below too.
 # Profiles:  voicevox  the VOICEVOX engine, for more Japanese voices (VOICEVOX=1 with make)
 # compose.gpu.yaml runs Whisper on an NVIDIA GPU (GPU=1 with make).
 services:
@@ -14,11 +15,19 @@ services:
       - "127.0.0.1:${KOTOBA_PORT:-8780}:8780"
     volumes:
       - kotoba-data:/data
+    # Settings go in a .env file next to this one (cp .env.example .env): all of it reaches kotoba.
+    env_file:
+      - path: .env
+        required: false
     environment:
-      KOTOBA_HOSTS: ${KOTOBA_HOSTS:-}
-      KOTOBA_WHISPER_MODEL: ${KOTOBA_WHISPER_MODEL:-}
+      # Docker's own defaults; a value in .env wins
       KOTOBA_VOICEVOX: ${KOTOBA_VOICEVOX:-http://voicevox:50021}
+      # translations: Ollama or llama-server on the host (more choices on the Add-ons page)
+      KOTOBA_LLM_URL: ${KOTOBA_LLM_URL:-http://host.docker.internal:11434/v1}
       TZ: ${TZ:-UTC}
+      KOTOBA_DATA: /data  # the volume, whatever .env says for local runs
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   voicevox:
     profiles: [voicevox]

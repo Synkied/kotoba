@@ -16,7 +16,7 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 
-from . import dictionary, ingest, romanize, srs
+from . import dictionary, ingest, romanize, srs, translate
 from .models import Attempt, Deck, DeckItem, Sentence, Source, fold
 # not in every system mime table; browsers need it to play rendered takes
 mimetypes.add_type("audio/mp4", ".m4a")
@@ -276,7 +276,10 @@ def collect_file(request):
 
 class SentenceViewSet(viewsets.ModelViewSet):
     serializer_class = SentenceSerializer
-    http_method_names = ["get", "patch", "delete"]
+    http_method_names = ["get", "post", "patch", "delete"]  # post is only for actions
+
+    def create(self, request, *args, **kwargs):
+        return Response({"error": "Sentences come from sources."}, status=405)
 
     def get_queryset(self):
         qs = Sentence.objects.select_related("source").prefetch_related("attempts", "decks")
@@ -300,6 +303,81 @@ class SentenceViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"])
     def attempts(self, request, pk=None):
         return Response(AttemptSerializer(self.get_object().attempts.all()[:50], many=True).data)
+
+    @action(detail=True, methods=["post"])
+    def translate(self, request, pk=None):
+        """Translate into the chosen language; {"force": true} replaces an existing one."""
+        sentence = self.get_object()
+        try:
+            translate.translate(sentence, request.data.get("to"), force=bool(request.data.get("force")))
+        except translate.TranslateError as e:
+            return Response({"error": str(e)}, status=503)
+        return Response(self.get_serializer(sentence).data)
+
+
+@api_view(["GET", "PATCH"])
+def translation(request):
+    """The translator's status, the saved translators and the language sentences are
+    translated into. PATCH {"to": "fr"} picks the language, {"active": id} the translator."""
+    if request.method == "PATCH":
+        try:
+            if "to" in request.data:
+                translate.set_language(request.data.get("to", ""))
+            if "active" in request.data:
+                translate.activate(str(request.data["active"]))
+        except ValueError as e:
+            return Response({"error": str(e)}, status=400)
+        except KeyError:
+            return Response({"error": "That translator no longer exists."}, status=404)
+    lang = translate.language()
+    if request.query_params.get("quick"):  # just the language, without asking the LLM server
+        active = translate.public(next(t for t in translate.translators() if t["id"] == translate.active_id()))
+        return Response({"to": lang, "name": translate.LANGUAGES[lang],
+                         "translator": active["name"], "cloud": active["cloud"]})
+    sentences = Sentence.objects.exclude(source__status=Source.Status.ARCHIVED)
+    return Response({
+        **translate.status(), "to": lang, "name": translate.LANGUAGES[lang],
+        "languages": [{"code": k, "name": v} for k, v in translate.LANGUAGES.items()],
+        "translated": sentences.filter(**{f"translations__{lang}__isnull": False}).count(),
+        "sentences": sentences.count(),
+        "active": translate.active_id(),
+        "translators": [translate.public(t) for t in translate.translators()],
+        "defaults": translate.defaults(),
+    })
+
+
+@api_view(["POST"])
+def translators(request):
+    """Save a translator; {"activate": true} also makes it the one in use."""
+    try:
+        t = translate.add_translator(request.data, activate=bool(request.data.get("activate")))
+    except ValueError as e:
+        return Response({"error": str(e)}, status=400)
+    return Response(translate.public(t), status=201)
+
+
+@api_view(["PATCH", "DELETE"])
+def translator(request, tid):
+    try:
+        if request.method == "DELETE":
+            translate.remove_translator(tid)
+            return Response(status=204)
+        t = translate.update_translator(tid, request.data, activate=bool(request.data.get("activate")))
+    except KeyError:
+        return Response({"error": "That translator no longer exists."}, status=404)
+    except ValueError as e:
+        return Response({"error": str(e)}, status=400)
+    return Response(translate.public(t))
+
+
+@api_view(["POST"])
+def translator_test(request):
+    """Try a translator from the form without saving it: does it answer, and with which models."""
+    try:
+        cfg = translate.draft(request.data)
+    except ValueError as e:
+        return Response({"error": str(e)}, status=400)
+    return Response(translate.status(cfg))
 
 
 @api_view(["GET"])

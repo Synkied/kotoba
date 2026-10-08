@@ -22,5 +22,9 @@ urlpatterns = [
     path("lookup", views.lookup),
     path("attempts", views.attempts),
     path("review", views.review),
+    path("translation", views.translation),
+    path("translation/translators", views.translators),
+    path("translation/translators/test", views.translator_test),
+    path("translation/translators/<str:tid>", views.translator),
     *router.urls,
 ]

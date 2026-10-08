@@ -1,5 +1,5 @@
 # kotoba: `make` lists the targets. Local runs need uv, npm and ffmpeg; the Docker targets need Docker only.
-PORT     ?= 8780
+PORT     ?= $(or $(shell sed -n 's/^KOTOBA_PORT=//p' .env 2>/dev/null),8780)
 # What to install locally: whisper (speaking scores, transcription, the recording editor),
 # voice (the Kokoro voice). EXTRAS= installs the plain hub.
 EXTRAS   ?= whisper voice
@@ -15,7 +15,7 @@ COMPOSE  = KOTOBA_PORT=$(PORT) GPU=$(GPU) $(if $(filter 1,$(VOICEVOX)),COMPOSE_P
            docker compose -f compose.yaml $(if $(filter 1,$(GPU)),-f compose.gpu.yaml)
 
 .DEFAULT_GOAL := help
-.PHONY: help install build migrate run dev dev-api dev-web check import-ocr import-jpcut dictionary transcribe \
+.PHONY: help install build migrate run dev dev-api dev-web check import-ocr import-jpcut dictionary transcribe translate \
         ocr-client docker-build up down logs status shell docker-import-ocr clean
 
 help: ## List the targets
@@ -66,6 +66,9 @@ dictionary: ## Download the dictionary for word lookups now (otherwise the first
 
 transcribe: ## Transcribe waiting uploads now, with progress (the server also does it by itself)
 	$(UV) python manage.py transcribe
+
+translate: ## Translate sentences that have none yet (TO=fr for another language)
+	$(UV) python manage.py translate $(if $(TO),--to $(TO))
 
 ocr-client: ## Install the screen-ocr capture client on this computer (needs uv and Tesseract)
 	uv tool install --force "screen-ocr[desktop] @ $(if $(findstring ://,$(OCR_SRC)),$(OCR_SRC),file://$(abspath $(OCR_SRC)))"

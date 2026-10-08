@@ -12,7 +12,6 @@ dependencies = [
     "fugashi>=1.5.2",
     "unidic-lite>=1.0.8",
     "waitress>=3.0.2",
-    "pypdf>=6.19.0",
 ]
 
 [project.optional-dependencies]
@@ -30,7 +29,9 @@ gpu = [
     "nvidia-cublas-cu12; sys_platform == 'linux' or sys_platform == 'win32'",
     "nvidia-cudnn-cu12>=9,<10; sys_platform == 'linux' or sys_platform == 'win32'",
 ]
-all = ["kotoba[whisper,voice]"]
+# Translate with Claude (KOTOBA_LLM_URL=anthropic); local LLMs need nothing extra
+claude = ["anthropic>=1.12"]
+all = ["kotoba[whisper,voice,claude]"]
 
 [tool.uv]
 package = false

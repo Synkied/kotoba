@@ -5,6 +5,29 @@ import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def _read_env_file(path: Path):
+    """KEY=value lines from the repository's .env (the same file Docker Compose reads).
+    Variables already set in the environment win."""
+    try:
+        lines = path.read_text().splitlines()
+    except OSError:
+        return
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.removeprefix("export ").split("=", 1)
+        value = value.strip()
+        if len(value) > 1 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        else:
+            value = value.split(" #", 1)[0].strip()
+        os.environ.setdefault(key.strip(), value)
+
+
+_read_env_file(BASE_DIR.parent / ".env")
 FRONTEND_DIST = BASE_DIR.parent / "frontend" / "dist"
 
 SECRET_KEY = os.environ.get("KOTOBA_SECRET_KEY", "kotoba-local-only-not-secret")
@@ -28,6 +51,15 @@ WHISPER = {k: v for k, v in {
 }.items() if v}
 # A VOICEVOX / AivisSpeech engine for more voices (AivisSpeech uses port 10101)
 VOICEVOX_URL = os.environ.get("KOTOBA_VOICEVOX", "http://127.0.0.1:50021").rstrip("/")
+# The LLM that translates sentences. Any OpenAI-compatible server: Ollama (the default),
+# llama.cpp's llama-server (http://127.0.0.1:8080/v1), LM Studio, vLLM, or OpenAI itself
+# with a key. "anthropic" uses Claude (the `claude` extra; the key can also come from
+# ANTHROPIC_API_KEY). An empty model takes the first one the server lists.
+LLM = {
+    "url": os.environ.get("KOTOBA_LLM_URL", "http://127.0.0.1:11434/v1").rstrip("/"),
+    "model": os.environ.get("KOTOBA_LLM_MODEL", ""),
+    "key": os.environ.get("KOTOBA_LLM_KEY", ""),
+}
 
 INSTALLED_APPS = [
     "django.contrib.contenttypes",

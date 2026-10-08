@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends build-essential
 ENV UV_PROJECT_ENVIRONMENT=/app/.venv UV_PYTHON_DOWNLOADS=never UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 WORKDIR /app/backend
 COPY backend/pyproject.toml backend/uv.lock backend/.python-version ./
-RUN uv sync --locked --no-install-project --extra whisper --extra voice $([ "$GPU" = 1 ] && echo --extra gpu) \
+RUN uv sync --locked --no-install-project --extra whisper --extra voice --extra claude $([ "$GPU" = 1 ] && echo --extra gpu) \
  && /app/.venv/bin/python -m unidic download
 
 FROM python:3.12-slim

@@ -68,6 +68,7 @@ class Sentence(models.Model):
     start = models.FloatField(null=True, blank=True)  # seconds into source.media
     end = models.FloatField(null=True, blank=True)
     note = models.TextField(blank=True)
+    translations = models.JSONField(default=dict, blank=True)  # {"en": "...", "fr": "..."}
     created_at = models.DateTimeField(default=timezone.now)
 
     # spaced review (SM-2 style, fed by practice scores)
