@@ -73,6 +73,11 @@ def engine_tts_status(request):
     return Response(engine.tts_status())
 
 
+@api_view(["POST"])
+def engine_tts_load(request):
+    return Response(engine.kokoro_load())
+
+
 @api_view(["GET"])
 def addons(request):
     """What kotoba can do on this machine, and what is missing."""

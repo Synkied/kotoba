@@ -10,6 +10,7 @@ urlpatterns = [
     path("engine/prepare", views.engine_prepare),
     path("engine/tts", views.engine_tts),
     path("engine/tts/status", views.engine_tts_status),
+    path("engine/tts/load", views.engine_tts_load),
     path("jobs", views.job_list),
     path("jobs/<int:job_id>", views.job),
     path("recordings", views.recordings),

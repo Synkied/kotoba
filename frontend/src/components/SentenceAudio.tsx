@@ -186,6 +186,7 @@ export function WaveformPlayer({ source, start, end, noun, onTime, handle, contr
   return <section className={'sentence-audio ' + noun + '-audio'} aria-label={`${Noun} audio`}>
     <div className="sentence-section-head"><h2>{Noun} audio</h2><span className="meta num">{fmtTime(clipDuration)}</span></div>
     {error != null && <ErrorNotice error={error} />}
+    <div className="player-deck">
     {!loaded ? <p role="status" className="meta">Drawing the waveform…</p> : <canvas ref={canvas} className="sentence-wave" role="img" aria-label={`${Noun} waveform. Drag to select audio, or use the selection start and end sliders below.`} onPointerDown={e => {
       if (e.button !== 0 || !ready || clipDuration <= 0) return
       e.currentTarget.setPointerCapture(e.pointerId)
@@ -211,7 +212,18 @@ export function WaveformPlayer({ source, start, end, noun, onTime, handle, contr
       if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) toggle() }
       else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); seek((audio.current?.currentTime ?? clipStart) + (e.key === 'ArrowLeft' ? -1 : 1)) }
     }} aria-valuetext={`${fmtTime(Math.max(0, time - clipStart))} of ${fmtTime(clipDuration)}`} /></label>
-    <div className="times num"><span>{fmtTime(Math.max(0, Math.min(clipDuration, time - clipStart)))}</span><span>{fmtTime(clipDuration)}</span></div>
+    {/* the transport sits right under the seek bar, as one player */}
+    <div className="sentence-audio-controls">
+      <button className="btn icon primary sentence-play" disabled={!ready || clipDuration <= 0} onClick={toggle} aria-label={playing ? 'Pause' : selection ? 'Play selection' : `Play ${noun}`} title={playing ? 'Pause (Space)' : selection ? 'Play selection (Space)' : `Play ${noun} (Space)`}>{playing ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}</button>
+      {controls}
+      <button className="btn icon ghost" disabled={!ready || clipDuration <= 0} onClick={() => seek(rangeStart)} aria-label="Restart" title="Restart"><RotateCcw aria-hidden="true" /></button>
+      <span className="player-time num" aria-hidden="true">{fmtTime(Math.max(0, Math.min(clipDuration, time - clipStart)))} / {fmtTime(clipDuration)}</span>
+      <span className="grow" />
+      {selection && <button className="btn small ghost" onClick={() => { audio.current?.pause(); setSelection(null) }}><X aria-hidden="true" />Clear selection</button>}
+      <label className="sentence-toggle"><input className="check" type="checkbox" checked={loop} onChange={e => setLoop(e.target.checked)} /> Repeat</label>
+      <label className="sentence-speed"><span className="sr">Speed</span><select className="select" value={speed} title="Speed" onChange={e => { setSpeed(e.target.value); if (audio.current) audio.current.playbackRate = Number(e.target.value) }}>{['0.5', '0.75', '1', '1.25'].map(v => <option key={v} value={v}>{v}×</option>)}</select></label>
+    </div>
+    </div>
     <audio ref={audio} src={source.media!} preload="metadata" onLoadedMetadata={e => { setDuration(e.currentTarget.duration); e.currentTarget.currentTime = clipStart; e.currentTarget.playbackRate = Number(speed); setReady(true) }} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onError={() => { setReady(false); setPlaying(false); setError(new Error('Audio could not be loaded. Reload the page to try again.')) }} onEnded={() => { setPlaying(false); if (loop && audio.current) { seek(rangeStart); void audio.current.play().catch(setError) } }} />
     {(() => { const fields = <fieldset className="sentence-selection" disabled={!ready || clipDuration <= 0}>
       <legend>Audio selection</legend>
@@ -223,14 +235,6 @@ export function WaveformPlayer({ source, start, end, noun, onTime, handle, contr
       </label>
     </fieldset>
       return noun === 'source' ? <details className="sentence-selection-more"><summary>Select a part of the audio</summary>{fields}</details> : fields })()}
-    <div className="sentence-audio-controls">
-      <button className="btn primary sentence-play" disabled={!ready || clipDuration <= 0} onClick={toggle}>{playing ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}{playing ? 'Pause' : selection ? 'Play selection' : `Play ${noun}`}</button>
-      {controls}
-      <button className="btn" disabled={!ready || clipDuration <= 0} onClick={() => seek(rangeStart)}><RotateCcw aria-hidden="true" />Restart</button>
-      <label className="sentence-toggle"><input className="check" type="checkbox" checked={loop} onChange={e => setLoop(e.target.checked)} /> Repeat</label>
-      <label className="sentence-speed">Speed <select className="select" value={speed} onChange={e => { setSpeed(e.target.value); if (audio.current) audio.current.playbackRate = Number(e.target.value) }}>{['0.5', '0.75', '1', '1.25'].map(v => <option key={v} value={v}>{v}×</option>)}</select></label>
-      {selection && <button className="btn ghost" onClick={() => { audio.current?.pause(); setSelection(null) }}><X aria-hidden="true" />Clear selection</button>}
-    </div>
     <p className="meta sentence-audio-hint">Space: play / pause · Left / right arrows: seek 1 second. Click the waveform to seek; drag across it to select a part.{hint ? ' ' + hint : ` Selection times are relative to the ${noun}.`}</p>
   </section>
 }

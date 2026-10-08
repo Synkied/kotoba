@@ -46,3 +46,38 @@ class NonSpeechCleanupTests(SimpleTestCase):
         _, cuts = jpcut.analyze(words, 40, cleanup.make_args({'no_pauses': True}))
         self.assertTrue(any('filler' in reason for _, _, reason in cuts))
         self.assertFalse(any(reason == 'pause' for _, _, reason in cuts))
+
+
+class KokoroLoadTests(SimpleTestCase):
+    def setUp(self):
+        from speech import engine
+        self.engine = engine
+        self.addCleanup(engine._kokoro.update, dict(engine._kokoro))
+        engine._kokoro.update(pipeline=None, error=None, loading=False)
+
+    def test_load_reports_loading_until_the_pipeline_is_ready(self):
+        import threading
+        release = threading.Event()
+
+        def pipeline():
+            release.wait(5)
+            self.engine._kokoro["pipeline"] = object()
+
+        with patch.object(self.engine, "kokoro_installed", return_value=True), \
+                patch.object(self.engine, "_kokoro_pipeline", side_effect=pipeline):
+            first = self.client.post("/api/engine/tts/load").json()
+            again = self.client.post("/api/engine/tts/load").json()
+            release.set()
+            for _ in range(100):
+                if not self.engine._kokoro["loading"]:
+                    break
+                threading.Event().wait(0.01)
+            done = self.client.post("/api/engine/tts/load").json()
+
+        self.assertEqual(first["kokoro"], "loading")
+        self.assertEqual(again["kokoro"], "loading")
+        self.assertEqual(done["kokoro"], "ready")
+
+    def test_load_without_kokoro_installed_does_nothing(self):
+        with patch.object(self.engine, "kokoro_installed", return_value=False):
+            self.assertEqual(self.client.post("/api/engine/tts/load").json(), {"kokoro": "missing", "kokoro_error": None})

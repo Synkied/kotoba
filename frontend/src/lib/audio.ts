@@ -12,10 +12,15 @@ export class SpeechEndDetector {
   private silence = 0
   private elapsed = 0
   private heardSpeech = false
+  // the room's level: drops to any quieter moment at once and creeps up slowly, so a
+  // steady hum, gain the browser turns up, or the model's voice leaking back from the
+  // speakers (speak along) stops counting as speech
+  private floor = Infinity
 
   update(rms: number, seconds: number): boolean {
     this.elapsed += seconds
-    if (rms >= 0.015) {
+    this.floor = rms < this.floor ? rms : this.floor + (rms - this.floor) * Math.min(1, seconds / 4)
+    if (rms >= Math.max(0.015, this.floor * 2)) {
       this.voiced += seconds
       this.silence = 0
       if (this.voiced >= 0.12) this.heardSpeech = true
@@ -102,9 +107,42 @@ export function playClip(url: string, start: number, end: number, onTime?: (t: n
   })
 }
 
+let kokoroReady = false
+let voiceLoading = false
+const voiceListeners = new Set<() => void>()
+/** Whether a voice model is being loaded (Kokoro's first use downloads its weights). */
+export const voiceLoadingNow = () => voiceLoading
+export function onVoiceLoading(cb: () => void) { voiceListeners.add(cb); return () => { voiceListeners.delete(cb) } }
+const setVoiceLoading = (on: boolean) => { voiceLoading = on; voiceListeners.forEach((cb) => cb()) }
+
+const wait = (ms: number, signal?: AbortSignal) => new Promise<void>((resolve) => {
+  const t = window.setTimeout(resolve, ms)
+  signal?.addEventListener('abort', () => { window.clearTimeout(t); resolve() }, { once: true })
+})
+
+/** Load Kokoro before its first sentence, flagging the wait. Any failure is left to the
+ *  speech request, which reports it the usual way. */
+async function readyKokoro(signal?: AbortSignal) {
+  let shown = false
+  try {
+    while (!kokoroReady && !signal?.aborted) {
+      const r = await fetch('/api/engine/tts/load', { method: 'POST', signal })
+      if (!r.ok) return
+      const st: { kokoro: string } = await r.json()
+      if (st.kokoro !== 'loading') { kokoroReady = st.kokoro === 'ready'; return }
+      if (!shown) { shown = true; setVoiceLoading(true) }
+      await wait(1000, signal)
+    }
+  } catch { /* aborted or offline: the speech request says why */ } finally { if (shown) setVoiceLoading(false) }
+}
+
 /** The synthetic voice through jp-shadow-cut; falls back to the browser's Japanese voice. */
 export async function speak(text: string, voice: string | null, speed = 1, signal?: AbortSignal): Promise<void> {
   stopAudio()
+  if (voice?.startsWith('kokoro:')) {
+    await readyKokoro(signal)
+    if (signal?.aborted) return
+  }
   if (voice && voice !== 'browser') {
     const r = await fetch('/api/engine/tts?' + new URLSearchParams({ text, voice, speed: String(speed) }), { signal })
     if (r.ok) {

@@ -1,5 +1,6 @@
-import { Search as SearchIcon, AlertTriangle, X } from 'lucide-react'
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Search as SearchIcon, AlertTriangle, LoaderCircle, X } from 'lucide-react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { onVoiceLoading, voiceLoadingNow } from '../lib/audio'
 
 export function shortcutBlocked(e: KeyboardEvent) {
   return e.defaultPrevented || e.isComposing || e.repeat || e.metaKey || e.ctrlKey || e.altKey ||
@@ -70,6 +71,7 @@ export function ToastHost({ children }: { children: ReactNode }) {
     if (!t.undo) timer.current = window.setTimeout(() => setToast(null), 5000)
   }, [clearError])
   useEffect(() => () => window.clearTimeout(timer.current), [])
+  const voiceLoading = useVoiceLoading()
   return (
     <ToastCtx.Provider value={show}>
       {children}
@@ -81,10 +83,19 @@ export function ToastHost({ children }: { children: ReactNode }) {
             <button className="btn small icon" aria-label="Dismiss notification" onClick={() => setToast(null)}><X aria-hidden="true" /></button>
           </div>
         )}
+        {!toast && voiceLoading && (
+          <div className="toast" role="status">
+            <LoaderCircle className="loading-spinner" aria-hidden="true" />
+            <span>Loading the Kokoro voice. The first time downloads it, so this can take a minute.</span>
+          </div>
+        )}
       </div>
     </ToastCtx.Provider>
   )
 }
+
+/** True while a voice model loads (see speak). */
+export const useVoiceLoading = () => useSyncExternalStore(onVoiceLoading, voiceLoadingNow)
 
 export function usePref<T>(key: string, initial: T): [T, (v: T) => void] {
   const [v, setV] = useState<T>(() => {

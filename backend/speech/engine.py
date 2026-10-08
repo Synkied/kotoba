@@ -123,7 +123,7 @@ def score(pcm, expected, final, key, busy=lambda: "another clip"):
     try:
         audio = np.frombuffer(pcm, "<i2").astype(np.float32) / 32768
         words = (jpscore.transcribe_clip(get_model(key), audio, 5 if final else 1)
-                 if len(audio) >= 16000 * 0.25 else [])
+                 if len(audio) >= 16000 * 0.25 and jpscore.has_speech(audio) else [])
     finally:
         model_lock.release()
     res = jpscore.score(expected, words)
@@ -157,7 +157,7 @@ def peaks(path):
 KOKORO_REPO = "hexgrad/Kokoro-82M"
 KOKORO_VOICES = [("jf_alpha", "female"), ("jf_gongitsune", "female"), ("jf_nezumi", "female"),
                  ("jf_tebukuro", "female"), ("jm_kumo", "male")]
-_kokoro = {"pipeline": None, "error": None}
+_kokoro = {"pipeline": None, "error": None, "loading": False}
 _kokoro_lock = threading.Lock()
 _tts_cache = {}   # (voice, speed, text) -> wav bytes
 _TTS_CACHE_MAX = 200
@@ -178,11 +178,32 @@ def kokoro_installed():
     return all(importlib.util.find_spec(m) for m in ("kokoro", "misaki", "pyopenjtalk", "fugashi"))
 
 
+def kokoro_state():
+    return ("ready" if _kokoro["pipeline"] else "loading" if _kokoro["loading"]
+            else "error" if _kokoro["error"] else "available" if kokoro_installed() else "missing")
+
+
+def kokoro_load():
+    """Start loading Kokoro in the background, so the page can say so while the first
+    use downloads the weights instead of hanging on its first sentence."""
+    if kokoro_state() in ("available", "error"):
+        _kokoro["loading"] = True
+
+        def run():
+            try:
+                _kokoro_pipeline()
+            except RuntimeError:
+                pass  # kept in _kokoro["error"]
+            finally:
+                _kokoro["loading"] = False
+        threading.Thread(target=run, daemon=True).start()
+    return {"kokoro": kokoro_state(), "kokoro_error": _kokoro["error"]}
+
+
 def tts_status():
     """Available voices: [{id, name, engine}] plus what's missing, for the hints."""
     voices = []
-    kokoro = "ready" if _kokoro["pipeline"] else "error" if _kokoro["error"] else \
-        "available" if kokoro_installed() else "missing"
+    kokoro = kokoro_state()
     if kokoro != "missing":
         voices += [{"id": f"kokoro:{v}", "name": f"Kokoro {v[3:]} ({g})", "engine": "kokoro"}
                    for v, g in KOKORO_VOICES]

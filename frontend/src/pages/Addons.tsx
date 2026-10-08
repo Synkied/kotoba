@@ -29,7 +29,7 @@ export default function AddonsPage() {
         w.state === 'loading' ? ['warn', 'Loading the model…'] :
           w.state === 'error' ? ['off', `Failed to load: ${w.error}`] : ['warn', `Installed; loads on first use (${w.key.join(' · ')})`]
   const v = a.voices
-  const voice: [Dot, string] = v.count ? ['ok', `${v.count} voices${v.voicevox ? ', VOICEVOX connected' : ''}`] :
+  const voice: [Dot, string] = v.kokoro === 'loading' ? ['warn', 'Loading Kokoro…'] : v.count ? ['ok', `${v.count} voices${v.voicevox ? ', VOICEVOX connected' : ''}`] :
     v.kokoro === 'error' ? ['off', v.kokoro_error ?? 'Kokoro failed'] : ['off', 'Only the browser\'s voices']
   const last = a.screen_ocr.last_capture
   const ocr: [Dot, string] = last ? ['ok', `Last capture ${dayLabel(last).rel || dayLabel(last).date}, ${clock(last)}`] : ['off', 'No captures yet']

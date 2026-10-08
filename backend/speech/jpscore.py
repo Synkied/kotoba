@@ -232,6 +232,17 @@ def score(sentence, words):
 
 # ---------------------------------------------------------------- transcription
 
+def has_speech(audio):
+    """Whether Silero VAD hears any voice in a 16 kHz float32 clip. On silence Whisper
+    retries at every fallback temperature and invents text, so an empty take
+    is turned away here in milliseconds. True when the VAD can't run."""
+    try:
+        from faster_whisper.vad import VadOptions, get_speech_timestamps
+        return bool(get_speech_timestamps(audio, VadOptions(threshold=0.35, min_speech_duration_ms=120)))
+    except Exception:
+        return True
+
+
 def transcribe_clip(model, audio, beam_size=5):
     """Transcribe a short 16 kHz float32 clip into words with confidences."""
     segments, _ = model.transcribe(

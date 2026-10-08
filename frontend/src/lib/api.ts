@@ -48,7 +48,7 @@ export type Cleanup = {
 }
 export type Addons = {
   whisper: EngineStatus; ffmpeg: boolean
-  voices: { count: number; kokoro: 'missing' | 'available' | 'ready' | 'error'; kokoro_error: string | null; voicevox: boolean; voicevox_url: string }
+  voices: { count: number; kokoro: 'missing' | 'available' | 'loading' | 'ready' | 'error'; kokoro_error: string | null; voicevox: boolean; voicevox_url: string }
   queue: { waiting: number; failed: number; jobs: Job[] }
   screen_ocr: { last_capture: string | null }
   dictionary: DictionaryStatus

@@ -817,9 +817,13 @@ code.inline { font: 400 .95em var(--mono); padding: 0 3px; background: color-mix
 .sentence-selection input { grid-column: 1 / -1; width: 100%; min-width: 0; min-height: 44px; accent-color: var(--ink); }
 .sentence-seek input, .sentence-audio audio { width: 100%; min-width: 0; }
 .sentence-seek input { accent-color: var(--ink); }
-.sentence-audio .times { display: flex; justify-content: space-between; font-size: var(--t-s); }
-.sentence-audio-controls { display: flex; flex-wrap: wrap; gap: var(--s-3); align-items: center; }
-.sentence-play { min-width: 10rem; }
+/* waveform, seek bar and transport read as one player: no section gaps inside it */
+.player-deck { display: grid; gap: var(--s-1); min-width: 0; }
+.player-deck .sentence-seek { display: block; line-height: 0; }
+.player-deck .sentence-seek input { margin: 0; }
+.sentence-audio-controls { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-2); align-items: center; }
+.sentence-audio-controls .grow { flex: 1; }
+.player-time { font: 400 var(--t-s)/1 var(--mono); color: var(--ink-2); white-space: nowrap; padding-inline: var(--s-1); }
 .sentence-audio > audio { display: none; }
 .sentence-speed { display: flex; align-items: center; gap: var(--s-2); font-size: var(--t-s); }
 .sentence-speed .select { width: auto; }
