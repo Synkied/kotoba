@@ -161,6 +161,8 @@ function WordPopover({ text, at, root, x, y, onClose }: Open & { onClose: () => 
       tabIndex={-1} lang="en" style={pos === 'sheet' ? undefined : pos ?? { visibility: 'hidden' }} onClick={(e) => e.stopPropagation()}>
       <button type="button" className="btn small icon ghost word-pop-close" onClick={close} aria-label="Close"><X aria-hidden="true" /></button>
       {error ? <p className="meta">{error}</p> : word === undefined ? <p className="meta">Looking it up…</p> : word === null ? <p className="meta">No word here.</p> : <>
+        {/* the word stays in view; only its meanings scroll */}
+        <div className="word-pop-top">
         <div className="word-head">
           <span className="word-surface" lang="ja"><Furigana text={word.surface} pairs={word.furigana} lookup={false} /></span>
           {listenButton(word.reading || word.surface, `Listen to ${word.surface}`)}
@@ -170,6 +172,8 @@ function WordPopover({ text, at, root, x, y, onClose }: Open & { onClose: () => 
           <span>Dictionary form</span> <b lang="ja">{word.lemma}</b> <span lang="ja">{word.lemma_reading}</span> <span className="word-romaji">{word.lemma_romaji}</span>
           {word.lemma_reading && listenButton(word.lemma_reading, `Listen to ${word.lemma}`)}
         </p>}
+        </div>
+        <div className="word-pop-body">
         {word.entries.length ? word.entries.map((e, n) => <section key={e.id} className="word-entry">
           {n > 0 && <h3 lang="ja">{e.kanji[0]?.text ?? e.kana[0]?.text}{e.kanji.length > 0 && <span className="meta"> {e.kana[0]?.text}</span>}</h3>}
           <ol>{e.senses.map((s, i) => <li key={i}>
@@ -182,6 +186,7 @@ function WordPopover({ text, at, root, x, y, onClose }: Open & { onClose: () => 
           dict?.state === 'downloading' ? 'Downloading the dictionary (once, about 12 MB)…' :
             dict?.state === 'error' ? dict.error : 'Not in the dictionary.'
         }</p>}
+        </div>
       </>}
     </div>, document.body)
 }

@@ -1239,10 +1239,12 @@ a.material-name:hover { text-decoration: underline; text-underline-offset: 3px; 
 .lookup { cursor: pointer; }
 ::highlight(lookup) { background-color: var(--ink); color: var(--paper); }
 .word-pop {
-  position: fixed; z-index: 60; width: min(24rem, calc(100vw - 32px)); max-height: min(28rem, 70vh); overflow-y: auto;
+  position: fixed; z-index: 60; width: min(24rem, calc(100vw - 32px)); max-height: min(28rem, 70vh);
   border: var(--frame-bold) solid var(--ink); background: var(--paper); color: var(--ink); box-shadow: var(--lift);
-  padding: var(--s-4) var(--s-4) var(--s-3); display: grid; gap: var(--s-2); font-size: var(--t-m); line-height: 1.5;
+  padding: var(--s-4) var(--s-4) var(--s-3); display: flex; flex-direction: column; gap: var(--s-2); font-size: var(--t-m); line-height: 1.5;
 }
+.word-pop-top { display: grid; gap: var(--s-2); flex: none; }
+.word-pop-body { display: grid; gap: var(--s-2); min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .word-pop:focus { outline: none; }
 .word-pop:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .word-pop p { margin: 0; }
