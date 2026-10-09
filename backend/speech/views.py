@@ -6,7 +6,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from library import dictionary
-from library.models import Source
+from library.models import Sentence, Source
 
 from . import cleanup, engine, jobs, jpscore
 from .models import Cleanup
@@ -58,7 +58,11 @@ def engine_prepare(request):
 def engine_tts(request):
     q = request.query_params
     try:
-        wav = engine.tts(q.get("text", ""), q.get("voice", ""), q.get("speed", 1))
+        text = q.get("text", "")
+        # a saved sentence is read as its furigana show, corrections included
+        sentence = Sentence.objects.filter(pk=q["sentence"], text=text.strip()).first() \
+            if q.get("sentence", "").isdigit() else None
+        wav = engine.tts(text, q.get("voice", ""), q.get("speed", 1), sentence and sentence.furigana)
     except ValueError as e:
         return Response({"error": str(e)}, status=400)
     except RuntimeError as e:

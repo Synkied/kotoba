@@ -10,6 +10,20 @@ class ContextReadingsTests(SimpleTestCase):
         self.assertIn(['時', 'とき'], romanize.furigana('その時、帰りました。'))
         self.assertIn(['時間', 'じかん'], romanize.furigana('時間があります。'))
 
+    def test_context_readings_unidic_lite_misses(self):
+        pairs = romanize.furigana('日本人のお母さんと一緒に写真を見ます。')
+        self.assertIn(['日本', 'にほん'], pairs)
+        self.assertIn(['人', 'じん'], pairs)
+        self.assertIn(['母', 'かあ'], pairs)
+        self.assertIn(['人', 'にん'], romanize.furigana('三人です。'))
+        self.assertIn(['母', 'はは'], romanize.furigana('母は元気です。'))
+        self.assertIn(['私', 'わたし'], romanize.furigana('私は学生です。'))
+
+    def test_spoken_follows_furigana(self):
+        self.assertEqual(romanize.spoken('私は東京へ行きます。'), 'ワタシワトウキョウエイキマス。')
+        self.assertEqual(romanize.spoken('日本人です', [['日本人', 'にっぽんじん']]), 'ニッポンジンデス')
+        self.assertEqual(romanize.spoken('3時です'), '3ジデス')
+
     def test_okurigana_and_repeated_spans(self):
         self.assertIn(['食', 'た'], romanize.furigana('食べました。'))
         pairs = romanize.furigana('三時です。その時帰ります。')

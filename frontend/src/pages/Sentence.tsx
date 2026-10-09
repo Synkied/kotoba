@@ -20,7 +20,7 @@ function Detail({ id }: { id: number }) {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<unknown>(null)
   const toast = useToast()
-  if (detail.error) return <ErrorNotice error={detail.error} action={<Link to="/library">Open library</Link>} />
+  if (detail.error) return <ErrorNotice error={detail.error} action={<Link to="/sources">Open Sources</Link>} />
   if (!detail.data || detail.loading) return <Skeleton rows={3} />
   const { sentence: s, source } = detail.data
   const index = source.sentences.findIndex(x => x.id === s.id)

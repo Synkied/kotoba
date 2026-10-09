@@ -45,7 +45,7 @@ def _load() -> None:
 def engine() -> str:
     """Names what the readings were made with; stored readings are redone when it changes."""
     _load()
-    return "6" + ("+unidic" if _tagger else "") + ("+kakasi" if _kakasi else "") + ("+pinyin" if _pinyin else "")
+    return "7" + ("+unidic" if _tagger else "") + ("+kakasi" if _kakasi else "") + ("+pinyin" if _pinyin else "")
 
 
 def missing() -> list:
@@ -116,13 +116,19 @@ def _korean(text: str) -> str:
 
 # --- putting it together -----------------------------------------------------
 
+_FAMILY = {"母": "カア", "父": "トウ", "兄": "ニイ", "姉": "ネエ"}
+
+
 def japanese_parts(text: str) -> list:
     """Tokenize the complete sentence before choosing each word's kana reading."""
     _load()
     if not _tagger:
         return _kakasi.convert(text) if _kakasi else [{"orig": text, "hira": _hira(text)}]
     out, at = [], 0
-    for token in _tagger(text):
+    tokens = list(_tagger(text))
+    for i, token in enumerate(tokens):
+        prev = tokens[i - 1] if i else None
+        nxt = tokens[i + 1] if i + 1 < len(tokens) else None
         start = text.find(token.surface, at)
         if start > at:
             out.append({"orig": text[at:start], "hira": text[at:start]})
@@ -132,7 +138,18 @@ def japanese_parts(text: str) -> list:
         # Clock-hour suffix; preserve standalone 時 (とき) and compounds like 時間.
         if token.surface == "時" and re.search(r"[0-9０-９一二三四五六七八九十百零〇]+$", text[:start]):
             reading = "ジ"
-        out.append({"orig": token.surface, "hira": _hira(reading)})
+        # unidic-lite reads each word on its own; fix the common slips it makes.
+        elif token.surface == "私" and reading == "ワタクシ":
+            reading = "ワタシ"  # the everyday reading; わたくし is formal
+        elif token.surface == "日本" and token.pos.startswith("名詞,固有名詞"):
+            reading = "ニホン"  # not ニッポン
+        elif token.surface == "人" and token.pos.startswith("接尾辞") and prev and (
+                ",地名," in prev.pos or prev.surface == "外国"):
+            reading = "ジン"  # 日本人, 外国人; counters like 三人 keep ニン
+        elif token.surface in _FAMILY and nxt and nxt.surface in ("さん", "ちゃん", "様", "さま"):
+            reading = _FAMILY[token.surface]  # お母さん, 兄さん
+        pron = token.feature.pron if token.feature.pron not in (None, "*") else reading
+        out.append({"orig": token.surface, "hira": _hira(reading), "pron": pron})
         at = start + len(token.surface)
     if at < len(text):
         out.append({"orig": text[at:], "hira": text[at:]})
@@ -244,6 +261,45 @@ def furigana(text: str) -> list:
             if _KANJI_RUN.search(orig) and reading and not HAN.search(reading):
                 out.extend(_split_word(orig, reading))
     return out
+
+
+def _kata(text: str) -> str:
+    return "".join(chr(ord(c) + 0x60) if "ぁ" <= c <= "ゖ" else c for c in text)
+
+
+def spoken(text: str, pairs: list = None) -> str:
+    """How the text is said, in katakana: the furigana (pairs, else computed) for the
+    kanji and MeCab's pronunciation for the rest (は as ワ, 学生 as ガクセー), so a voice
+    can be made to say what the furigana show. Characters without a known
+    pronunciation (digits, Latin letters) are kept as they are."""
+    _load()
+    if pairs is None:
+        pairs = furigana(text)
+    spans, at = [], 0
+    for surface, reading in pairs:
+        start = text.find(surface, at)
+        if start >= 0:
+            spans.append((start, start + len(surface), reading))
+            at = start + len(surface)
+    out, pos, at = [], 0, 0
+    for part in japanese_parts(text):
+        start, end = at, at + len(part["orig"])
+        at = end
+        if end <= pos:
+            continue  # said as part of an earlier reading
+        inside = [sp for sp in spans if sp[1] > max(start, pos) and sp[0] < end]
+        if not inside and start >= pos:
+            out.append(part.get("pron") or part["hira"])
+            pos = end
+            continue
+        pos = max(start, pos)
+        for sp_start, sp_end, reading in inside:
+            out.extend([text[pos:max(pos, sp_start)], reading])
+            pos = max(pos, sp_end)
+        if pos < end:
+            out.append(text[pos:end])
+            pos = end
+    return _kata("".join(out))
 
 
 def key(text: str) -> str:

@@ -5,15 +5,20 @@ browser's voices.
 
 One Whisper model is loaded at a time and `model_lock` serialises its use, so live
 scoring, uploads and the recording editor share one GPU without fighting over it."""
+import difflib
 import importlib.util
 import io
 import json
+import re
 import threading
 import time
+import urllib.error
 import wave
 from pathlib import Path
 
 from django.conf import settings
+
+from library import romanize
 
 from . import jpcut, jpscore
 
@@ -257,9 +262,81 @@ def _kokoro_wav(text, voice, speed):
     return buf.getvalue()
 
 
-def _voicevox_wav(text, speaker, speed):
+_SMALL = "ァィゥェォャュョヮ"
+_VOWEL_KANA = dict(zip("aiueo", "アイウエオ"))
+
+
+def _vowel(c):
+    if c in _SMALL:
+        return "aiueoauoa"[_SMALL.index(c)]
+    r = romanize._kana(romanize._hira(c))
+    return r[-1] if r[-1:] in tuple("aiueo") else ""
+
+
+def _plain_kana(chars):
+    """ー spelled as its vowel and ヲ as オ, which VOICEVOX's kana notation always accepts;
+    plus a stricter form for comparing, where トウ and トー (and ケイ and ケー) agree."""
+    plain, strict, prev = [], [], ""
+    for c in chars:
+        if c == "ヲ":
+            c = "オ"
+        elif c == "ー" and prev:
+            c = _VOWEL_KANA[prev]
+        plain.append(c)
+        strict.append("オ" if c == "ウ" and prev == "o" else "エ" if c == "イ" and prev == "e" else c)
+        prev = _vowel(c)
+    return plain, strict
+
+
+def _voicevox_kana(kana, said):
+    """VOICEVOX's own reading (its AquesTalk-style kana: ' accent, / and 、 phrase
+    breaks, _ devoicing) with the morae it reads differently from `said`, the furigana
+    reading, swapped for ours; marks are kept, so the accent stays VOICEVOX's.
+    None when they already agree."""
+    chars, before, after, pending = [], [], [], ""
+    for c in kana:
+        if c == "_":
+            pending = c
+        elif c in "'/、？?":
+            if after:
+                after[-1] += c
+        else:
+            chars.append(c)
+            before.append(pending)
+            after.append("")
+            pending = ""
+    ours = [c if "ァ" <= c <= "ヴ" or c == "ー" else "\0" for c in said
+            if c.isalnum() or "ァ" <= c <= "ヴ" or c == "ー"]  # \0: unknown, e.g. digits
+    vv_plain, vv_strict = _plain_kana(chars)
+    our_plain, our_strict = _plain_kana(ours)
+    match = difflib.SequenceMatcher(None, vv_strict, our_strict, autojunk=False)
+    if vv_strict == our_strict:
+        return None
+    out = []  # [before, mora, after]
+    for tag, i1, i2, j1, j2 in match.get_opcodes():
+        if tag == "equal" or "\0" in our_strict[j1:j2]:
+            out.extend([before[i], chars[i], after[i]] for i in range(i1, i2))
+            continue
+        new = [["", c, ""] for c in our_plain[j1:j2]]
+        for k in range(i1, i2):  # keep accent and phrase marks where they were, counting from the end
+            target = new[max(0, len(new) - (i2 - k))] if new else out[-1] if out else None
+            if target is not None:
+                target[2] += "".join(m for m in after[k] if m not in target[2])
+        out.extend(new)
+    text = re.sub("'([%s])" % _SMALL, r"\1'", "".join(b + c + a for b, c, a in out))  # キ'ャ -> キャ'
+    return None if text == kana else text
+
+
+def _voicevox_wav(text, speaker, speed, said=None):
     try:
         query = json.loads(_vv("/audio_query", {"text": text, "speaker": speaker}, b""))
+        kana = said and _voicevox_kana(query.get("kana", ""), said)
+        if kana:
+            try:
+                query["accent_phrases"] = json.loads(_vv(
+                    "/accent_phrases", {"text": kana, "speaker": speaker, "is_kana": "true"}, b""))
+            except urllib.error.HTTPError:
+                pass  # kana it would not parse: keep its own reading
         query["speedScale"] = speed
         query["prePhonemeLength"] = query["postPhonemeLength"] = 0.1
         return _vv("/synthesis", {"speaker": speaker}, json.dumps(query).encode(), timeout=60)
@@ -267,18 +344,22 @@ def _voicevox_wav(text, speaker, speed):
         raise RuntimeError(f"VOICEVOX at {settings.VOICEVOX_URL} is not answering ({e})") from e
 
 
-def tts(text, voice, speed):
+def tts(text, voice, speed, readings=None):
+    """Speech for text, saying the kanji as the furigana do: `readings` are a sentence's
+    [kanji, reading] pairs (its saved corrections included), else they're computed."""
     text = text.strip()[:300]
     if not text:
         raise ValueError("empty text")
     speed = min(2.0, max(0.5, float(speed)))
     engine, _, name = voice.partition(":")
-    key = (voice, speed, text)
+    if readings is None:
+        readings = romanize.furigana(text)
+    key = (voice, speed, text, json.dumps(readings, ensure_ascii=False))
     if key not in _tts_cache:
         if engine == "kokoro" and name in dict(KOKORO_VOICES):
-            wav = _kokoro_wav(text, name, speed)
+            wav = _kokoro_wav(romanize.with_readings(text, readings), name, speed)
         elif engine == "voicevox" and name.isdigit():
-            wav = _voicevox_wav(text, int(name), speed)
+            wav = _voicevox_wav(text, int(name), speed, romanize.spoken(text, readings))
         else:
             raise ValueError(f"unknown voice {voice!r}")
         if len(_tts_cache) >= _TTS_CACHE_MAX:

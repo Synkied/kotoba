@@ -45,7 +45,7 @@ function DeckPageDetail({ id }: { id: number }) {
       } else {
         const controller = new AbortController()
         speechRequest.current = controller
-        await speak(s.text, voice, 1, controller.signal)
+        await speak(s.text, voice, 1, controller.signal, s.id)
       }
     } catch (error) {
       if (request === playback.current) toast({ text: error instanceof Error ? error.message : 'Audio could not be played. Try again.' })

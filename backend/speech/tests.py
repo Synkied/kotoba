@@ -1,3 +1,4 @@
+import json
 from unittest.mock import patch
 from urllib.parse import urlencode
 
@@ -81,3 +82,26 @@ class KokoroLoadTests(SimpleTestCase):
     def test_load_without_kokoro_installed_does_nothing(self):
         with patch.object(self.engine, "kokoro_installed", return_value=False):
             self.assertEqual(self.client.post("/api/engine/tts/load").json(), {"kokoro": "missing", "kokoro_error": None})
+
+
+class VoicevoxReadingTests(SimpleTestCase):
+    def test_voicevox_says_the_furigana(self):
+        from library import romanize
+        from speech.engine import _voicevox_kana
+        said = romanize.spoken("日本人のお母さんと一緒に写真を見ます。")
+        self.assertEqual(_voicevox_kana("ニッポンジンノ/オハハ'サント/イッショニ/シャ'シンオ/ミマ'_ス", said),
+                         "ニホンジンノ/オカア'サント/イッショニ/シャ'シンオ/ミマ'_ス")
+        self.assertIsNone(_voicevox_kana("ワタシワ/ガ_クセ'エデス", romanize.spoken("私は学生です")))
+        self.assertIsNone(_voicevox_kana("サ'ンジデス", romanize.spoken("3時です")))  # digits left to VOICEVOX
+        self.assertEqual(_voicevox_kana("キ'ャクワ", "ヒャクワ"), "ヒャ'クワ")
+
+    @patch("speech.engine._vv")
+    def test_tts_uses_saved_sentence_readings(self, vv):
+        from speech import engine
+        engine._tts_cache.clear()
+        vv.side_effect = lambda path, params, body=None, timeout=20: (
+            json.dumps({"kana": "ニホ'ンジンデス", "accent_phrases": []}).encode() if path == "/audio_query"
+            else b"[]" if path == "/accent_phrases" else b"RIFF")
+        engine.tts("日本人です", "voicevox:1", 1, [["日本", "にっぽん"], ["人", "じん"]])
+        kana = [c.args[1]["text"] for c in vv.call_args_list if c.args[0] == "/accent_phrases"]
+        self.assertEqual(kana, ["ニッポ'ンジンデス"])

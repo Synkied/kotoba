@@ -100,7 +100,7 @@ export function PracticeSession({ title, back, sentences: initial, onFinish }: {
         const src = await api.source(s.source)
         await playClip(src.media!, s.start!, s.end!, setPlayhead)
       } else {
-        await speak(s.text, voice, 1)
+        await speak(s.text, voice, 1, undefined, s.id)
       }
     } catch (e) { setErr((e as Error).message) }
     finally { setPlaying(false); setPlayhead(null) }

@@ -136,15 +136,16 @@ async function readyKokoro(signal?: AbortSignal) {
   } catch { /* aborted or offline: the speech request says why */ } finally { if (shown) setVoiceLoading(false) }
 }
 
-/** The synthetic voice through jp-shadow-cut; falls back to the browser's Japanese voice. */
-export async function speak(text: string, voice: string | null, speed = 1, signal?: AbortSignal): Promise<void> {
+/** The synthetic voice through jp-shadow-cut; falls back to the browser's Japanese voice.
+ *  With a saved sentence's id the voice reads its kanji as its furigana show. */
+export async function speak(text: string, voice: string | null, speed = 1, signal?: AbortSignal, sentence?: number): Promise<void> {
   stopAudio()
   if (voice?.startsWith('kokoro:')) {
     await readyKokoro(signal)
     if (signal?.aborted) return
   }
   if (voice && voice !== 'browser') {
-    const r = await fetch('/api/engine/tts?' + new URLSearchParams({ text, voice, speed: String(speed) }), { signal })
+    const r = await fetch('/api/engine/tts?' + new URLSearchParams({ text, voice, speed: String(speed), ...(sentence ? { sentence: String(sentence) } : {}) }), { signal })
     if (r.ok) {
       const blob = await r.blob()
       if (signal?.aborted) return
