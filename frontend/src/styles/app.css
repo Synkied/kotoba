@@ -1310,7 +1310,7 @@ body:has(.selection-dock) .toast { bottom: calc(var(--s-5) + 72px); }
   .source-layout { flex: 1; min-height: 0; align-items: stretch; }
   .source-aside { position: static; max-height: none; align-content: start; }
   .source-content { display: flex; flex-direction: column; min-height: 0; }
-  .source-content > .rows { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+  .source-content > .rows { flex: 1; min-height: 0; align-content: start; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 }
 .lesson-title { font: inherit; height: auto; padding: 0; text-align: left; white-space: normal; }
 .lesson-rename { flex: 1 1 24rem; min-width: 0; }
