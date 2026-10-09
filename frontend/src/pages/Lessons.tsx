@@ -128,7 +128,7 @@ export default function LessonsPage() {
       onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOver(false) }}
       onDrop={e => { if (!archive) void dropOnPage(e) }}>
       <header className="page-head">
-        <h1>Library <span className="meta num">{stats ? `${stats.lessons} to study` : ''}</span></h1>
+        <h1><Link to="/library" className="page-home" aria-current={!archive && open === null ? 'page' : undefined}>Library</Link> <span className="meta num">{stats ? `${stats.lessons} to study` : ''}</span></h1>
         <span className="grow" />
         <div className="tabs" role="group" aria-label="Show">
           <button type="button" aria-pressed={!archive} onClick={() => show(null)}>Current</button>
@@ -478,14 +478,16 @@ function MaterialRow({ m, picked = false, onPick, busy, onPin, where, drag, arra
       {onPick && <input type="checkbox" className="check" checked={picked} onChange={onPick} aria-label={`Select ${m.name}`} />}
       <Icon aria-hidden="true" className="material-icon" />
       <div className="material-main">
-        <a className="material-name" href={m.url} target="_blank" rel="noreferrer" lang="ja">{m.name}</a>
-        <span className="meta num">{kindName[m.kind]} · {fileSize(m.size)}
+        {m.source !== null
+          ? <Link className="material-name" to={`/sources/${m.source}`} lang="ja">{m.name}</Link>
+          : <a className="material-name" href={m.url} target="_blank" rel="noreferrer" lang="ja">{m.name}</a>}
+        <span className="meta num">{kindName[m.kind]} · {fileSize(m.size)}{m.source !== null && m.job === '' && ' · transcribed'}
           {where && <span> · <Folder aria-hidden="true" className="inline-icon" />{where}</span>}
           {m.lessons.map(l => <span key={l.id}> · in <Link to={`/lessons/${l.id}`}>{l.title}</Link></span>)}</span>
       </div>
-      {m.source !== null && m.job !== null && <Link className={'lesson-file-job' + (m.job === 'failed' ? ' failed' : '')} to={`/sources/${m.source}`}
+      {m.source !== null && m.job && <Link className={'lesson-file-job' + (m.job === 'failed' ? ' failed' : '')} to={`/sources/${m.source}`}
         title={m.job === 'failed' ? m.job_error || undefined : undefined}>
-        {m.job === 'waiting' ? 'Waiting to transcribe' : m.job === 'running' ? 'Transcribing…' : m.job === 'failed' ? 'Transcribing failed' : 'Transcript'}</Link>}
+        {m.job === 'waiting' ? 'Waiting to transcribe' : m.job === 'running' ? 'Transcribing…' : 'Transcribing failed'}</Link>}
       <PinButton name={m.name} pinned={m.pinned} busy={busy} onPin={onPin} />
       {arrange}
     </li>

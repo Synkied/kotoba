@@ -46,6 +46,8 @@ p { margin: 0; text-wrap: pretty; }
 }
 .page-head h1 { min-width: 0; overflow-wrap: anywhere; flex-wrap: wrap; display: flex; align-items: baseline; gap: var(--s-3); }
 .page-head h1 .meta { font-weight: 400; font-size: var(--t-s); letter-spacing: 0; }
+.page-head h1 .page-home { color: inherit; text-decoration: none; }
+.page-head h1 .page-home:hover { text-decoration: underline; text-underline-offset: 3px; }
 .page-head .grow { flex: 1; }
 .page-head .search { flex: 0 1 22rem; }
 
