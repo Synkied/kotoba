@@ -85,5 +85,7 @@ headers before installing Python dependencies. Pykakasi remains a fallback.
 Use **Edit readings** on a sentence page to save hiragana corrections;
 **Reset to automatic** regenerates them. Changing sentence text clears its
 corrections. Database migration regenerates existing automatic readings, and
-`cd backend && uv run python manage.py refresh_readings` can refresh them later
-while retaining saved corrections.
+`cd backend && uv run python manage.py refresh_readings`
+(`make docker-refresh-readings` under Docker) can refresh
+them later while retaining saved corrections. The Docker container also does this on
+start whenever the reading engine has changed.

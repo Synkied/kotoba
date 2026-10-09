@@ -16,7 +16,7 @@ COMPOSE  = KOTOBA_PORT=$(PORT) GPU=$(GPU) $(if $(filter 1,$(VOICEVOX)),COMPOSE_P
 
 .DEFAULT_GOAL := help
 .PHONY: help install build migrate run dev dev-api dev-web check import-ocr import-jpcut dictionary transcribe translate \
-        ocr-client docker-build up down logs status shell docker-import-ocr clean
+        ocr-client docker-build up down logs status shell docker-refresh-readings docker-import-ocr clean
 
 help: ## List the targets
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  \033[1m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -94,6 +94,9 @@ status: ## Show what's running
 
 shell: ## Open a shell in the container
 	$(COMPOSE) exec kotoba sh
+
+docker-refresh-readings: ## Refresh the readings for sentences in the container (also done on start when they change)
+	$(COMPOSE) exec kotoba python manage.py refresh_readings
 
 docker-import-ocr: ## Import screen_ocr's history into the container
 	$(COMPOSE) run --rm -v "$(OCR_DIR):/ocr:ro" kotoba python manage.py import_screen_ocr --dir /ocr

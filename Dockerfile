@@ -37,4 +37,4 @@ VOLUME /data
 EXPOSE 8780
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8780/api/stats', timeout=4)"
-CMD ["sh", "-c", "python manage.py migrate --noinput && exec waitress-serve --listen=0.0.0.0:8780 --threads=8 --channel-timeout=300 kotoba.wsgi:application"]
+CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py refresh_readings --if-changed && exec waitress-serve --listen=0.0.0.0:8780 --threads=8 --channel-timeout=300 kotoba.wsgi:application"]
