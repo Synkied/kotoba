@@ -140,10 +140,11 @@ class Attempt(models.Model):
 
 class LessonFolder(models.Model):
     """A shelf for lessons, as deep as you like: Minna no Nihongo › Book 1 › Lessons 1–12.
-    Folders and lessons keep the order you arrange them in."""
+    Folders and lessons keep the order you arrange them in; pinned ones show at the top too."""
 
     name = models.CharField(max_length=80)
     parent = models.ForeignKey("self", related_name="children", null=True, blank=True, on_delete=models.CASCADE)
+    pinned = models.BooleanField(default=False)
     position = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(default=timezone.now)
 
@@ -176,11 +177,12 @@ class Lesson(models.Model):
 
 class Material(models.Model):
     """A file kept in a folder as it is, not part of any lesson: a textbook PDF, a track,
-    a scan. Recordings are transcribed only when asked."""
+    a scan. Recordings are transcribed only when asked; pinned ones show at the top too."""
 
     folder = models.ForeignKey(LessonFolder, related_name="materials", null=True, blank=True, on_delete=models.SET_NULL)
     file = models.FileField(upload_to="materials/")
     name = models.CharField(max_length=200)
+    pinned = models.BooleanField(default=False)
     size = models.PositiveBigIntegerField(default=0)
     position = models.PositiveIntegerField(default=0)  # order within its folder
     # a recording's transcript: the library source made from a copy of it

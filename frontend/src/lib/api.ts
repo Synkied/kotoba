@@ -85,12 +85,12 @@ export type Page<T> = { count: number; results: T[] }
 
 /** source/job: the library source transcribed from this recording, and how that's going */
 /** A shelf for lessons; parent null is the top. The page builds the tree from the flat list. */
-export type LessonFolder = { id: number; name: string; parent: number | null; position: number }
+export type LessonFolder = { id: number; name: string; parent: number | null; position: number; pinned: boolean }
 export type FileKind = 'pdf' | 'audio' | 'video' | 'image' | 'text'
 /** a file in a lesson; `material` when it's a folder file linked in rather than uploaded with it */
 /** A file kept in a folder as it is, in no lesson or in some: `lessons` are the ones it's linked into. */
 export type Material = {
-  id: number; name: string; kind: FileKind; folder: number | null; position: number; size: number; created_at: string; url: string
+  id: number; name: string; kind: FileKind; folder: number | null; position: number; pinned: boolean; size: number; created_at: string; url: string
   source: number | null; job: Source['job'] | null; job_error: string; lessons: { id: number; title: string }[]
 }
 export type LessonFile = { id: number; name: string; kind: FileKind; url: string; material: number | null; source: number | null; job: Source['job'] | null; job_error: string }
@@ -151,7 +151,7 @@ export const api = {
     req<Lesson>(`lessons/${id}`, json('PATCH', data)),
   lessonFolders: () => req<LessonFolder[]>('lesson-folders'),
   createLessonFolder: (name: string, parent: number | null) => req<LessonFolder>('lesson-folders', json('POST', { name, parent })),
-  updateLessonFolder: (id: number, data: Partial<Pick<LessonFolder, 'name' | 'parent'>>) => req<LessonFolder>(`lesson-folders/${id}`, json('PATCH', data)),
+  updateLessonFolder: (id: number, data: Partial<Pick<LessonFolder, 'name' | 'parent' | 'pinned'>>) => req<LessonFolder>(`lesson-folders/${id}`, json('PATCH', data)),
   deleteLessonFolder: (id: number) => req<void>(`lesson-folders/${id}`, { method: 'DELETE' }),
   /** put these folders and lessons in `folder` (null: the top), in this order */
   materials: () => req<Material[]>('materials'),
@@ -160,7 +160,7 @@ export const api = {
     if (folder !== null) form.append('folder', String(folder))
     return req<Material[]>('materials', { method: 'POST', body: form })
   },
-  updateMaterial: (id: number, data: Partial<Pick<Material, 'name' | 'folder'>>) => req<Material>(`materials/${id}`, json('PATCH', data)),
+  updateMaterial: (id: number, data: Partial<Pick<Material, 'name' | 'folder' | 'pinned'>>) => req<Material>(`materials/${id}`, json('PATCH', data)),
   deleteMaterial: (id: number) => req<void>(`materials/${id}`, { method: 'DELETE' }),
   transcribeMaterials: (ids: number[]) => req<Material[]>('materials/transcribe', json('POST', { ids })),
   linkLessonMaterials: (id: number, materials: number[]) => req<Lesson>(`lessons/${id}/files`, json('POST', { materials })),

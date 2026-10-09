@@ -206,13 +206,16 @@ function Shelf({ lessons, folders, materials, open, actions, onChanged, onMateri
   const [picked, setPicked] = useState<Set<number>>(new Set())
   const path = folderPath(folders, open)
   const here = path.at(-1)
-  const shelves = subfolders(folders, open)
-  // at the top, pinned lessons have their own row; inside a folder they stay in their place
-  const pinned = open === null ? lessons.filter(l => l.pinned) : []
-  const listed = lessonsIn(lessons, open).filter(l => open !== null || !l.pinned)
-  const kept = materialsIn(materials, open)
-  const selected = kept.filter(m => picked.has(m.id))
+  const top = open === null
   const options = folderOptions(folders)
+  // at the top, whatever's pinned has its own row, wherever it's kept; inside a folder it stays in its place
+  const pinned = top ? lessons.filter(l => l.pinned) : []
+  const pinnedFolders = top ? options.map(o => folders.find(f => f.id === o.id)!).filter(f => f.pinned) : []
+  const pinnedFiles = top ? materials.filter(m => m.pinned) : []
+  const shelves = subfolders(folders, open).filter(f => !top || !f.pinned)
+  const listed = lessonsIn(lessons, open).filter(l => !top || !l.pinned)
+  const kept = materialsIn(materials, open).filter(m => !top || !m.pinned)
+  const selected = kept.filter(m => picked.has(m.id))
   const counts = (f: LessonFolder) => {
     const inside = within(folders, f.id)
     const isIn = (x: { folder: number | null }) => x.folder !== null && inside.has(x.folder)
@@ -302,6 +305,19 @@ function Shelf({ lessons, folders, materials, open, actions, onChanged, onMateri
     setPicked(new Set())
     toast({ text: list.length === 1 ? `“${list[0].name}” is queued for transcribing` : `${list.length} recordings are queued for transcribing` })
   })
+  const pinFolder = (f: LessonFolder) => edit.run(async () => {
+    await api.updateLessonFolder(f.id, { pinned: !f.pinned })
+    onChanged()
+    toast({ text: f.pinned ? `Unpinned “${f.name}”` : `Pinned “${f.name}” to the top of the library`,
+      undo: async () => { await api.updateLessonFolder(f.id, { pinned: f.pinned }); onChanged() } })
+  })
+  const pinFiles = (list: Material[], pinned: boolean) => edit.run(async () => {
+    const set = (to: (m: Material) => boolean) => Promise.all(list.map(m => api.updateMaterial(m.id, { pinned: to(m) })))
+    onMaterials(await set(() => pinned))
+    setPicked(new Set())
+    const what = list.length === 1 ? `“${list[0].name}”` : `${list.length} files`
+    toast({ text: pinned ? `Pinned ${what} to the top of the library` : `Unpinned ${what}`, undo: async () => onMaterials(await set(m => m.pinned)) })
+  })
   const toggle = (id: number) => setPicked(prev => { const next = new Set(prev); if (!next.delete(id)) next.add(id); return next })
 
   const busy = edit.busy || actions.busy
@@ -319,6 +335,8 @@ function Shelf({ lessons, folders, materials, open, actions, onChanged, onMateri
       </ol>
       <span className="grow" />
       {here && <>
+        <button className="btn small ghost" aria-pressed={here.pinned} disabled={busy} onClick={() => pinFolder(here)}
+          title={here.pinned ? 'Shown at the top of the library' : 'Show it at the top of the library too'}><Pin aria-hidden="true" />{here.pinned ? 'Pinned' : 'Pin'}</button>
         <button className="btn small ghost" disabled={busy} onClick={() => rename(here)}><Pencil aria-hidden="true" />Rename</button>
         <button className="btn small ghost" disabled={busy} onClick={() => remove(here)}><Trash2 aria-hidden="true" />Delete folder</button>
       </>}
@@ -330,30 +348,29 @@ function Shelf({ lessons, folders, materials, open, actions, onChanged, onMateri
     <p className="meta lesson-drag-hint" role="status">{hint ?? (!arranging && shelves.length + listed.length + kept.length > 1
       ? <><GripVertical aria-hidden="true" className="inline-icon" />Drag to reorder, or onto a folder to move</> : '')}</p>
 
-    {pinned.length > 0 && (
-      <section className="day" aria-labelledby="pinned-head">
-        <div className="day-head"><span className="date" id="pinned-head"><Pin aria-hidden="true" className="inline-icon" />Pinned</span><span className="meta">Always here, done or not</span></div>
-        <ul className="source-cards">{pinned.map(l => <LessonCard key={l.id} l={l} actions={actions} where={folderLabel(folders, l.folder)} />)}</ul>
+    {pinned.length + pinnedFolders.length + pinnedFiles.length > 0 && (
+      <section className="day pinned-shelf" aria-labelledby="pinned-head">
+        <div className="day-head"><span className="date" id="pinned-head"><Pin aria-hidden="true" className="inline-icon" />Pinned</span><span className="meta">Always here, wherever they’re kept</span></div>
+        {pinnedFolders.length > 0 && <ul className="source-cards folder-cards">{pinnedFolders.map(f => (
+          <FolderCard key={f.id} f={f} n={counts(f)} where={folderLabel(folders, f.parent)} busy={busy} onPin={() => pinFolder(f)} drag={intoFolder(f)} />
+        ))}</ul>}
+        {pinned.length > 0 && <ul className="source-cards">{pinned.map(l => <LessonCard key={l.id} l={l} actions={actions} where={folderLabel(folders, l.folder)} />)}</ul>}
+        {pinnedFiles.length > 0 && <ul className="material-list">{pinnedFiles.map(m => (
+          <MaterialRow key={m.id} m={m} where={folderLabel(folders, m.folder)} busy={busy} onPin={() => pinFiles([m], false)} />
+        ))}</ul>}
       </section>
     )}
 
     {shelves.length > 0 && (
       <section className="day" aria-labelledby="folders-head">
         <div className="day-head"><span className="date" id="folders-head">Folders</span><span className="meta num">{shelves.length}</span></div>
-        <ul className="source-cards folder-cards">{shelves.map((f, i) => {
-          const n = counts(f)
-          return (
-            <li key={f.id} className="source-card folder-card" data-dragging={dragging('folder', f.id)} {...draggable({ kind: 'folder', id: f.id })} {...intoFolder(f)}>
-              <div className="source-card-body">
-                <h3><Link to={`/library?folder=${f.id}`} className="source-card-link"><Folder aria-hidden="true" className="inline-icon" />{f.name}</Link></h3>
-                <p className="meta num">{[n.folders && `${n.folders} folder${n.folders === 1 ? '' : 's'}`, n.lessons && `${n.lessons} to study`, n.files && `${n.files} file${n.files === 1 ? '' : 's'}`].filter(Boolean).join(' · ') || 'Empty'}</p>
-              </div>
-              {arranging && <Arrange label={f.name} busy={busy} first={i === 0} last={i === shelves.length - 1}
-                onUp={() => step('folders', shelves, i, -1)} onDown={() => step('folders', shelves, i, 1)}
-                folder={f.parent} options={options.filter(o => !within(folders, f.id).has(o.id))} onMove={to => moveFolder(f, to)} />}
-            </li>
-          )
-        })}</ul>
+        <ul className="source-cards folder-cards">{shelves.map((f, i) => (
+          <FolderCard key={f.id} f={f} n={counts(f)} busy={busy} onPin={() => pinFolder(f)}
+            drag={{ ...draggable({ kind: 'folder', id: f.id }), ...intoFolder(f), 'data-dragging': dragging('folder', f.id) }}
+            arrange={arranging ? <Arrange label={f.name} busy={busy} first={i === 0} last={i === shelves.length - 1}
+              onUp={() => step('folders', shelves, i, -1)} onDown={() => step('folders', shelves, i, 1)}
+              folder={f.parent} options={options.filter(o => !within(folders, f.id).has(o.id))} onMove={to => moveFolder(f, to)} /> : undefined} />
+        ))}</ul>
       </section>
     )}
 
@@ -377,7 +394,7 @@ function Shelf({ lessons, folders, materials, open, actions, onChanged, onMateri
             ref={el => { if (el) el.indeterminate = selected.length > 0 && selected.length < kept.length }}
             onChange={() => setPicked(selected.length === kept.length ? new Set() : new Set(kept.map(m => m.id)))} />Select all</label></div>
         <ul className="material-list">{kept.map((m, i) => (
-          <MaterialRow key={m.id} m={m} picked={picked.has(m.id)} onPick={() => toggle(m.id)}
+          <MaterialRow key={m.id} m={m} picked={picked.has(m.id)} onPick={() => toggle(m.id)} busy={busy} onPin={() => pinFiles([m], !m.pinned)}
             drag={{ ...draggable({ kind: 'material', id: m.id }), ...(dragged?.kind === 'material' && !dragging('material', m.id) && !picked.has(m.id)
               ? dropTarget(`m${m.id}`, true, () => reorder('materials', kept, dragged.id, m.id)) : {}), 'data-dragging': dragging('material', m.id) }}
             arrange={arranging ? <Arrange label={m.name} busy={busy} first={i === 0} last={i === kept.length - 1} className="material-arrange"
@@ -407,6 +424,7 @@ function Shelf({ lessons, folders, materials, open, actions, onChanged, onMateri
             {open !== null && <option value="top">Top level</option>}
             {options.filter(o => o.id !== open).map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
           </select></label>
+        <button className="btn small ghost" disabled={busy} onClick={() => pinFiles(selected, true)}><Pin aria-hidden="true" />Pin</button>
         {selected.length === 1 && <button className="btn small ghost" disabled={busy} onClick={() => renameFile(selected[0])}><Pencil aria-hidden="true" />Rename</button>}
         <button className="btn small ghost" disabled={busy} onClick={() => deleteFiles(selected)}><Trash2 aria-hidden="true" />Delete</button>
         <span className="grow" />
@@ -416,24 +434,59 @@ function Shelf({ lessons, folders, materials, open, actions, onChanged, onMateri
   </>
 }
 
-/** A file kept as it is: open it, see which lessons use it and where its transcript stands. */
-function MaterialRow({ m, picked, onPick, drag, arrange }: {
-  m: Material; picked: boolean; onPick: () => void; arrange?: ReactNode
-  drag: React.HTMLAttributes<HTMLLIElement> & { 'data-drop'?: boolean; 'data-dragging'?: boolean }
+type DragProps = React.HTMLAttributes<HTMLLIElement> & { 'data-drop'?: boolean; 'data-dragging'?: boolean }
+
+/** Pin or unpin a folder or a file: pinned, it shows at the top of the library too. */
+function PinButton({ name, pinned, busy, onPin }: { name: string; pinned: boolean; busy: boolean; onPin: () => void }) {
+  return (
+    <button className="btn small icon ghost card-pin" aria-pressed={pinned} disabled={busy} onClick={onPin}
+      aria-label={`Pin ${name} to the top of the library`} title={pinned ? 'Pinned to the top of the library' : 'Pin to the top of the library'}>
+      <Pin aria-hidden="true" />
+    </button>
+  )
+}
+
+/** A folder on the shelf: open it, drop things on it, pin it. */
+function FolderCard({ f, n, where, busy, onPin, drag, arrange }: {
+  f: LessonFolder; n: { folders: number; lessons: number; files: number }
+  /** the folder it's in, when the list doesn't already say */
+  where?: string
+  busy: boolean; onPin: () => void; drag: DragProps; arrange?: ReactNode
+}) {
+  return (
+    <li className="source-card folder-card" {...drag}>
+      <div className="source-card-body">
+        <h3><Link to={`/library?folder=${f.id}`} className="source-card-link"><Folder aria-hidden="true" className="inline-icon" />{f.name}</Link></h3>
+        <p className="meta num">{[n.folders && `${n.folders} folder${n.folders === 1 ? '' : 's'}`, n.lessons && `${n.lessons} to study`, n.files && `${n.files} file${n.files === 1 ? '' : 's'}`].filter(Boolean).join(' · ') || 'Empty'}</p>
+        {where && <p className="meta source-card-meta"><Folder aria-hidden="true" />{where}</p>}
+      </div>
+      <PinButton name={f.name} pinned={f.pinned} busy={busy} onPin={onPin} />
+      {arrange}
+    </li>
+  )
+}
+
+/** A file kept as it is: open it, see which lessons use it and where its transcript stands.
+ *  In the pinned row it can't be picked or dragged, and says which folder it's in. */
+function MaterialRow({ m, picked = false, onPick, busy, onPin, where, drag, arrange }: {
+  m: Material; picked?: boolean; onPick?: () => void; busy: boolean; onPin: () => void; where?: string; arrange?: ReactNode
+  drag?: DragProps
 }) {
   const Icon = kindIcon[m.kind]
   return (
     <li className="material-row" data-selected={picked || undefined} {...drag}>
-      <input type="checkbox" className="check" checked={picked} onChange={onPick} aria-label={`Select ${m.name}`} />
+      {onPick && <input type="checkbox" className="check" checked={picked} onChange={onPick} aria-label={`Select ${m.name}`} />}
       <Icon aria-hidden="true" className="material-icon" />
       <div className="material-main">
         <a className="material-name" href={m.url} target="_blank" rel="noreferrer" lang="ja">{m.name}</a>
         <span className="meta num">{kindName[m.kind]} · {fileSize(m.size)}
+          {where && <span> · <Folder aria-hidden="true" className="inline-icon" />{where}</span>}
           {m.lessons.map(l => <span key={l.id}> · in <Link to={`/lessons/${l.id}`}>{l.title}</Link></span>)}</span>
       </div>
       {m.source !== null && m.job !== null && <Link className={'lesson-file-job' + (m.job === 'failed' ? ' failed' : '')} to={`/sources/${m.source}`}
         title={m.job === 'failed' ? m.job_error || undefined : undefined}>
         {m.job === 'waiting' ? 'Waiting to transcribe' : m.job === 'running' ? 'Transcribing…' : m.job === 'failed' ? 'Transcribing failed' : 'Transcript'}</Link>}
+      <PinButton name={m.name} pinned={m.pinned} busy={busy} onPin={onPin} />
       {arrange}
     </li>
   )

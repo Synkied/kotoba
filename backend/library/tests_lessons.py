@@ -141,3 +141,15 @@ class LessonTests(TestCase):
         self.client.delete(f"/api/lessons/{lesson['id']}")
         self.assertEqual(Material.objects.count(), 2)
         self.assertEqual(self.client.get(made[0]["url"]).status_code, 200)
+
+    def test_folders_and_files_can_be_pinned(self):
+        book = LessonFolder.objects.create(name="Book 1")
+        pdf = SimpleUploadedFile("Kana chart.pdf", b"%PDF-1.4", content_type="application/pdf")
+        made = self.client.post("/api/materials", {"files": [pdf], "folder": book.id}).json()
+        self.assertFalse(made[0]["pinned"])
+        patch = lambda url: self.client.patch(url, {"pinned": True}, content_type="application/json")
+        self.assertTrue(patch(f"/api/lesson-folders/{book.id}").json()["pinned"])
+        r = patch(f"/api/materials/{made[0]['id']}").json()
+        # pinning leaves it where it is
+        self.assertEqual((r["pinned"], r["folder"]), (True, book.id))
+        self.assertEqual([f["pinned"] for f in self.client.get("/api/lesson-folders").json()], [True])

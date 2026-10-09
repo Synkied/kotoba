@@ -72,7 +72,7 @@ def next_position(qs):
 class LessonFolderSerializer(serializers.ModelSerializer):
     class Meta:
         model = LessonFolder
-        fields = ["id", "name", "parent", "position"]
+        fields = ["id", "name", "parent", "position", "pinned"]
         read_only_fields = ["position"]
 
     def validate_name(self, value):
@@ -310,7 +310,7 @@ def lesson_file(request, pk, fid):
 class MaterialSerializer(serializers.ModelSerializer):
     class Meta:
         model = Material
-        fields = ["id", "name", "folder", "position", "size", "created_at"]
+        fields = ["id", "name", "folder", "position", "pinned", "size", "created_at"]
         read_only_fields = ["position", "size", "created_at"]
 
     def validate_name(self, value):

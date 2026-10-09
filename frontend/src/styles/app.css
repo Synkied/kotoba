@@ -1055,9 +1055,17 @@ code.inline { font: 400 .95em var(--mono); padding: 0 3px; background: color-mix
 .source-card[draggable='true'] { cursor: grab; }
 .source-card[draggable='true']:active { cursor: grabbing; }
 .folder-card { grid-template-rows: auto; border-width: var(--frame-bold); }
-.folder-card .source-card-body { padding-right: 0; }
+.folder-card .source-card-body { padding-right: var(--s-6); }
 .folder-card h3 .inline-icon { width: 16px; height: 16px; vertical-align: -2px; }
 .folder-card:has(.lesson-arrange) { grid-template-rows: 1fr auto; }
+/* pinning a folder or a file: a quiet pin until it's pinned, then a filled one */
+.btn.card-pin { color: var(--ink-3); }
+.btn.card-pin[aria-pressed='true'] { color: var(--ink); }
+.btn.card-pin[aria-pressed='true'] svg { fill: currentColor; }
+.folder-card .card-pin { position: absolute; top: var(--s-2); right: var(--s-2); z-index: 1; }
+.folder-card[data-drop] .card-pin { color: inherit; }
+.material-row .card-pin { flex: none; }
+.pinned-shelf > ul + ul { margin-top: var(--s-3); }
 .lesson-arrange .chip-select { max-width: 100%; }
 .lesson-arrange label { min-width: 0; display: flex; justify-content: flex-end; }
 /* files kept as they are: drive rows, not cards, so a folder of forty tracks stays scannable */
