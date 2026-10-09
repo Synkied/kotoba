@@ -65,25 +65,26 @@ type Highlights = { set(name: string, h: unknown): void; delete(name: string): v
 const highlights = (): Highlights | undefined => (CSS as unknown as { highlights?: Highlights }).highlights
 const Highlight = (globalThis as unknown as { Highlight?: new (r: Range) => unknown }).Highlight
 
-type Open = { text: string; at: number; root: HTMLElement; x: number; y: number }
+type Open = { text: string; pairs: [string, string][]; at: number; root: HTMLElement; x: number; y: number }
 
 /** Japanese text you can tap: the word under your finger opens with its meaning,
- *  its readings in kana and romaji, and a voice to hear it. */
-export function Lookup({ text, children }: { text: string; children: ReactNode }) {
+ *  its readings in kana and romaji, and a voice to hear it. `pairs` are the furigana
+ *  the text shows, so the word's readings agree with them. */
+export function Lookup({ text, pairs = [], children }: { text: string; pairs?: [string, string][]; children: ReactNode }) {
   const ref = useRef<HTMLSpanElement>(null)
   const [open, setOpen] = useState<Open | null>(null)
   return <span ref={ref} className="lookup" onClick={(e) => {
     if (!window.getSelection()?.isCollapsed || !ref.current) return // let people select text
     const at = offsetAt(ref.current, e.clientX, e.clientY)
     if (at == null || /\s/.test(text[at] ?? ' ')) return
-    setOpen({ text, at, root: ref.current, x: e.clientX, y: e.clientY })
+    setOpen({ text, pairs, at, root: ref.current, x: e.clientX, y: e.clientY })
   }}>
     {children}
     {open && <WordPopover key={open.at} {...open} onClose={() => setOpen(null)} />}
   </span>
 }
 
-function WordPopover({ text, at, root, x, y, onClose }: Open & { onClose: () => void }) {
+function WordPopover({ text, pairs, at, root, x, y, onClose }: Open & { onClose: () => void }) {
   const box = useRef<HTMLDivElement>(null)
   const [word, setWord] = useState<Word | null | undefined>(undefined)
   const [dict, setDict] = useState<DictionaryStatus | null>(null)
@@ -96,7 +97,7 @@ function WordPopover({ text, at, root, x, y, onClose }: Open & { onClose: () => 
   useEffect(() => {
     const ctl = new AbortController()
     let timer = 0
-    const load = () => api.lookup(text, at, ctl.signal).then((r) => {
+    const load = () => api.lookup(text, at, pairs, ctl.signal).then((r) => {
       setWord(r.word); setDict(r.dictionary); setError(null)
       if (r.dictionary.state === 'downloading') timer = window.setTimeout(load, 2500)
     }, (e) => { if (!ctl.signal.aborted) setError(e instanceof Error ? e.message : String(e)) })

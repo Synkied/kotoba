@@ -119,6 +119,30 @@ def _korean(text: str) -> str:
 _FAMILY = {"母": "カア", "父": "トウ", "兄": "ニイ", "姉": "ネエ"}
 
 
+def token_reading(tokens: list, i: int, before: str = "") -> str:
+    """The katakana reading of tokens[i] in its sentence (`before` is the text ahead of it),
+    with the slips unidic-lite makes reading each word on its own put right."""
+    token = tokens[i]
+    prev = tokens[i - 1] if i else None
+    nxt = tokens[i + 1] if i + 1 < len(tokens) else None
+    reading = token.feature.kana
+    if not reading or reading == "*":
+        reading = "".join(p["hira"] for p in _kakasi.convert(token.surface)) if _kakasi else token.surface
+    # Clock-hour suffix; preserve standalone 時 (とき) and compounds like 時間.
+    if token.surface == "時" and re.search(r"[0-9０-９一二三四五六七八九十百零〇]+$", before):
+        reading = "ジ"
+    elif token.surface == "私" and reading == "ワタクシ":
+        reading = "ワタシ"  # the everyday reading; わたくし is formal
+    elif token.surface == "日本" and token.pos.startswith("名詞,固有名詞"):
+        reading = "ニホン"  # not ニッポン
+    elif token.surface == "人" and token.pos.startswith("接尾辞") and prev and (
+            ",地名," in prev.pos or prev.surface == "外国"):
+        reading = "ジン"  # 日本人, 外国人; counters like 三人 keep ニン
+    elif token.surface in _FAMILY and nxt and nxt.surface in ("さん", "ちゃん", "様", "さま"):
+        reading = _FAMILY[token.surface]  # お母さん, 兄さん
+    return reading
+
+
 def japanese_parts(text: str) -> list:
     """Tokenize the complete sentence before choosing each word's kana reading."""
     _load()
@@ -127,27 +151,10 @@ def japanese_parts(text: str) -> list:
     out, at = [], 0
     tokens = list(_tagger(text))
     for i, token in enumerate(tokens):
-        prev = tokens[i - 1] if i else None
-        nxt = tokens[i + 1] if i + 1 < len(tokens) else None
         start = text.find(token.surface, at)
         if start > at:
             out.append({"orig": text[at:start], "hira": text[at:start]})
-        reading = token.feature.kana
-        if not reading or reading == "*":
-            reading = "".join(p["hira"] for p in _kakasi.convert(token.surface)) if _kakasi else token.surface
-        # Clock-hour suffix; preserve standalone 時 (とき) and compounds like 時間.
-        if token.surface == "時" and re.search(r"[0-9０-９一二三四五六七八九十百零〇]+$", text[:start]):
-            reading = "ジ"
-        # unidic-lite reads each word on its own; fix the common slips it makes.
-        elif token.surface == "私" and reading == "ワタクシ":
-            reading = "ワタシ"  # the everyday reading; わたくし is formal
-        elif token.surface == "日本" and token.pos.startswith("名詞,固有名詞"):
-            reading = "ニホン"  # not ニッポン
-        elif token.surface == "人" and token.pos.startswith("接尾辞") and prev and (
-                ",地名," in prev.pos or prev.surface == "外国"):
-            reading = "ジン"  # 日本人, 外国人; counters like 三人 keep ニン
-        elif token.surface in _FAMILY and nxt and nxt.surface in ("さん", "ちゃん", "様", "さま"):
-            reading = _FAMILY[token.surface]  # お母さん, 兄さん
+        reading = token_reading(tokens, i, text[:start])
         pron = token.feature.pron if token.feature.pron not in (None, "*") else reading
         out.append({"orig": token.surface, "hira": _hira(reading), "pron": pron})
         at = start + len(token.surface)

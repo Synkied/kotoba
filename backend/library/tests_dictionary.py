@@ -62,6 +62,17 @@ class LookupTests(SimpleTestCase):
         w = self.look("今日は雨です。", "今")
         self.assertEqual((w["surface"], w["reading"]), ("今日", "きょう"))
 
+    def test_readings_match_the_sentence_furigana(self):
+        self.assertEqual(self.look("私は日本人です。", "私")["furigana"], [["私", "わたし"]])
+        self.assertEqual(self.look("お母さんは元気です。", "母")["furigana"], [["母", "かあ"]])
+
+    def test_shown_readings_win(self):
+        text = "図書館で勉強する。"
+        w = dictionary.lookup(text, 1, [["図書館", "としょやかた"], ["勉強", "べんきょう"]])
+        self.assertEqual((w["reading"], w["furigana"]), ("としょやかた", [["図書館", "としょやかた"]]))
+        # pairs that don't cover the word's kanji are left alone
+        self.assertEqual(dictionary.lookup(text, 1, [["勉強", "べんきょう"]])["reading"], "としょかん")
+
     def test_katakana_and_punctuation(self):
         self.assertEqual(self.look("アイスクリームが好き", "ク")["entries"][0]["senses"][0]["gloss"], ["ice cream"])
         self.assertIsNone(self.look("雨。", "。"))
@@ -72,6 +83,9 @@ class LookupTests(SimpleTestCase):
         self.assertEqual(r.json()["word"]["surface"], "図書館")
         self.assertEqual(r.json()["dictionary"]["state"], "ready")
         self.assertEqual(self.client.get("/api/lookup", {"text": "x", "at": "?"}).status_code, 400)
+        pairs = json.dumps([["図書館", "としょやかた"]])
+        self.assertEqual(self.client.get("/api/lookup", {"text": "図書館", "at": 1, "pairs": pairs}).json()["word"]["reading"], "としょやかた")
+        self.assertEqual(self.client.get("/api/lookup", {"text": "図書館", "at": 1, "pairs": "{"}).status_code, 200)
 
 
 class MissingDictionaryTests(SimpleTestCase):

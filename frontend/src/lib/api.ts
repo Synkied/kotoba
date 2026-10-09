@@ -177,8 +177,8 @@ export const api = {
   removeLessonFile: (id: number, file: number) => req<void>(`lessons/${id}/files/${file}`, { method: 'DELETE' }),
   transcribeLessonFile: (id: number, file: number) => req<Lesson>(`lessons/${id}/files/${file}/transcribe`, { method: 'POST' }),
   stats: () => req<Stats>('stats'),
-  lookup: (text: string, at: number, signal?: AbortSignal) =>
-    req<{ word: Word | null; dictionary: DictionaryStatus }>('lookup' + qs({ text, at }), { signal }),
+  lookup: (text: string, at: number, pairs: [string, string][], signal?: AbortSignal) =>
+    req<{ word: Word | null; dictionary: DictionaryStatus }>('lookup' + qs({ text, at, ...(pairs.length ? { pairs: JSON.stringify(pairs) } : {}) }), { signal }),
   facets: () => req<Facets>('facets'),
   sources: (p: { status?: string; q?: string; kind?: string; category?: string; label?: string; limit?: number; offset?: number }) =>
     req<Page<Source>>('sources' + qs({ limit: 50, ...p })),

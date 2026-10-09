@@ -1,6 +1,7 @@
 import base64
 import binascii
 import io
+import json
 import mimetypes
 import re
 from datetime import datetime, timezone as dt_timezone
@@ -413,15 +414,22 @@ def stats(request):
 
 @api_view(["GET"])
 def lookup(request):
-    """?text=<sentence>&at=<character offset>: the word there, its readings and meanings.
-    The first lookup starts the one-time dictionary download."""
+    """?text=<sentence>&at=<character offset>[&pairs=<JSON [kanji, reading] pairs>]: the word
+    there, its readings and meanings; `pairs` are the furigana the sentence shows, which the
+    word's readings then follow. The first lookup starts the one-time dictionary download."""
     text = request.query_params.get("text", "")[:2000]
     try:
         at = int(request.query_params.get("at", ""))
     except ValueError:
         return Response({"error": "at must be a character offset"}, status=400)
+    try:
+        pairs = json.loads(request.query_params.get("pairs") or "[]")
+    except ValueError:
+        pairs = []
+    if not (isinstance(pairs, list) and all(isinstance(p, list) and len(p) == 2 and all(isinstance(x, str) for x in p) for p in pairs)):
+        pairs = []
     dictionary.ensure()
-    return Response({"word": dictionary.lookup(text, at), "dictionary": dictionary.status()})
+    return Response({"word": dictionary.lookup(text, at, pairs), "dictionary": dictionary.status()})
 
 
 # ---------------------------------------------------------------- decks

@@ -198,12 +198,13 @@ def entries(forms: list, reading: str = "") -> list:
 
 def _tokens(line: str) -> list:
     out, at = [], 0
-    for t in romanize._tagger(line):
+    tagged = list(romanize._tagger(line))
+    for n, t in enumerate(tagged):
         start = line.find(t.surface, at)
         if start < 0:
             continue
         f = t.feature
-        kana = f.kana if f.kana and f.kana != "*" else t.surface
+        kana = romanize.token_reading(tagged, n, line[:start])  # the reading the sentence's furigana show
         base = f.orthBase if getattr(f, "orthBase", None) and f.orthBase != "*" else t.surface
         base_kana = f.kanaBase if getattr(f, "kanaBase", None) and f.kanaBase != "*" else kana
         out.append({"surface": t.surface, "start": start, "end": start + len(t.surface), "pos": f.pos1,
@@ -248,8 +249,27 @@ def _romaji(hira: str) -> str:
     return romanize._kana(hira)
 
 
-def lookup(text: str, at: int) -> dict | None:
-    """The word covering character `at` of `text`, with its reading and meanings."""
+def _shown(text: str, pairs: list, start: int, end: int) -> list | None:
+    """The [kanji, reading] pairs the sentence shows over text[start:end], when they
+    cover every kanji there (and none spills past it); None otherwise."""
+    inside, at = [], 0
+    for surface, reading in pairs:
+        s = text.find(surface, at)
+        if s < 0:
+            continue
+        at = s + len(surface)
+        if s < end and at > start:
+            if s < start or at > end:
+                return None
+            inside.append([surface, reading])
+    kanji = "".join(romanize._KANJI_RUN.findall(text[start:end]))
+    return inside if inside and "".join(romanize._KANJI_RUN.findall("".join(k for k, _ in inside))) == kanji else None
+
+
+def lookup(text: str, at: int, pairs: list | None = None) -> dict | None:
+    """The word covering character `at` of `text`, with its reading and meanings.
+    `pairs` are the furigana the sentence shows (its saved readings, say); the word's
+    readings follow them, so the popover agrees with the sentence."""
     romanize._load()
     if not romanize._tagger or not 0 <= at < len(text):
         return None
@@ -296,6 +316,12 @@ def lookup(text: str, at: int) -> dict | None:
         if kana and reading not in kana:
             reading = lemma_reading = kana[0]
             furigana = romanize._split_word(surface, reading)
+    shown = _shown(text, pairs or [], line_start + run[0]["start"], line_start + run[-1]["end"])
+    if shown:
+        furigana = shown
+        reading = romanize._hira(romanize.with_readings(surface, shown))
+        if lemma == surface:
+            lemma_reading = reading
     inflected = lemma != surface
     return {
         "surface": surface, "start": line_start + run[0]["start"], "end": line_start + run[-1]["end"],
