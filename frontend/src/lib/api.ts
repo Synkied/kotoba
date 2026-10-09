@@ -32,6 +32,10 @@ export type Recording = {
   id: number; title: string; kind: SourceKind; status: Source['status']; labels: string[]; duration: number | null
   created_at: string; job: Source['job']; transcribed: boolean; script: boolean; edited: boolean; rendered: boolean; sentences: number
 }
+export type TranscriptionQueue = {
+  items: { source: number; title: string; state: 'queued' | 'running'; progress: number | null }[]
+  can_transcribe: boolean
+}
 export type Cut = { start: number; end: number; reason: string; on: boolean }
 /** one transcript character: [char, start, end, automatic cut reason] */
 export type TChar = [string, number, number, string | null]
@@ -220,6 +224,7 @@ export const api = {
   score: (pcm: Int16Array, expected: string) =>
     req<Score>('engine/score' + qs({ expected, final: 1 }), { method: 'POST', body: pcm.buffer as ArrayBuffer, headers: { 'Content-Type': 'application/octet-stream' } }),
   addons: () => req<Addons>('addons'),
+  transcriptions: (signal?: AbortSignal) => req<TranscriptionQueue>('transcriptions', { signal }),
   job: (id: number) => req<Job>(`jobs/${id}`),
   recordings: () => req<Recording[]>('recordings'),
   cleanup: (id: number) => req<Cleanup>(`sources/${id}/cleanup`),

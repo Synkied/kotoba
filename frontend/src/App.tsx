@@ -1,4 +1,4 @@
-import { Inbox, Library as LibraryIcon, Layers, RotateCcw, Plus, Puzzle, Mic, ScrollText } from 'lucide-react'
+import { Inbox, Library as LibraryIcon, Layers, RotateCcw, Plus, Puzzle, Mic, ScrollText, ListOrdered } from 'lucide-react'
 import { createContext, useContext, useEffect, useState } from 'react'
 import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { api, type Stats } from './lib/api'
@@ -18,6 +18,7 @@ import RecordingsPage from './pages/Recordings'
 import CleanupPage from './pages/Cleanup'
 import LibraryPage from './pages/Lessons'
 import LessonPage from './pages/Lesson'
+import TranscriptionsPage from './pages/Transcriptions'
 
 type Section = { to: string; name: string; short?: string; stock: string; icon: typeof Inbox; count?: (s: Stats) => number; hot?: boolean }
 const SECTIONS: Section[] = [
@@ -27,6 +28,7 @@ const SECTIONS: Section[] = [
   { to: '/library', name: 'Library', stock: 'library', icon: LibraryIcon, count: (s) => s.lessons },
   { to: '/review', name: 'Review', stock: 'review', icon: RotateCcw, count: (s) => s.due, hot: true },
   { to: '/recordings', name: 'Recordings', short: 'Audio', stock: 'recordings', icon: Mic },
+  { to: '/transcriptions', name: 'Transcriptions', short: 'Queue', stock: 'transcriptions', icon: ListOrdered },
   { to: '/collect', name: 'Collect', stock: 'collect', icon: Plus },
 ]
 
@@ -111,6 +113,7 @@ function Shell() {
             <Route path="/collect" element={<CollectPage />} />
             <Route path="/recordings" element={<RecordingsPage />} />
             <Route path="/recordings/:id" element={<CleanupPage />} />
+            <Route path="/transcriptions" element={<TranscriptionsPage />} />
             <Route path="/addons" element={<AddonsPage />} />
             <Route path="*" element={<div className="empty"><h2>Nothing on this page</h2><NavLink className="btn" to="/inbox">Go to the inbox</NavLink></div>} />
           </Routes>

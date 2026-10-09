@@ -102,7 +102,7 @@ p { margin: 0; text-wrap: pretty; }
   .page-head { margin-bottom: var(--s-4); }
   .page-head .search { flex-basis: 100%; }
   .tabbar {
-    position: fixed; inset: auto 0 0; z-index: 30; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
+    position: fixed; inset: auto 0 0; z-index: 30; display: grid; grid-template-columns: repeat(8, minmax(44px, 1fr)); overflow-x: auto;
     background: var(--spine); padding-bottom: env(safe-area-inset-bottom);
   }
   .tabbar a {
@@ -1393,3 +1393,18 @@ body:has(.selection-dock) .toast { bottom: calc(var(--s-5) + 72px); }
 .source-lessons a { display: inline-flex; align-items: baseline; gap: var(--s-1); color: var(--ink); font-weight: 700; text-underline-offset: 3px; overflow-wrap: anywhere; }
 .source-lessons svg { width: 14px; height: 14px; flex: none; align-self: center; }
 .source-lessons .source-lesson-done { color: var(--ink-3); }
+
+/* Transcriptions share the recordings stock. */
+:root { --stock-transcriptions: var(--stock-recordings); }
+.transcription-loading { display: flex; align-items: center; gap: var(--s-2); padding-block: var(--s-5); }
+.transcription-section { margin-top: var(--s-5); }
+.transcription-section h2 { margin-bottom: var(--s-2); }
+.transcription-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--s-4); align-items: center; padding-block: var(--s-4); border-bottom: 1px solid color-mix(in srgb, var(--ink) 16%, transparent); }
+.transcription-row > svg { width: 22px; height: 22px; }
+.transcription-main { display: grid; gap: var(--s-1); min-width: 0; }
+.transcription-main > a { font-weight: 700; overflow-wrap: anywhere; }
+.transcription-main progress { width: 100%; max-width: 28rem; height: 6px; accent-color: var(--ink); }
+@media (max-width: 760px) {
+  .transcription-row { gap: var(--s-2); }
+  .transcription-row > .btn { grid-column: 2; justify-self: start; }
+}

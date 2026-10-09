@@ -44,6 +44,8 @@ Balloons reserve 24px around their layout box for the outward outline and record
 ## Recordings: the cutting room
 
 The recording editor (from jp-shadow-cut) lives on its own stock, a cold blue-grey newsprint (`--stock-recordings`).
+
+The Transcriptions page shares this stock and uses ruled lists for ongoing and waiting work, with the shared loader, progress when available, and automatic refresh.
 - **One continuous editing workspace.** On desktop, the transcript or script and cuts sit side by side with independent scrolling, above a permanently docked waveform and playback controls. At ≤900px, Transcript / Script / Cuts switch a single reading pane while the waveform stays visible.
 - **Keep audition controls with the waveform.** Previous / next cut, preview result and keep / cut actions remain beside the selected range. Short phones use labelled icon buttons in one row. Analysis settings occupy the bounded reading workspace; filters and secondary actions open on demand.
 - **Cut types are screentone, not hues.** Each type gets its own ink pattern, on the waveform and as a 14px swatch, so seven types stay readable without breaking the one-red rule:
@@ -83,7 +85,7 @@ A lesson page is a desk for reading and listening at once, on the mint stock.
 ## Interface refinements
 
 - Sentence rows keep the text in its own reading area at narrow widths (≤1100px); actions wrap beneath. Row variants live in CSS rather than inline column definitions. Long headings wrap, including editable deck names.
-- Controls are at least 44px tall on phones and devices with a coarse pointer. The mobile navigation has seven sections including Lessons; Add-ons is available above the page header.
+- Controls are at least 44px tall on phones and devices with a coarse pointer. The mobile navigation has eight sections including Library and Queue; links stay at least 44px wide, with horizontal scrolling on narrow screens. Add-ons is available above the page header.
 - Inbox organization filters use a native disclosure with label/category selects. Changing a search or filter clears the visible selection. Inbox and Library provide Load more; deck practice loads all deck sentences.
 - Red remains reserved for recording, due counts, misses, and score stamps. Practice entry actions use ink. `--on-red` supplies a contrasting foreground in both themes.
 - Failed mutations retain drafts and show actionable errors; deck order/removal updates after server success. Undo remains until used, dismissed, or replaced by another notification.
