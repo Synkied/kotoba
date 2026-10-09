@@ -13,6 +13,7 @@ import { DeckPicker } from '../components/DeckPicker'
 import { ErrorNotice, Skeleton, clock, dayLabel, useAsync, useToast, useAction } from '../components/ui'
 import { ReadingAids, TranslateAll, Translation, useAids } from '../components/ReadingAids'
 import { CopyButton } from './Library'
+import { useBackTo } from '../lib/trail'
 
 export default function SourcePage() {
   const id = Number(useParams().id)
@@ -21,6 +22,8 @@ export default function SourcePage() {
 
 function SourcePageDetail({ id }: { id: number }) {
   const { data: s, error, set, reload } = useAsync(() => api.source(id), [id])
+  // this source's own practice, clean-up and sentence pages lead back here, so Back skips past them
+  const backTo = useBackTo(`source:${id}`, (p) => p.startsWith('/practice') || p.startsWith('/sentences/') || p === `/recordings/${id}` || p === `/sources/${id}`)
   const aids = useAids()
   const player = useRef<PlayerHandle>(null)
   // the playhead, once playback has started: it lights up the sentence being spoken
@@ -65,7 +68,7 @@ function SourcePageDetail({ id }: { id: number }) {
       {action.error != null && <ErrorNotice error={action.error} />}
       <fieldset className="action-scope" disabled={action.busy} aria-busy={action.busy}>
       <header className="page-head">
-        <Link className="btn icon ghost" to={s.status === 'inbox' ? '/inbox' : '/sources'} aria-label="Back"><ChevronLeft aria-hidden="true" /></Link>
+        <Link className="btn icon ghost" to={backTo ?? (s.status === 'inbox' ? '/inbox' : '/sources')} aria-label="Back"><ChevronLeft aria-hidden="true" /></Link>
         <h1>{s.title || (s.kind === 'capture' ? 'Capture' : 'Source')} <span className="meta num">{{ capture: 'Capture', audio: 'Audio', video: 'Video', subtitle: 'Subtitles', text: 'Text' }[s.kind]} · {s.sentences.length} sentences</span></h1>
         <span className="grow" />
         {s.status !== 'kept' && <button className="btn" onClick={() => status('kept')}><Check aria-hidden="true" />Keep</button>}

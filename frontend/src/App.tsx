@@ -2,6 +2,7 @@ import { Inbox, Library as LibraryIcon, Layers, RotateCcw, Plus, Puzzle, Mic, Sc
 import { createContext, useContext, useEffect, useState } from 'react'
 import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { api, type Stats } from './lib/api'
+import { useTrail } from './lib/trail'
 import { ToastHost } from './components/ui'
 import InboxPage from './pages/Inbox'
 import SourcesPage from './pages/Library'
@@ -48,6 +49,7 @@ function stockFor(path: string) {
 
 function Shell() {
   const loc = useLocation()
+  useTrail()
   const [stats, setStats] = useState<Stats | null>(null)
   const refresh = () => { api.stats().then(setStats, () => {}) }
   useEffect(() => {
