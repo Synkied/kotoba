@@ -2,7 +2,40 @@ import json
 from unittest.mock import patch
 from urllib.parse import urlencode
 
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
+
+
+class TranscriptionQueueTests(TestCase):
+    @patch("speech.views.jobs.kick")
+    @patch("speech.views.jobs.can_transcribe", return_value=False)
+    @patch("speech.views.jobs.current")
+    def test_queue_includes_uploads_and_editor_work_without_duplicates(self, current, can_transcribe, kick):
+        from library.models import Source
+
+        waiting = Source.objects.create(kind="audio", title="Waiting upload", job="waiting")
+        running = Source.objects.create(kind="video", title="Running upload", job="running")
+        editor = Source.objects.create(kind="audio", title="Editor recording")
+        Source.objects.create(kind="audio", title="Finished")
+        Source.objects.create(kind="audio", title="Failed", job="failed")
+        current.return_value = [
+            {"id": 3, "kind": "render", "source": editor.id, "title": editor.title, "state": "running", "progress": None},
+            {"id": 2, "kind": "transcribe", "source": editor.id, "title": editor.title, "state": "queued", "progress": None},
+            {"id": 1, "kind": "transcribe", "source": running.id, "title": running.title, "state": "running", "progress": 0.4},
+        ]
+        response = self.client.get("/api/transcriptions")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"can_transcribe": False, "items": [
+            {"source": running.id, "title": running.title, "state": "running", "progress": 0.4},
+            {"source": editor.id, "title": editor.title, "state": "queued", "progress": None},
+            {"source": waiting.id, "title": waiting.title, "state": "queued", "progress": None},
+        ]})
+        kick.assert_called_once()
+
+    @patch("speech.views.jobs.kick")
+    @patch("speech.views.jobs.can_transcribe", return_value=True)
+    @patch("speech.views.jobs.current", return_value=[])
+    def test_empty_queue(self, current, can_transcribe, kick):
+        self.assertEqual(self.client.get("/api/transcriptions").json(), {"items": [], "can_transcribe": True})
 
 
 class PracticeRecordingTests(SimpleTestCase):

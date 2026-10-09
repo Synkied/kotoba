@@ -118,6 +118,22 @@ def job_list(request):
     return Response(jobs.current())
 
 
+@api_view(["GET"])
+def transcriptions(request):
+    """Active editor transcriptions and persisted uploads, including waiting ones."""
+    jobs.kick()
+    active = sorted((j for j in jobs.current() if j["kind"] == "transcribe"),
+                    key=lambda j: j["id"])
+    represented = {j["source"] for j in active}
+    uploads = Source.objects.filter(job__in=[Source.Job.WAITING, Source.Job.RUNNING]).order_by("created_at", "id")
+    items = [{"source": j["source"], "title": j["title"], "state": j["state"],
+              "progress": j["progress"]} for j in active]
+    items.extend({"source": s.id, "title": str(s),
+                  "state": "running" if s.job == Source.Job.RUNNING else "queued", "progress": None}
+                 for s in uploads if s.id not in represented)
+    return Response({"items": items, "can_transcribe": jobs.can_transcribe()})
+
+
 # ---------------------------------------------------------------- recording editor
 
 def _recorded(pk):
