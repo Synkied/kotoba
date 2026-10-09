@@ -89,15 +89,15 @@ function DeckPageDetail({ id }: { id: number }) {
           </form>
         )}
         <span className="grow" />
-        <button className="btn ghost" onClick={async () => { if (window.confirm(`Delete the deck “${deck.data!.name}”? Its sentences stay in the library.`)) { await action.run(async () => { await api.deleteDeck(id); nav('/decks') }) } }}><Trash2 aria-hidden="true" />Delete deck</button>
+        <button className="btn ghost" onClick={async () => { if (window.confirm(`Delete the deck “${deck.data!.name}”? Its sentences stay in Sources.`)) { await action.run(async () => { await api.deleteDeck(id); nav('/decks') }) } }}><Trash2 aria-hidden="true" />Delete deck</button>
         {items.length > 0 && <Link className="btn primary" to={`/practice?deck=${id}`}><Play aria-hidden="true" />Practise</Link>}
       </header>
       <FolderField deck={deck.data} onSaved={deck.set} run={action.run} />
       {list.error ? <ErrorNotice error={list.error} action={<button className="btn" onClick={list.reload}>Try again</button>} /> : list.loading && !list.data ? <Skeleton /> : !items.length ? (
         <div className="empty">
           <h2>This deck is empty</h2>
-          <p>Select sentences in the library, the inbox or a source, then choose “Add to deck → {deck.data.name}”.</p>
-          <Link className="btn primary" to="/library">Open the library</Link>
+          <p>Select sentences in Sources, the inbox or a source, then choose “Add to deck → {deck.data.name}”.</p>
+          <Link className="btn primary" to="/sources">Open Sources</Link>
         </div>
       ) : (
         <ol className="rows" style={{ listStyle: 'none', margin: 0, padding: 0 }}>

@@ -32,7 +32,7 @@ export default function ReviewPage() {
         <section style={{ display: 'grid', gap: 'var(--s-5)', maxWidth: '48rem' }}>
           <p style={{ color: 'var(--ink-2)' }}>
             {data.due.length ? `${data.due.length} sentence${data.due.length > 1 ? 's' : ''} scored low or are due again.` : ''}
-            {data.new.length ? ` ${data.new.length} new from your library join them.` : ''}
+            {data.new.length ? ` ${data.new.length} new from your sources join them.` : ''}
           </p>
           <div><button className="btn primary" style={{ height: 48, padding: '0 var(--s-6)', fontSize: 'var(--t-m)' }} onClick={() => setRunning(true)} autoFocus>Start review</button></div>
           <div className="rows">

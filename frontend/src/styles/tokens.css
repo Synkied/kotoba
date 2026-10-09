@@ -5,13 +5,13 @@
 
   /* newsprint stocks, one per section (set on <main> as --stock) */
   --stock-inbox: #f4dfd5;
-  --stock-library: #f0e7c6;
+  --stock-sources: #f0e7c6;
   --stock-decks: #dce8d2;
   --stock-practice: #fbfaf6;
   --stock-review: #e5dff1;
   --stock-collect: #e8e4db;
   --stock-recordings: #dbe4ea;
-  --stock-lessons: #d5e9e3;
+  --stock-library: #d5e9e3;
 
   --ink: #1a1714;
   --ink-2: #463f37;
@@ -59,13 +59,13 @@
   :root:not([data-theme='light']) {
     /* black "beta" pages: the stock tints survive as deep inks */
     --stock-inbox: #2a1e1a;
-    --stock-library: #28241a;
+    --stock-sources: #28241a;
     --stock-decks: #1c241b;
     --stock-practice: #161513;
     --stock-review: #211d2a;
     --stock-collect: #22201c;
     --stock-recordings: #1a2127;
-    --stock-lessons: #172420;
+    --stock-library: #172420;
 
     --ink: #f2ecdf;
     --ink-2: #d2c9b9;
@@ -85,8 +85,8 @@
   }
 }
 :root[data-theme='dark'] {
-  --stock-inbox: #2a1e1a; --stock-library: #28241a; --stock-decks: #1c241b;
-  --stock-practice: #161513; --stock-review: #211d2a; --stock-collect: #22201c; --stock-recordings: #1a2127; --stock-lessons: #172420;
+  --stock-inbox: #2a1e1a; --stock-sources: #28241a; --stock-decks: #1c241b;
+  --stock-practice: #161513; --stock-review: #211d2a; --stock-collect: #22201c; --stock-recordings: #1a2127; --stock-library: #172420;
   --ink: #f2ecdf; --ink-2: #d2c9b9; --ink-3: #a99f8f; --paper: #1f1d1a; --on-ink: #161513;
   --on-red: #161513; --red: #ff5b4f; --red-ink: #ff7a6f; --red-wash: #4a1d19;
   --spine: #0d0c0a; --spine-2: #221f1b; --spine-ink: #efe8da; --spine-ink-2: #9d9486;

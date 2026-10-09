@@ -1,4 +1,4 @@
-import { AudioLines, Check, ChevronLeft, ChevronRight, ExternalLink, FileText, Image, Pencil, Pin, Play, Plus, RotateCcw, Trash2, Upload, X } from 'lucide-react'
+import { AudioLines, Check, ChevronLeft, ChevronRight, ExternalLink, FileText, Folder, Image, Pencil, Pin, Play, Plus, RotateCcw, Trash2, Upload, X } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, type Lesson, type LessonFile } from '../lib/api'
@@ -6,6 +6,7 @@ import { useStats } from '../App'
 import { ErrorNotice, Skeleton, useAction, useAsync, usePref, useToast } from '../components/ui'
 import { lessonContents, useLessonActions } from './Lessons'
 import { Listen, lessonTracks } from '../components/LessonListen'
+import { fileSize, folderOptions, materialsIn } from '../lib/lessonTree'
 
 export default function LessonPage() {
   const id = Number(useParams().id)
@@ -14,6 +15,7 @@ export default function LessonPage() {
 
 function LessonDetail({ id }: { id: number }) {
   const { data: l, error, reload, set } = useAsync(() => api.lesson(id), [id])
+  const folders = useAsync(() => api.lessonFolders(), [])
   const actions = useLessonActions(set)
   const edit = useAction()
   const nav = useNavigate()
@@ -37,8 +39,8 @@ function LessonDetail({ id }: { id: number }) {
     edit.run(async () => { set(await api.updateLesson(l.id, { title: to })); setName(null) })
   }
   const remove = () => {
-    if (!window.confirm(`Delete “${l.title}” and its ${l.files.length === 1 ? 'file' : `${l.files.length} files`}? Linked sources stay in your library. This can’t be undone.`)) return
-    edit.run(async () => { await api.deleteLesson(l.id); refresh(); toast({ text: `Deleted “${l.title}”` }); nav('/lessons') })
+    if (!window.confirm(`Delete “${l.title}” and its ${l.files.length === 1 ? 'file' : `${l.files.length} files`}? Linked sources stay in Sources; files from its folder stay in the folder. This can’t be undone.`)) return
+    edit.run(async () => { await api.deleteLesson(l.id); refresh(); toast({ text: `Deleted “${l.title}”` }); nav(l.folder ? `/library?folder=${l.folder}` : '/library') })
   }
   const busy = actions.busy || edit.busy
   const tracks = lessonTracks(l)
@@ -48,7 +50,7 @@ function LessonDetail({ id }: { id: number }) {
     <>
       {(actions.error ?? edit.error) != null && <ErrorNotice error={actions.error ?? edit.error} />}
       <header className="page-head">
-        <Link className="btn icon ghost" to={l.done_at && !l.pinned ? '/lessons?view=archive' : '/lessons'} aria-label="Back to lessons"><ChevronLeft aria-hidden="true" /></Link>
+        <Link className="btn icon ghost" to={l.done_at && !l.pinned ? '/library?view=archive' : l.folder ? `/library?folder=${l.folder}` : '/library'} aria-label="Back to the library"><ChevronLeft aria-hidden="true" /></Link>
         {name === null ? <>
           <h1><button className="btn ghost lesson-title" title="Rename" disabled={busy} onClick={() => setName(l.title)}>{l.title}</button>
             <span className="meta num">{lessonContents(l)}</span>
@@ -72,6 +74,9 @@ function LessonDetail({ id }: { id: number }) {
           : <button className="btn primary" disabled={busy} onClick={() => actions.done(l)}><Check aria-hidden="true" />Done</button>}
       </header>
 
+      {folders.data && (folders.data.length > 0 || l.folder !== null) && <LessonFolderField l={l} options={folderOptions(folders.data)} busy={busy}
+        onMove={to => edit.run(async () => set(await api.updateLesson(l.id, { folder: to })))} />}
+
       <div className={'lesson-desk' + (pdfs.length ? '' : ' no-sheet')}>
         {pdfs.length > 0 ? <Sheet pdfs={pdfs} />
           : tracks.length > 0 ? <Listen l={l} tracks={tracks} onChange={set} />
@@ -90,6 +95,20 @@ function LessonDetail({ id }: { id: number }) {
         </div>
       </div>
     </>
+  )
+}
+
+/** Which folder the lesson is kept in; changing it moves the lesson to the end of that folder. */
+function LessonFolderField({ l, options, busy, onMove }: { l: Lesson; options: { id: number; label: string }[]; busy: boolean; onMove: (to: number | null) => void }) {
+  return (
+    <p className="lesson-folder">
+      <label className="folder-field"><Folder aria-hidden="true" />Folder
+        <select className="select chip-select" disabled={busy} value={l.folder ?? ''} onChange={e => onMove(e.target.value ? Number(e.target.value) : null)}>
+          <option value="">None, top level</option>
+          {options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+        </select></label>
+      {l.folder !== null && <Link className="meta" to={`/library?folder=${l.folder}`}>Open the folder</Link>}
+    </p>
   )
 }
 
@@ -146,7 +165,8 @@ const jobLabel = { waiting: 'Waiting to transcribe', running: 'Transcribing…',
 function Files({ l, onChange }: { l: Lesson; onChange: (l: Lesson) => void }) {
   const action = useAction()
   const remove = (f: LessonFile) => {
-    if (!window.confirm(`Remove “${f.name}” from this lesson? The file is deleted.${f.source ? ' Its transcript stays in your library.' : ''}`)) return
+    if (!window.confirm(f.material ? `Take “${f.name}” out of this lesson? It stays in its folder.`
+      : `Remove “${f.name}” from this lesson? The file is deleted.${f.source ? ' Its transcript stays in Sources.' : ''}`)) return
     action.run(async () => { await api.removeLessonFile(l.id, f.id); onChange({ ...l, files: l.files.filter(x => x.id !== f.id) }) })
   }
   return <>
@@ -166,8 +186,41 @@ function Files({ l, onChange }: { l: Lesson; onChange: (l: Lesson) => void }) {
       )
     })}</ul>}
     {action.error != null && <ErrorNotice error={action.error} />}
-    <AddFiles l={l} onChange={onChange} />
+    <div className="btn-row">
+      <AddFiles l={l} onChange={onChange} />
+      <FromFolder l={l} onChange={onChange} />
+    </div>
   </>
+}
+
+/** Files kept in the lesson's folder, as they are, to link into the lesson: they stay in the folder. */
+function FromFolder({ l, onChange }: { l: Lesson; onChange: (l: Lesson) => void }) {
+  const [open, setOpen] = useState(false)
+  const [chosen, setChosen] = useState<number[]>([])
+  const action = useAction()
+  const all = useAsync(() => open ? api.materials() : Promise.resolve(null), [open])
+  const linked = new Set(l.files.map(f => f.material))
+  const offered = materialsIn(all.data ?? [], l.folder).filter(m => !linked.has(m.id))
+  const add = () => action.run(async () => { onChange(await api.linkLessonMaterials(l.id, chosen)); setChosen([]); setOpen(false) })
+  if (!open) return <button className="btn small ghost" onClick={() => setOpen(true)}><Folder aria-hidden="true" />Add from the folder</button>
+  return (
+    <div className="lesson-pick">
+      {all.error != null ? <ErrorNotice error={all.error} /> : !all.data ? <Skeleton rows={2} /> : !offered.length
+        ? <p className="meta">{l.folder === null ? 'No other files at the top level of the library' : 'No other files in this lesson’s folder'} yet.</p>
+        : <ul className="material-list">{offered.map(m => (
+            <li key={m.id} className="material-row" data-selected={chosen.includes(m.id) || undefined}>
+              <input type="checkbox" className="check" id={`link-${m.id}`} checked={chosen.includes(m.id)} disabled={action.busy}
+                onChange={() => setChosen(prev => prev.includes(m.id) ? prev.filter(x => x !== m.id) : [...prev, m.id])} />
+              <label className="material-main" htmlFor={`link-${m.id}`}><span className="material-name" lang="ja">{m.name}</span><span className="meta num">{fileSize(m.size)}</span></label>
+            </li>
+          ))}</ul>}
+      {action.error != null && <ErrorNotice error={action.error} />}
+      <div className="btn-row">
+        {offered.length > 0 && <button className="btn small primary" disabled={!chosen.length || action.busy} aria-busy={action.busy} onClick={add}>{chosen.length > 1 ? `Add ${chosen.length} files` : 'Add'}</button>}
+        <button className="btn small ghost" disabled={action.busy} onClick={() => { setOpen(false); setChosen([]) }}>Cancel</button>
+      </div>
+    </div>
+  )
 }
 
 function Notes({ l, onChange }: { l: Lesson; onChange: (l: Lesson) => void }) {

@@ -67,8 +67,8 @@ export default function DecksPage() {
         !decks.length ? (
           <div className="empty">
             <h2>No decks yet</h2>
-            <p>A deck is an ordered run of sentences you practise together: a lesson, an episode, a game chapter. Create one here, or pick sentences in the library and choose “Add to deck”. Put related decks in a folder from the deck’s page.</p>
-            <Link className="btn" to="/library">Open the library</Link>
+            <p>A deck is an ordered run of sentences you practise together: a lesson, an episode, a game chapter. Create one here, or pick sentences in Sources and choose “Add to deck”. Put related decks in a folder from the deck’s page.</p>
+            <Link className="btn" to="/sources">Open Sources</Link>
           </div>
         ) : (
           <div className="table-scroll" tabIndex={0} role="region" aria-label="Decks"><table className="deck-table">

@@ -84,7 +84,7 @@ export default function LibraryPage() {
   return (
     <>
       <header className="page-head">
-        <h1>Library <span className="meta num">{data ? plural(data.count, 'source') : ''}</span></h1>
+        <h1>Sources <span className="meta num">{data ? plural(data.count, 'source') : ''}</span></h1>
         <span className="grow" />
         <div className="search"><SearchBox value={q} onChange={setQ} placeholder="Look up a sentence, label or reading" /></div>
       </header>
@@ -155,7 +155,7 @@ export default function LibraryPage() {
         loading && !data ? <Skeleton /> :
         !groups.length ? (
           <div className="empty">
-            <h2>{filtered ? 'Nothing matches' : 'Your library is empty'}</h2>
+            <h2>{filtered ? 'Nothing matches' : 'No sources yet'}</h2>
             <p>{filtered ? 'Try fewer filters, or search by reading: “kyou” finds 今日.' : 'Sources you keep from the inbox live here, with every sentence and every attempt at saying it.'}</p>
             {!filtered && <Link className="btn primary" to="/inbox">Go to the inbox</Link>}
           </div>

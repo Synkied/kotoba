@@ -1,4 +1,4 @@
-import { AudioLines, ListEnd, LoaderCircle, Pause, Play, Repeat1, SkipBack, SkipForward } from 'lucide-react'
+import { AudioLines, FileText, ListEnd, LoaderCircle, Pause, Play, Repeat1, SkipBack, SkipForward } from 'lucide-react'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type Lesson, type LessonFile, type Sentence, type Source } from '../lib/api'
@@ -7,7 +7,7 @@ import { ReadingAids, Translation, useAids } from './ReadingAids'
 import { ErrorNotice, shortcutBlocked, useAction, useAsync, usePref } from './ui'
 
 /** Something to listen to: a recording kept with the lesson (its transcript is the source
- *  made from it, once transcribed) or a linked library source that has audio of its own. */
+ *  made from it, once transcribed) or a linked source that has audio of its own. */
 export type Track = { key: string; name: string; url: string; video: boolean; file: LessonFile | null; source: number | null; job: Source['job'] | null; error: string }
 
 export function lessonTracks(l: Lesson): Track[] {
@@ -39,6 +39,8 @@ export function Listen({ l, tracks, onChange }: { l: Lesson; tracks: Track[]; on
             </select></label>
           <span className="meta num">{i + 1} of {tracks.length}</span>
         </> : <h2 className="listen-name" lang="ja">{track.name}</h2>}
+        {track.source != null && <Link className="btn small ghost listen-source" to={`/sources/${track.source}`} title="Open this recording’s source, its transcript and sentences">
+          <FileText aria-hidden="true" />Source</Link>}
       </div>
       <Player key={track.key} l={l} track={track} onChange={onChange}
         onNextTrack={i + 1 < tracks.length ? () => setKey(tracks[i + 1].key) : undefined} />
@@ -247,7 +249,7 @@ function NoTranscript({ l, track, loading, error, empty, onChange }: {
   return (
     <div className="listen-state">
       <p><b>No transcript yet</b><br /><span className="meta">{l.can_transcribe
-        ? 'kotoba writes out what’s said, line by line, on this machine. The transcript is also kept in your library, so you can practise its sentences.'
+        ? 'kotoba writes out what’s said, line by line, on this machine. The transcript is also kept in Sources, so you can practise its sentences.'
         : 'Install the speech engine in Add-ons to write out what’s said, line by line.'}</span></p>
       {action.error != null && <ErrorNotice error={action.error} />}
       {l.can_transcribe

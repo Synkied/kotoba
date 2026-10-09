@@ -32,7 +32,7 @@ export default function PracticePage() {
       return { title: s.title || 'Source', back: `/sources/${source}`, sentences: s.sentences }
     }
     const pick = ids ? await Promise.all([...new Set(ids)].map((id) => api.sentence(id))) : (await api.sentences({ limit: 20 })).results
-    return { title: 'Selected sentences', back: '/library', sentences: pick }
+    return { title: 'Selected sentences', back: '/sources', sentences: pick }
   }, [sentence, deck, source, params.get('ids')])
 
   if (error) return <ErrorNotice error={error} />
@@ -204,7 +204,7 @@ export function PracticeSession({ title, back, sentences: initial, onFinish }: {
     return (
       <div className="empty">
         <h2>Nothing to practise here</h2>
-        <p>Add sentences to this deck from the library or the inbox.</p>
+        <p>Add sentences to this deck from Sources or the inbox.</p>
         <Link className="btn" to={back}>Back</Link>
       </div>
     )

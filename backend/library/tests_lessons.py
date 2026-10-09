@@ -5,7 +5,7 @@ from unittest import mock
 
 from django.test import TestCase, override_settings
 
-from .models import Lesson, Source
+from .models import Lesson, LessonFolder, Material, Source
 
 
 @override_settings(MEDIA_ROOT=tempfile.mkdtemp())
@@ -47,6 +47,28 @@ class LessonTests(TestCase):
         self.assertIsNone(Lesson.objects.get(pk=done.id).done_at)
         self.assertEqual(study.done_at, None)
 
+    def test_folders_nest_and_keep_your_order(self):
+        post = lambda url, data: self.client.post(url, data, content_type="application/json")
+        minna = post("/api/lesson-folders", {"name": "  Minna   no Nihongo "}).json()
+        self.assertEqual(minna["name"], "Minna no Nihongo")
+        book = post("/api/lesson-folders", {"name": "Book 1", "parent": minna["id"]}).json()
+        a = self.create(title="Lesson 1", folder=book["id"]).json()
+        b = self.create(title="Lesson 2", folder=book["id"]).json()
+        self.assertEqual((a["folder"], a["position"], b["position"]), (book["id"], 1, 2))
+        # your order, not the order they came in
+        self.assertEqual(post("/api/lessons/arrange", {"folder": book["id"], "lessons": [b["id"], a["id"]]}).status_code, 204)
+        self.assertEqual([l["title"] for l in self.client.get("/api/lessons").json()], ["Lesson 2", "Lesson 1"])
+        # a folder can't go inside itself, directly or further down
+        self.assertEqual(post("/api/lessons/arrange", {"folder": book["id"], "folders": [minna["id"]]}).status_code, 400)
+        r = self.client.patch(f"/api/lesson-folders/{minna['id']}", {"parent": book["id"]}, content_type="application/json")
+        self.assertEqual(r.status_code, 400)
+        # the archive finds lessons by their folder's name
+        Lesson.objects.filter(pk=a["id"]).update(done_at="2026-10-01T00:00Z")
+        self.assertEqual([l["title"] for l in self.client.get("/api/lessons?state=done&q=book").json()], ["Lesson 1"])
+        # deleting a folder keeps what it held, one level up
+        self.assertEqual(self.client.delete(f"/api/lesson-folders/{book['id']}").status_code, 204)
+        self.assertEqual(set(Lesson.objects.values_list("folder", flat=True)), {minna["id"]})
+
     def test_link_sources(self):
         source = Source.objects.create(kind="text", text="こんにちは", status="kept", title="Dialogue")
         lesson = Lesson.objects.create(title="Lesson 19")
@@ -74,3 +96,48 @@ class LessonTests(TestCase):
         self.client.post(url)
         self.assertEqual(Source.objects.count(), 1)
         self.assertEqual(Source.objects.get(pk=source.id).job, "waiting")
+
+    @mock.patch("speech.jobs.kick")
+    def test_files_live_in_folders_without_a_lesson(self, kick):
+        book = LessonFolder.objects.create(name="Book 1")
+        pdf = SimpleUploadedFile("Lesson 19.pdf", b"%PDF-1.4", content_type="application/pdf")
+        track = SimpleUploadedFile("track 22.mp3", b"ID3audio", content_type="audio/mpeg")
+        r = self.client.post("/api/materials", {"files": [pdf, track], "folder": book.id})
+        self.assertEqual(r.status_code, 201, r.content)
+        made = r.json()
+        self.assertEqual([(m["name"], m["kind"], m["folder"], m["position"]) for m in made],
+                         [("Lesson 19.pdf", "pdf", book.id, 1), ("track 22.mp3", "audio", book.id, 2)])
+        self.assertFalse(Lesson.objects.exists())
+        served = self.client.get(made[1]["url"], HTTP_RANGE="bytes=0-2")
+        self.assertEqual(b"".join(served.streaming_content), b"ID3")
+        # transcribing is asked for, and only recordings are
+        self.assertEqual(Source.objects.count(), 0)
+        with self.captureOnCommitCallbacks(execute=True):
+            r = self.client.post("/api/materials/transcribe", {"ids": [m["id"] for m in made]}, content_type="application/json")
+        self.assertEqual([(m["name"], m["job"]) for m in r.json()], [("track 22.mp3", "waiting")])
+        self.assertEqual(Source.objects.get().title, "track 22")
+        kick.assert_called_once()
+        # deleting the folder keeps its files, one level up
+        self.client.delete(f"/api/lesson-folders/{book.id}")
+        self.assertEqual(list(Material.objects.values_list("folder", flat=True)), [None, None])
+        # pages a browser would run aren't kept
+        page = SimpleUploadedFile("page.html", b"<script>", content_type="text/html")
+        self.assertEqual(self.client.post("/api/materials", {"files": [page]}).status_code, 400)
+
+    def test_a_lesson_made_from_folder_files_links_them(self):
+        book = LessonFolder.objects.create(name="Book 1")
+        pdf = SimpleUploadedFile("Lesson 19.pdf", b"%PDF-1.4", content_type="application/pdf")
+        track = SimpleUploadedFile("track 22.mp3", b"ID3audio", content_type="audio/mpeg")
+        made = self.client.post("/api/materials", {"files": [pdf, track], "folder": book.id}).json()
+        r = self.create(folder=book.id, materials=[made[1]["id"], made[0]["id"]])
+        self.assertEqual(r.status_code, 201, r.content)
+        lesson = r.json()
+        self.assertEqual((lesson["title"], lesson["folder"]), ("track 22", book.id))
+        self.assertEqual([(f["name"], f["material"]) for f in lesson["files"]], [("track 22.mp3", made[1]["id"]), ("Lesson 19.pdf", made[0]["id"])])
+        self.assertEqual(b"".join(self.client.get(lesson["files"][0]["url"]).streaming_content), b"ID3audio")
+        self.assertEqual(self.client.get("/api/materials").json()[0]["lessons"], [{"id": lesson["id"], "title": "track 22"}])
+        # taking a file out of the lesson, or deleting the lesson, leaves it in the folder
+        self.client.delete(lesson["files"][1]["url"])
+        self.client.delete(f"/api/lessons/{lesson['id']}")
+        self.assertEqual(Material.objects.count(), 2)
+        self.assertEqual(self.client.get(made[0]["url"]).status_code, 200)

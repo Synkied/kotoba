@@ -4,7 +4,7 @@ A weekly manga magazine of your own sentences. Tokens live in `frontend/src/styl
 
 ## World
 - **Stocks.** Each section is printed on its own tinted newsprint. The page ground (`--stock`) changes per section and does the wayfinding:
-  inbox `#f4dfd5` salmon · library `#f0e7c6` straw · decks `#dce8d2` celadon · practice `#fbfaf6` white · review `#e5dff1` lavender · lessons `#d5e9e3` mint · collect `#e8e4db` natural.
+  inbox `#f4dfd5` salmon · sources `#f0e7c6` straw · decks `#dce8d2` celadon · practice `#fbfaf6` white · review `#e5dff1` lavender · library (folders, files and lessons) `#d5e9e3` mint · collect `#e8e4db` natural.
   Dark mode turns these into deep inks (`#2a1e1a` …) on "beta" black pages.
 - **Ink.** `--ink #1a1714`, `--ink-2 #463f37`, `--ink-3 #5f574d` (≥5.4:1 on every stock). Balloons, inputs and sheets use `--paper #fffdf8`.
 - **One red.** `--red #cc1f1a` (text: `--red-ink #b0130e`) is only for recording, misses, due counts and score stamps. Never decorative.
@@ -59,7 +59,7 @@ The recording editor (from jp-shadow-cut) lives on its own stock, a cold blue-gr
 - **The selected cut gets the bold panel frame,** with grips on both edges. The playhead is an ink rule with a triangular cap, not red.
 - **Background jobs appear in a framed sheet.** Transcribing and rendering show in a sheet docked bottom right, with an ink progress bar and the log on demand.
 
-## Lessons: the study desk
+## Library and lessons: the study desk
 
 A lesson page is a desk for reading and listening at once, on the mint stock.
 - **The worksheet takes the page.** On wide screens the PDF fills the left column to the bottom of the viewport. The side column scrolls on its own.
@@ -68,6 +68,9 @@ A lesson page is a desk for reading and listening at once, on the mint stock.
 - **Keys:** Space plays or pauses, the left and right arrows step through lines, and R repeats the current line.
 - **Drawers** (thin frame, `<details>`) hold notes, sources and files. Each remembers whether it was open. A closed Notes drawer previews its first line.
 - **≤1000px:** one column with the listening panel first, because phones show PDFs poorly inline.
+- **The library** is a drive on the mint stock: folders as deep as you like, holding files kept as they are and lessons, all in your order. Not everything in a folder is a lesson. A path leads back up (current step bold, the others underlined); folders are cards with the bold frame, lessons are cards, files are drive rows in one thin-framed list (icon, name, kind and size, the lessons using it, transcript state) so a folder of forty tracks stays scannable.
+- **Moving things:** a folder or path step taking a drop reverses to ink like the file drop zone; a card or row taking one shows an ink rule where the dragged item lands. A file dropped on a lesson joins it. Arrange gives the same moves as buttons (↑ ↓, a folder select) for keyboard and touch. Selected files get the selection dock: make a lesson, transcribe, move, rename, delete.
+- **A lesson is a choice:** made from files the learner picks (linked, never copied; they stay in their folder) plus any new uploads. Importing a folder brings it in as it is by default; one lesson per folder is an option. Nothing is transcribed until asked.
 
 ## Motion
 120ms for hover, 160ms for state changes, ease `cubic-bezier(.2,.7,.2,1)`. No page-load choreography. `prefers-reduced-motion` turns motion off.

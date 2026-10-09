@@ -138,6 +138,22 @@ class Attempt(models.Model):
         ordering = ["-created_at"]
 
 
+class LessonFolder(models.Model):
+    """A shelf for lessons, as deep as you like: Minna no Nihongo › Book 1 › Lessons 1–12.
+    Folders and lessons keep the order you arrange them in."""
+
+    name = models.CharField(max_length=80)
+    parent = models.ForeignKey("self", related_name="children", null=True, blank=True, on_delete=models.CASCADE)
+    position = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["position", "created_at"]
+
+    def __str__(self):
+        return self.name
+
+
 class Lesson(models.Model):
     """Material to study: a worksheet, a textbook chapter, a lesson's recordings, with the
     sources practised from it. Done lessons go to the archive; pinned ones stay at hand."""
@@ -145,22 +161,46 @@ class Lesson(models.Model):
     title = models.CharField(max_length=200)
     notes = models.TextField(blank=True)
     pinned = models.BooleanField(default=False)
+    folder = models.ForeignKey(LessonFolder, related_name="lessons", null=True, blank=True, on_delete=models.SET_NULL)
+    position = models.PositiveIntegerField(default=0)  # order within its folder
     done_at = models.DateTimeField(null=True, blank=True, db_index=True)
     sources = models.ManyToManyField(Source, related_name="lessons", blank=True)
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
-        ordering = ["-created_at"]
+        ordering = ["position", "created_at"]
 
     def __str__(self):
         return self.title
 
 
+class Material(models.Model):
+    """A file kept in a folder as it is, not part of any lesson: a textbook PDF, a track,
+    a scan. Recordings are transcribed only when asked."""
+
+    folder = models.ForeignKey(LessonFolder, related_name="materials", null=True, blank=True, on_delete=models.SET_NULL)
+    file = models.FileField(upload_to="materials/")
+    name = models.CharField(max_length=200)
+    size = models.PositiveBigIntegerField(default=0)
+    position = models.PositiveIntegerField(default=0)  # order within its folder
+    # a recording's transcript: the library source made from a copy of it
+    source = models.ForeignKey(Source, related_name="materials", null=True, blank=True, on_delete=models.SET_NULL)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["position", "id"]
+
+    def __str__(self):
+        return self.name
+
+
 class LessonFile(models.Model):
-    """A file kept with a lesson as it came: a PDF, a recording, a picture."""
+    """A file in a lesson: one uploaded with it, as it came, or one of the folder's materials,
+    linked rather than copied. A linked file stays in its folder when the lesson goes."""
 
     lesson = models.ForeignKey(Lesson, related_name="files", on_delete=models.CASCADE)
-    file = models.FileField(upload_to="lessons/")
+    file = models.FileField(upload_to="lessons/", blank=True)
+    material = models.ForeignKey(Material, related_name="lesson_files", null=True, blank=True, on_delete=models.CASCADE)
     name = models.CharField(max_length=200)
     position = models.PositiveIntegerField(default=0)
     # a recording's transcript: the library source made from a copy of it

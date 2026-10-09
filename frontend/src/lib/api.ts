@@ -84,10 +84,19 @@ export type Word = {
 export type Page<T> = { count: number; results: T[] }
 
 /** source/job: the library source transcribed from this recording, and how that's going */
-export type LessonFile = { id: number; name: string; kind: 'pdf' | 'audio' | 'video' | 'image' | 'text'; url: string; source: number | null; job: Source['job'] | null; job_error: string }
+/** A shelf for lessons; parent null is the top. The page builds the tree from the flat list. */
+export type LessonFolder = { id: number; name: string; parent: number | null; position: number }
+export type FileKind = 'pdf' | 'audio' | 'video' | 'image' | 'text'
+/** a file in a lesson; `material` when it's a folder file linked in rather than uploaded with it */
+/** A file kept in a folder as it is, in no lesson or in some: `lessons` are the ones it's linked into. */
+export type Material = {
+  id: number; name: string; kind: FileKind; folder: number | null; position: number; size: number; created_at: string; url: string
+  source: number | null; job: Source['job'] | null; job_error: string; lessons: { id: number; title: string }[]
+}
+export type LessonFile = { id: number; name: string; kind: FileKind; url: string; material: number | null; source: number | null; job: Source['job'] | null; job_error: string }
 export type LessonSource = { id: number; title: string; kind: SourceKind; status: Source['status']; sentences: number; job: Source['job']; media: string | null }
 export type Lesson = {
-  id: number; title: string; notes: string; pinned: boolean; done_at: string | null; created_at: string
+  id: number; title: string; notes: string; folder: number | null; position: number; pinned: boolean; done_at: string | null; created_at: string
   files: LessonFile[]; sources: LessonSource[]; can_transcribe: boolean
 }
 
@@ -131,13 +140,31 @@ export async function allSentences(params: { deck?: number; source?: number } = 
 export const api = {
   lessons: (p: { state?: 'done'; q?: string } = {}) => req<Lesson[]>('lessons' + qs(p)),
   lesson: (id: number) => req<Lesson>(`lessons/${id}`),
-  createLesson: (title: string, files: File[]) => {
+  createLesson: (title: string, files: File[], folder: number | null = null, materials: number[] = []) => {
     const form = new FormData(); form.append('title', title)
+    if (folder !== null) form.append('folder', String(folder))
+    materials.forEach(id => form.append('materials', String(id)))
     files.forEach(file => form.append('files', file))
     return req<Lesson>('lessons', { method: 'POST', body: form })
   },
-  updateLesson: (id: number, data: Partial<Pick<Lesson, 'title' | 'notes' | 'pinned'>> & { done?: boolean; sources?: number[] }) =>
+  updateLesson: (id: number, data: Partial<Pick<Lesson, 'title' | 'notes' | 'pinned' | 'folder'>> & { done?: boolean; sources?: number[] }) =>
     req<Lesson>(`lessons/${id}`, json('PATCH', data)),
+  lessonFolders: () => req<LessonFolder[]>('lesson-folders'),
+  createLessonFolder: (name: string, parent: number | null) => req<LessonFolder>('lesson-folders', json('POST', { name, parent })),
+  updateLessonFolder: (id: number, data: Partial<Pick<LessonFolder, 'name' | 'parent'>>) => req<LessonFolder>(`lesson-folders/${id}`, json('PATCH', data)),
+  deleteLessonFolder: (id: number) => req<void>(`lesson-folders/${id}`, { method: 'DELETE' }),
+  /** put these folders and lessons in `folder` (null: the top), in this order */
+  materials: () => req<Material[]>('materials'),
+  addMaterials: (files: File[], folder: number | null) => {
+    const form = new FormData(); files.forEach(file => form.append('files', file))
+    if (folder !== null) form.append('folder', String(folder))
+    return req<Material[]>('materials', { method: 'POST', body: form })
+  },
+  updateMaterial: (id: number, data: Partial<Pick<Material, 'name' | 'folder'>>) => req<Material>(`materials/${id}`, json('PATCH', data)),
+  deleteMaterial: (id: number) => req<void>(`materials/${id}`, { method: 'DELETE' }),
+  transcribeMaterials: (ids: number[]) => req<Material[]>('materials/transcribe', json('POST', { ids })),
+  linkLessonMaterials: (id: number, materials: number[]) => req<Lesson>(`lessons/${id}/files`, json('POST', { materials })),
+  arrangeLessons: (folder: number | null, items: { folders?: number[]; lessons?: number[]; materials?: number[] }) => req<void>('lessons/arrange', json('POST', { folder, ...items })),
   deleteLesson: (id: number) => req<void>(`lessons/${id}`, { method: 'DELETE' }),
   addLessonFiles: (id: number, files: File[]) => {
     const form = new FormData(); files.forEach(file => form.append('files', file))

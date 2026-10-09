@@ -8,8 +8,11 @@ router.register("sources", views.SourceViewSet, basename="source")
 router.register("sentences", views.SentenceViewSet, basename="sentence")
 router.register("decks", views.DeckViewSet, basename="deck")
 router.register("lessons", lessons.LessonViewSet, basename="lesson")
+router.register("materials", lessons.MaterialViewSet, basename="material")
+router.register("lesson-folders", lessons.LessonFolderViewSet, basename="lesson-folder")
 
 urlpatterns = [
+    path("lessons/arrange", lessons.arrange_lessons),
     path("lessons/<int:pk>/files/<int:fid>", lessons.lesson_file),
     path("captures", views.captures),               # screen-ocr --server pushes here
     path("collect/text", views.collect_text),

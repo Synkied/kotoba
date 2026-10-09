@@ -57,7 +57,7 @@ function SourcePageDetail({ id }: { id: number }) {
   // previous restarts the line you're in unless you're just past its start, like a music player
   const prevLine = timed[at >= 0 && head!.t - timed[at].start! > 1.5 ? at : at - 1]
   const nextLine = timed[at + 1]
-  const status = async (st: Source['status']) => action.run(async () => { set(await api.updateSource(s.id, { status: st })); toast({ text: st === 'kept' ? 'Moved to the library' : st === 'archived' ? 'Archived' : 'Back in the inbox' }) })
+  const status = async (st: Source['status']) => action.run(async () => { set(await api.updateSource(s.id, { status: st })); toast({ text: st === 'kept' ? 'Moved to Sources' : st === 'archived' ? 'Archived' : 'Back in the inbox' }) })
   const { date } = dayLabel(s.created_at)
 
   return (
@@ -65,7 +65,7 @@ function SourcePageDetail({ id }: { id: number }) {
       {action.error != null && <ErrorNotice error={action.error} />}
       <fieldset className="action-scope" disabled={action.busy} aria-busy={action.busy}>
       <header className="page-head">
-        <Link className="btn icon ghost" to={s.status === 'inbox' ? '/inbox' : '/library'} aria-label="Back"><ChevronLeft aria-hidden="true" /></Link>
+        <Link className="btn icon ghost" to={s.status === 'inbox' ? '/inbox' : '/sources'} aria-label="Back"><ChevronLeft aria-hidden="true" /></Link>
         <h1>{s.title || (s.kind === 'capture' ? 'Capture' : 'Source')} <span className="meta num">{{ capture: 'Capture', audio: 'Audio', video: 'Video', subtitle: 'Subtitles', text: 'Text' }[s.kind]} · {s.sentences.length} sentences</span></h1>
         <span className="grow" />
         {s.status !== 'kept' && <button className="btn" onClick={() => status('kept')}><Check aria-hidden="true" />Keep</button>}
@@ -88,7 +88,7 @@ function SourcePageDetail({ id }: { id: number }) {
             </>} />}
           <dl className="meta" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 16px', margin: 0 }}>
             <dt>Collected</dt><dd style={{ margin: 0 }}>{date}, {clock(s.created_at)}</dd>
-            <dt>Status</dt><dd style={{ margin: 0 }}>{{ inbox: 'In the inbox', kept: 'In the library', archived: 'Archived' }[s.status]}</dd>
+            <dt>Status</dt><dd style={{ margin: 0 }}>{{ inbox: 'In the inbox', kept: 'In Sources', archived: 'Archived' }[s.status]}</dd>
             {s.duration && <><dt>Length</dt><dd style={{ margin: 0 }} className="num">{fmtTime(s.duration)}</dd></>}
             {s.lessons.length > 0 && <><dt>{s.lessons.length === 1 ? 'Lesson' : 'Lessons'}</dt><dd style={{ margin: 0 }} className="source-lessons">
               {s.lessons.map(l => <Link key={l.id} to={`/lessons/${l.id}`}><BookOpen aria-hidden="true" />{l.title}{l.done && <span className="sr"> (done)</span>}{l.done && <Check aria-hidden="true" className="source-lesson-done" />}</Link>)}

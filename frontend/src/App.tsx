@@ -1,10 +1,10 @@
-import { Inbox, Library as LibraryIcon, Layers, RotateCcw, Plus, Puzzle, Mic, BookOpen } from 'lucide-react'
+import { Inbox, Library as LibraryIcon, Layers, RotateCcw, Plus, Puzzle, Mic, ScrollText } from 'lucide-react'
 import { createContext, useContext, useEffect, useState } from 'react'
 import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { api, type Stats } from './lib/api'
 import { ToastHost } from './components/ui'
 import InboxPage from './pages/Inbox'
-import LibraryPage from './pages/Library'
+import SourcesPage from './pages/Library'
 import SourcePage from './pages/Source'
 import SentencePage from './pages/Sentence'
 import DecksPage from './pages/Decks'
@@ -15,15 +15,15 @@ import CollectPage from './pages/Collect'
 import AddonsPage from './pages/Addons'
 import RecordingsPage from './pages/Recordings'
 import CleanupPage from './pages/Cleanup'
-import LessonsPage from './pages/Lessons'
+import LibraryPage from './pages/Lessons'
 import LessonPage from './pages/Lesson'
 
 type Section = { to: string; name: string; short?: string; stock: string; icon: typeof Inbox; count?: (s: Stats) => number; hot?: boolean }
 const SECTIONS: Section[] = [
   { to: '/inbox', name: 'Inbox', stock: 'inbox', icon: Inbox, count: (s) => s.inbox },
-  { to: '/library', name: 'Library', stock: 'library', icon: LibraryIcon },
+  { to: '/sources', name: 'Sources', stock: 'sources', icon: ScrollText },
   { to: '/decks', name: 'Decks', stock: 'decks', icon: Layers },
-  { to: '/lessons', name: 'Lessons', stock: 'lessons', icon: BookOpen, count: (s) => s.lessons },
+  { to: '/library', name: 'Library', stock: 'library', icon: LibraryIcon, count: (s) => s.lessons },
   { to: '/review', name: 'Review', stock: 'review', icon: RotateCcw, count: (s) => s.due, hot: true },
   { to: '/recordings', name: 'Recordings', short: 'Audio', stock: 'recordings', icon: Mic },
   { to: '/collect', name: 'Collect', stock: 'collect', icon: Plus },
@@ -32,9 +32,16 @@ const SECTIONS: Section[] = [
 const StatsCtx = createContext<{ stats: Stats | null; refresh: () => void }>({ stats: null, refresh: () => {} })
 export const useStats = () => useContext(StatsCtx)
 
+/** Lessons moved into the library: old links keep their folder or archive view. */
+function ToLibrary() {
+  const loc = useLocation()
+  return <Navigate to={'/library' + loc.search} replace />
+}
+
 function stockFor(path: string) {
   if (path.startsWith('/practice')) return 'practice'
-  if (path.startsWith('/sources') || path.startsWith('/sentences')) return 'library'
+  if (path.startsWith('/sentences')) return 'sources'
+  if (path.startsWith('/lessons')) return 'library'
   if (path.startsWith('/addons')) return 'collect'
   return SECTIONS.find((s) => path.startsWith(s.to))?.stock ?? 'collect'
 }
@@ -51,7 +58,7 @@ function Shell() {
   useEffect(refresh, [loc.pathname])
   const stock = stockFor(loc.pathname)
   useEffect(() => {
-    document.title = `kotoba · ${stock === 'practice' ? 'Practice' : stock === 'library' ? 'Library' : loc.pathname.startsWith('/addons') ? 'Add-ons' : stock.charAt(0).toUpperCase() + stock.slice(1)}`
+    document.title = `kotoba · ${stock === 'practice' ? 'Practice' : loc.pathname.startsWith('/addons') ? 'Add-ons' : stock.charAt(0).toUpperCase() + stock.slice(1)}`
     document.getElementById('main')?.focus({ preventScroll: true })
     window.scrollTo(0, 0)
   }, [loc.pathname, stock])
@@ -88,14 +95,15 @@ function Shell() {
           <Routes>
             <Route path="/" element={<Navigate to="/inbox" replace />} />
             <Route path="/inbox" element={<InboxPage />} />
-            <Route path="/library" element={<LibraryPage />} />
+            <Route path="/sources" element={<SourcesPage />} />
             <Route path="/sentences/:id" element={<SentencePage />} />
             <Route path="/sources/:id" element={<SourcePage />} />
             <Route path="/decks" element={<DecksPage />} />
             <Route path="/decks/:id" element={<DeckPage />} />
-            <Route path="/lessons" element={<LessonsPage />} />
+            <Route path="/library" element={<LibraryPage />} />
+            <Route path="/lessons" element={<ToLibrary />} />
             <Route path="/lessons/:id" element={<LessonPage />} />
-            <Route path="/listening" element={<Navigate to="/lessons" replace />} />
+            <Route path="/listening" element={<Navigate to="/library" replace />} />
             <Route path="/practice" element={<PracticePage />} />
             <Route path="/review" element={<ReviewPage />} />
             <Route path="/collect" element={<CollectPage />} />
