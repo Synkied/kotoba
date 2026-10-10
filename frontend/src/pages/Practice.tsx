@@ -1,4 +1,4 @@
-import { AlertTriangle, ChevronLeft, ChevronRight, Mic, Square, Volume2, RotateCcw, X, AudioLines, Bot, LoaderCircle } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, Link2, ChevronRight, Mic, Square, Volume2, RotateCcw, X, AudioLines, Bot, LoaderCircle } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, allSentences, type Score, type Sentence } from '../lib/api'
@@ -12,7 +12,7 @@ import { useStats } from '../App'
 import { MeaningHint, ReadingAids, useAids } from '../components/ReadingAids'
 
 export default function PracticePage() {
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const sentence = Number(params.get('sentence')) || undefined
   const deck = Number(params.get('deck')) || undefined
   const source = Number(params.get('source')) || undefined
@@ -37,17 +37,26 @@ export default function PracticePage() {
 
   if (error) return <ErrorNotice error={error} />
   if (loading || !data) return <Skeleton rows={3} />
-  return <PracticeSession key={params.toString()} title={data.title} back={data.back} sentences={data.sentences} />
+  // ?at=<sentence id> opens the run on that sentence and follows along, so the address is always a link to it
+  const run = new URLSearchParams(params); run.delete('at')
+  const onAt = (id: number | null) => setParams((p) => {
+    const next = new URLSearchParams(p)
+    if (id == null) next.delete('at'); else next.set('at', String(id))
+    return next
+  }, { replace: true })
+  return <PracticeSession key={run.toString()} title={data.title} back={data.back} sentences={data.sentences}
+    startAt={Number(params.get('at')) || undefined} onAt={onAt} />
 }
 
 type Result = Score & { model: 'native' | 'tts' | 'none' }
 
 /** One practice run through a list of sentences: listen to the model, say it, see the score. */
-export function PracticeSession({ title, back, sentences: initial, onFinish }: {
+export function PracticeSession({ title, back, sentences: initial, onFinish, startAt, onAt }: {
   title: string; back: string; sentences: Sentence[]; onFinish?: () => void
+  startAt?: number; onAt?: (id: number | null) => void
 }) {
   const [sentences, setSentences] = useState(initial)
-  const [i, setI] = useState(0)
+  const [i, setI] = useState(() => Math.max(0, initial.findIndex((x) => x.id === startAt)))
   const [results, setResults] = useState<Record<number, Result>>({})
   const [recording, setRecording] = useState(false)
   const [scoring, setScoring] = useState(false)
@@ -76,6 +85,13 @@ export function PracticeSession({ title, back, sentences: initial, onFinish }: {
   const canNative = !!s?.has_audio
   const useNative = model === 'native' && canNative
   const done = i >= sentences.length
+
+  useEffect(() => { onAt?.(s ? s.id : null) }, [s?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const copyLink = async () => {
+    try { await navigator.clipboard.writeText(window.location.href); toast({ text: 'Link to this sentence copied' }) }
+    catch { toast({ text: 'Copy the link from your address bar' }) }
+  }
 
   // the scoring engine (Whisper) and the voices
   useEffect(() => {
@@ -218,6 +234,7 @@ export function PracticeSession({ title, back, sentences: initial, onFinish }: {
         <Link className="btn icon ghost" to={back} aria-label="Back"><ChevronLeft aria-hidden="true" /></Link>
         <h1>{title} <span className="meta num">{done ? 'Finished' : `${i + 1} / ${sentences.length}`}</span></h1>
         <span className="grow" />
+        {onAt && !done && <button className="btn small ghost" onClick={copyLink} title="Copy a link that opens this practice on this sentence"><Link2 aria-hidden="true" />Copy link</button>}
         <EngineLine engine={engine} onLoad={loadEngine} />
       </header>
 
