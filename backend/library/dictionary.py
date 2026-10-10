@@ -331,3 +331,40 @@ def lookup(text: str, at: int, pairs: list | None = None) -> dict | None:
         "lemma_romaji": _romaji(lemma_reading) if inflected else None,
         "entries": found,
     }
+
+
+def _phrase_romaji(surface: str, reading: str) -> str:
+    """Romaji spaced by word, when MeCab reads the stretch the way it's shown."""
+    words = [t["kana"] for line in surface.splitlines() for t in _tokens(line) if t["pos"] not in _SKIP] if romanize._tagger else []
+    if words and "".join(words) == re.sub(r"\s|\W", "", reading):
+        return " ".join(_romaji(w) for w in words)
+    return _romaji(reading)
+
+
+def span(text: str, start: int, end: int, pairs: list | None = None) -> dict | None:
+    """A stretch of `text` someone selected, shaped like a looked-up word: its reading as the
+    sentence reads it (`pairs`, the furigana shown, win), and the dictionary's entries when the
+    stretch is something JMdict lists. Selecting exactly one word is that word's lookup."""
+    romanize._load()
+    start, end = max(0, start), min(len(text), end)
+    while start < end and text[start].isspace():
+        start += 1
+    while end > start and text[end - 1].isspace():
+        end -= 1
+    if start >= end:
+        return None
+    if romanize._tagger:
+        word = lookup(text, start, pairs)
+        if word and (word["start"], word["end"]) == (start, end):
+            return word
+    surface = text[start:end]
+    furigana = (_shown(text, pairs or [], start, end) or _shown(text, romanize.furigana(text), start, end)
+                or romanize.furigana(surface))  # the stretch cuts a word in two: read it on its own
+    reading = romanize._hira(romanize.with_readings(surface, furigana))
+    forms = [surface] if "\n" in surface else list(dict.fromkeys([surface, romanize._hira(surface)]))
+    return {
+        "surface": surface, "start": start, "end": end, "reading": reading,
+        "romaji": _phrase_romaji(surface, reading), "furigana": furigana,
+        "lemma": None, "lemma_reading": None, "lemma_romaji": None,
+        "entries": entries(forms, reading) if _known(forms) else [],
+    }

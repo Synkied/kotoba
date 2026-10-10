@@ -362,3 +362,44 @@ def translate(sentence, lang: str | None = None, force: bool = False) -> str:
     sentence.translations = {**sentence.translations, lang: text}
     type(sentence).objects.filter(pk=sentence.pk).update(translations=sentence.translations)
     return text
+
+
+# --- explaining a selected stretch ---------------------------------------------------
+
+_explained: dict[tuple, dict] = {}  # the same question again doesn't cost a second call
+_BULLET = re.compile(r"^\s*(?:[-*•・]|\d+[.)])\s*")
+
+
+def _explain_prompt(text: str, context: str, lang: str) -> tuple[str, str]:
+    name = LANGUAGES[lang]
+    system = (f"You help someone learning Japanese understand a passage they selected. Answer in {name}. "
+              f"On the first line, give a natural {name} translation of the selected passage only, "
+              "in the sense its context gives it. Then leave a blank line and explain, in at most five short lines "
+              "each starting with \"- \", the words, grammar and nuance that make it mean that "
+              "(quote the Japanese you explain). No romanization, no preamble, no closing remarks.")
+    user = f"Context:\n{context}\n\nSelected passage:\n{text}" if context and context != text else f"Selected passage:\n{text}"
+    return system, user
+
+
+def _parse_explanation(reply: str) -> dict:
+    lines = [line.strip() for line in _THINK.sub("", reply).strip().splitlines()]
+    lines = [line for line in lines if line]
+    if not lines:
+        raise TranslateError("The model answered with nothing. Try again, or try another model.")
+    translation = _clean(_BULLET.sub("", lines[0]).strip("*").strip())
+    notes = [n for n in (_BULLET.sub("", line).strip() for line in lines[1:]) if n]
+    return {"translation": translation, "notes": notes}
+
+
+def explain(text: str, context: str = "", lang: str | None = None, force: bool = False) -> dict:
+    """What `text`, selected inside `context`, means: a translation and a few notes."""
+    lang = lang or language()
+    if lang not in LANGUAGES:
+        raise TranslateError(f"kotoba can't translate into {lang!r}.")
+    cfg = _active()
+    key = (cfg["id"], cfg["url"], cfg["model"], lang, text, context)
+    if key not in _explained or force:
+        if len(_explained) >= 200:
+            _explained.pop(next(iter(_explained)))
+        _explained[key] = _parse_explanation(_ask(cfg, *_explain_prompt(text, context, lang)))
+    return {**_explained[key], "to": lang, "name": LANGUAGES[lang]}

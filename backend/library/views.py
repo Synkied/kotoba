@@ -437,7 +437,33 @@ def lookup(request):
     if not (isinstance(pairs, list) and all(isinstance(p, list) and len(p) == 2 and all(isinstance(x, str) for x in p) for p in pairs)):
         pairs = []
     dictionary.ensure()
-    return Response({"word": dictionary.lookup(text, at, pairs), "dictionary": dictionary.status()})
+    end = request.query_params.get("end")
+    if end:  # a selected stretch, text[at:end]
+        try:
+            word = dictionary.span(text, at, int(end), pairs)
+        except ValueError:
+            return Response({"error": "end must be a character offset"}, status=400)
+    else:
+        word = dictionary.lookup(text, at, pairs)
+    return Response({"word": word, "dictionary": dictionary.status()})
+
+
+@api_view(["POST"])
+def explain(request):
+    """{text, context}: what a selected stretch of Japanese means where it stands, from the
+    translator in use: a translation and a few notes on its grammar, words and nuance."""
+    text = " ".join(str(request.data.get("text", "")).split())
+    context = str(request.data.get("context", "")).strip()[:2000]
+    if not text:
+        return Response({"error": "Select some Japanese to explain."}, status=400)
+    if len(text) > 500:
+        return Response({"error": "That's a lot at once: select at most 500 characters."}, status=400)
+    try:
+        out = translate.explain(text, context, request.data.get("to"), force=bool(request.data.get("force")))
+    except translate.TranslateError as e:
+        return Response({"error": str(e)}, status=503)
+    active = translate.public(next(t for t in translate.translators() if t["id"] == translate.active_id()))
+    return Response({**out, "translator": active["name"], "cloud": active["cloud"]})
 
 
 # ---------------------------------------------------------------- decks

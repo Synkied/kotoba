@@ -174,3 +174,55 @@ class TranslateTests(TestCase):
         self.assertEqual(r["models"], ["qwen2.5:7b"])
         self.assertFalse(r["cloud"])
         self.assertEqual(len(self.client.get("/api/translation").json()["translators"]), 1)  # testing saved nothing
+
+
+class ExplainTests(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.server = HTTPServer(("127.0.0.1", 0), FakeLLM)
+        threading.Thread(target=cls.server.serve_forever, daemon=True).start()
+        cls.llm = override_settings(LLM={"url": f"http://127.0.0.1:{cls.server.server_port}/v1", "model": "m", "key": ""})
+        cls.llm.enable()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.llm.disable()
+        cls.server.shutdown()
+        super().tearDownClass()
+
+    def setUp(self):
+        FakeLLM.requests = []
+        FakeLLM.strict = False
+        translate._explained.clear()
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        settings_file = patch.object(translate, "_SETTINGS", Path(tmp.name) / "settings.json")
+        settings_file.start()
+        self.addCleanup(settings_file.stop)
+        reply = patch.object(FakeLLM, "reply", "<think>hm</think>\n**Which one do you like?**\n\n- 「どちら」 asks which of two\n* 「が好き」: to like\n")
+        reply.start()
+        self.addCleanup(reply.stop)
+
+    def ask(self, **data):
+        return self.client.post("/api/explain", data, content_type="application/json")
+
+    def test_explains_in_context_and_remembers_the_answer(self):
+        r = self.ask(text="どちらが好き", context="映画と本、どちらが好きですか。", to="fr")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["translation"], "Which one do you like?")
+        self.assertEqual(r.json()["notes"], ["「どちら」 asks which of two", "「が好き」: to like"])
+        self.assertEqual((r.json()["to"], r.json()["cloud"]), ("fr", False))
+        prompt = FakeLLM.requests[0]["body"]["messages"]
+        self.assertIn("French", prompt[0]["content"])
+        self.assertIn("映画と本、どちらが好きですか。", prompt[1]["content"])
+        self.ask(text="どちらが好き", context="映画と本、どちらが好きですか。", to="fr")
+        self.assertEqual(len(FakeLLM.requests), 1)
+        self.ask(text="どちらが好き", context="映画と本、どちらが好きですか。", to="fr", force=True)
+        self.assertEqual(len(FakeLLM.requests), 2)
+
+    def test_checks_the_selection(self):
+        self.assertEqual(self.ask(text="  ").status_code, 400)
+        self.assertEqual(self.ask(text="あ" * 501).status_code, 400)
+        with override_settings(LLM={"url": "http://127.0.0.1:9/v1", "model": "m", "key": ""}):
+            self.assertEqual(self.ask(text="本").status_code, 503)

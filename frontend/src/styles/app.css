@@ -254,14 +254,14 @@ button.chip:hover { background: color-mix(in srgb, var(--stock) 80%, var(--ink))
 .translation.pending { color: var(--ink-3); }
 .translation.failed { color: var(--ink-2); }
 /* translate again: a quiet mark at the end of the line, full colour only when reached for */
-.translation .again { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin: -4px 0; vertical-align: middle; color: var(--ink-3); text-decoration: none; }
-.translation .again svg { width: 14px; height: 14px; }
-.translation .again:hover:not(:disabled), .translation .again:focus-visible { color: var(--ink); }
+.translation .again, .explain-translation .again { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin: -4px 0; vertical-align: middle; color: var(--ink-3); text-decoration: none; }
+.translation .again svg, .explain-translation .again svg { width: 14px; height: 14px; }
+.translation .again:hover:not(:disabled), .translation .again:focus-visible, .explain-translation .again:hover:not(:disabled), .explain-translation .again:focus-visible { color: var(--ink); }
 .translation .again:disabled { cursor: progress; }
 .translation[aria-busy='true'] .again svg { animation: again-spin 1s linear infinite; }
 @keyframes again-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .translation[aria-busy='true'] .again svg { animation: none; } }
-@media (pointer: coarse) { .translation .again { width: 44px; height: 44px; margin: -14px -10px; } }
+@media (pointer: coarse) { .translation .again, .explain-translation .again { width: 44px; height: 44px; margin: -14px -10px; } }
 .translation .again-error { color: var(--ink-2); }
 button.link {
   padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer;
@@ -1329,6 +1329,16 @@ a.material-name:hover { text-decoration: underline; text-underline-offset: 3px; 
   }
 }
 @media (pointer: coarse) { .word-pop .btn.icon.small { width: 44px; height: 44px; } }
+/* the selection's offer, and what the translator says it means */
+.select-explain { position: fixed; z-index: 59; width: 120px; justify-content: center; box-shadow: var(--lift); animation: dock-in var(--t-fast) var(--ease); }
+@media (pointer: coarse) { .select-explain { min-height: 44px; } }
+@media (prefers-reduced-motion: reduce) { .select-explain { animation: none; } }
+.word-explain { margin: 0; }
+section.word-explain { border-top: var(--frame-thin) solid var(--ink); padding-top: var(--s-2); display: grid; gap: var(--s-1); }
+.word-explain h3 { margin: 0; font-size: var(--t-s); font-weight: 400; }
+.explain-translation { font-weight: 700; }
+.explain-notes { margin: 0; padding-left: 1.2em; display: grid; gap: var(--s-1); font-size: var(--t-s); }
+.word-explain .pending { color: var(--ink-3); }
 
 /* Source playback: the sentence being spoken is marked with an ink rule and paper,
    and its timecode is reversed, like the character under the playhead. */

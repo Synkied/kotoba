@@ -27,7 +27,8 @@ JMDICT = ['{\n', '"version": "3.6.2",\n', '"dictDate": "2026-10-05",\n', '"tags"
           _word(6, [], ["アイスクリーム"], "ice cream") + "\n", "]\n", "}\n"]
 
 
-class LookupTests(SimpleTestCase):
+class DictionaryCase(SimpleTestCase):
+    """A small JMdict, indexed into a scratch data directory."""
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -43,6 +44,8 @@ class LookupTests(SimpleTestCase):
         cls.tmp.cleanup()
         super().tearDownClass()
 
+
+class LookupTests(DictionaryCase):
     def look(self, text, word):
         return dictionary.lookup(text, text.index(word))
 
@@ -97,3 +100,27 @@ class MissingDictionaryTests(SimpleTestCase):
             dictionary._state["downloading"] = False
         self.assertEqual(r["word"]["reading"], "たべました")
         self.assertEqual(r["word"]["entries"], [])
+
+
+class SpanTests(DictionaryCase):
+    def test_one_word_selected_is_its_lookup(self):
+        w = dictionary.span("図書館で勉強する。", 0, 3)
+        self.assertEqual((w["surface"], w["entries"][0]["senses"][0]["gloss"]), ("図書館", ["library"]))
+
+    def test_part_of_a_word_or_a_phrase(self):
+        w = dictionary.span("図書館で勉強する。", 0, 2)
+        self.assertEqual((w["surface"], w["reading"], w["entries"][0]["senses"][0]["gloss"]), ("図書", "としょ", ["books"]))
+        w = dictionary.span("図書館で勉強する。", 0, 7)
+        self.assertEqual((w["surface"], w["reading"], w["entries"]), ("図書館で勉強す", "としょかんでべんきょうす", []))
+        self.assertEqual(w["furigana"], [["図書", "としょ"], ["館", "かん"], ["勉強", "べんきょう"]])
+        self.assertEqual(w["romaji"], "tosho kan de benkyou su")
+
+    def test_shown_readings_and_spaces(self):
+        w = dictionary.span("図書館で勉強", 0, 6, [["図書館", "としょやかた"], ["勉強", "べんきょう"]])
+        self.assertEqual(w["reading"], "としょやかたでべんきょう")
+        self.assertIsNone(dictionary.span("雨 。", 1, 2))
+
+    def test_api(self):
+        r = self.client.get("/api/lookup", {"text": "図書館で勉強する。", "at": 0, "end": 2}).json()
+        self.assertEqual(r["word"]["surface"], "図書")
+        self.assertEqual(self.client.get("/api/lookup", {"text": "x", "at": 0, "end": "?"}).status_code, 400)

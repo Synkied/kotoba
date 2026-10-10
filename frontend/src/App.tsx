@@ -4,6 +4,7 @@ import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation } fr
 import { api, type Stats } from './lib/api'
 import { useTrail } from './lib/trail'
 import { ToastHost } from './components/ui'
+import { SelectionLookup } from './components/WordLookup'
 import InboxPage from './pages/Inbox'
 import SourcesPage from './pages/Library'
 import SourcePage from './pages/Source'
@@ -133,6 +134,7 @@ function Shell() {
           })}
         </nav>
       </div>
+      <SelectionLookup />
     </StatsCtx.Provider>
   )
 }

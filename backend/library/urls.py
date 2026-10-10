@@ -21,6 +21,7 @@ urlpatterns = [
     path("facets", views.facets),
     path("stats", views.stats),
     path("lookup", views.lookup),
+    path("explain", views.explain),
     path("attempts", views.attempts),
     path("review", views.review),
     path("translation", views.translation),

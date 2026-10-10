@@ -79,6 +79,13 @@ jmdict-simplified: the first lookup downloads it once (about 12 MB) into the dat
 or run `make dictionary` beforehand. `KOTOBA_DICT_LANG=fre` (or ger, spa, rus, …) picks
 another gloss language; English has by far the most entries.
 
+Select any stretch of a sentence (a few words, a clause, the whole line) and an **Explain**
+button comes up beside it. It opens the stretch with its reading in kana and romaji, its meanings
+when the dictionary lists it, and what your translator (see Translations below) says it means in
+that sentence: a translation and a few notes on the words, grammar and nuance. A tapped word has
+the same explanation one click away. Explanations are asked for only on a click, and the same
+question isn't sent twice while kotoba runs.
+
 Japanese readings use MeCab through fugashi with the bundled UniDic Lite dictionary.
 On a platform without fugashi wheels (such as Alpine), install/build MeCab and its
 headers before installing Python dependencies. Pykakasi remains a fallback.

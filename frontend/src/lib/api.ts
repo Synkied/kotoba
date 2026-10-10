@@ -85,6 +85,8 @@ export type Word = {
   surface: string; start: number; end: number; reading: string; romaji: string; furigana: [string, string][]
   lemma: string | null; lemma_reading: string | null; lemma_romaji: string | null; entries: DictEntry[]
 }
+/** What a selected stretch means in its sentence, from the translator in use. */
+export type Explanation = { translation: string; notes: string[]; to: string; name: string; translator: string; cloud: boolean }
 export type Page<T> = { count: number; results: T[] }
 
 /** source/job: the library source transcribed from this recording, and how that's going */
@@ -177,8 +179,11 @@ export const api = {
   removeLessonFile: (id: number, file: number) => req<void>(`lessons/${id}/files/${file}`, { method: 'DELETE' }),
   transcribeLessonFile: (id: number, file: number) => req<Lesson>(`lessons/${id}/files/${file}/transcribe`, { method: 'POST' }),
   stats: () => req<Stats>('stats'),
-  lookup: (text: string, at: number, pairs: [string, string][], signal?: AbortSignal) =>
-    req<{ word: Word | null; dictionary: DictionaryStatus }>('lookup' + qs({ text, at, ...(pairs.length ? { pairs: JSON.stringify(pairs) } : {}) }), { signal }),
+  /** the word at `at`, or with `end` the selected stretch text[at:end] */
+  lookup: (text: string, at: number, pairs: [string, string][], signal?: AbortSignal, end?: number) =>
+    req<{ word: Word | null; dictionary: DictionaryStatus }>('lookup' + qs({ text, at, end, ...(pairs.length ? { pairs: JSON.stringify(pairs) } : {}) }), { signal }),
+  explain: (text: string, context: string, force = false, signal?: AbortSignal) =>
+    req<Explanation>('explain', { ...json('POST', { text, context, force }), signal }),
   facets: () => req<Facets>('facets'),
   sources: (p: { status?: string; q?: string; kind?: string; category?: string; label?: string; limit?: number; offset?: number }) =>
     req<Page<Source>>('sources' + qs({ limit: 50, ...p })),
