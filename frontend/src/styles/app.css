@@ -288,23 +288,82 @@ ruby rt { font-size: .5em; color: var(--ink-2); font-weight: 400; letter-spacing
 .stamps { display: flex; align-items: center; }
 .stamps .stamp + .stamp { margin-left: -8px; }
 .stamp {
-  --size: 34px; position: relative; display: grid; place-items: center; flex: none;
+  --size: 34px; --ink-c: var(--red); --text-c: var(--red-ink);
+  position: relative; display: grid; place-items: center; flex: none;
   width: var(--size); height: var(--size); border-radius: 50%;
-  border: 2px solid var(--red); color: var(--red-ink);
+  border: 2px solid var(--ink-c); color: var(--text-c);
   font: 700 12px/1 var(--font); font-variant-numeric: tabular-nums;
   background: color-mix(in srgb, var(--paper) 55%, transparent);
   rotate: var(--rot, -6deg);
 }
+.stamp.shu { --ink-c: var(--stamp-shu); --text-c: var(--stamp-shu-ink); }
+.stamp.yu { --ink-c: var(--stamp-yu); --text-c: var(--stamp-yu-ink); }
+.stamp.ryo { --ink-c: var(--stamp-ryo); --text-c: var(--stamp-ryo-ink); }
 .stamp::before { content: ''; position: absolute; inset: 2px; border-radius: 50%; border: 1px solid currentColor; opacity: .55; }
 .stamp.faint { opacity: .5; }
-.stamp.big { --size: 112px; border-width: 3px; font-size: 2.25rem; }
+.stamp.big { --size: 112px; border-width: 3px; font-size: 2.25rem; background: color-mix(in srgb, var(--ink-c) 9%, var(--paper)); }
 .stamp.big::before { inset: 5px; border-width: 1.5px; }
 .stamp.big small { position: absolute; bottom: 20px; font-size: 10px; letter-spacing: .12em; font-weight: 700; }
-.stamp.land { animation: stamp 260ms var(--ease) both; }
-@keyframes stamp {
-  0% { transform: scale(1.5); opacity: 0; }
-  60% { transform: scale(.94); opacity: 1; }
-  100% { transform: scale(1); }
+.stamp.big .stamp-mark { position: absolute; top: 14px; font-size: 15px; line-height: 1; }
+
+/* A fresh score is pressed on: it drops from above the page, slams down with a squash,
+   leaves an ink ring and a spray, and the result rocks with the thud. 秀 gets a glint. */
+.stamp.land { animation: stamp-drop 620ms cubic-bezier(.5, 0, .75, 0) both, stamp-slam 520ms 380ms var(--ease) both; }
+@keyframes stamp-drop {
+  0% { transform: translateY(-46px) scale(2.3) rotate(16deg); opacity: 0; filter: blur(3px); }
+  30% { opacity: .55; }
+  61% { transform: translateY(0) scale(1) rotate(0); opacity: 1; filter: blur(0); }
+  100% { transform: none; opacity: 1; filter: none; }
+}
+@keyframes stamp-slam {
+  0% { scale: 1; }
+  14% { scale: 1.16 .84; }
+  38% { scale: .95 1.05; }
+  62% { scale: 1.02 .98; }
+  100% { scale: 1; }
+}
+/* the ink ring that spreads where it hits */
+.stamp.land::after {
+  content: ''; position: absolute; inset: -3px; border-radius: 50%; pointer-events: none;
+  border: 6px solid var(--ink-c); opacity: 0;
+  animation: stamp-ring 560ms 380ms cubic-bezier(.15, .8, .3, 1) both;
+}
+@keyframes stamp-ring {
+  0% { transform: scale(.9); opacity: .55; border-width: 8px; }
+  100% { transform: scale(1.75); opacity: 0; border-width: 1px; }
+}
+/* the spray: dots thrown off the rim, drawn as shadows of one point */
+.stamp-splat {
+  position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px; border-radius: 50%;
+  pointer-events: none; color: var(--ink-c); opacity: 0;
+  box-shadow:
+    62px -14px 0 0, -58px 22px 0 -1px, 20px 64px 0 -1px, -26px -60px 0 0, 50px 44px 0 -2px,
+    -48px -40px 0 -2px, 68px 18px 0 -2px, -66px -8px 0 -1px, 6px -70px 0 -2px, -14px 68px 0 -2px;
+  animation: stamp-splat 700ms 380ms cubic-bezier(.1, .8, .3, 1) both;
+}
+@keyframes stamp-splat {
+  0% { transform: scale(.5); opacity: 0; }
+  12% { opacity: .9; }
+  70% { opacity: .55; }
+  100% { transform: scale(1.12); opacity: 0; }
+}
+/* 秀: a glint sweeps across once it has settled */
+.stamp-glint {
+  position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+  background: linear-gradient(115deg, transparent 35%, rgb(255 255 255 / .8) 50%, transparent 65%) no-repeat;
+  background-size: 250% 100%; background-position: 150% 0;
+  animation: stamp-glint 900ms 780ms ease-in-out both;
+}
+@keyframes stamp-glint { to { background-position: -60% 0; } }
+.result:has(> .stamp.land) { animation: stamp-thud 300ms 380ms ease-out both; }
+@keyframes stamp-thud {
+  0%, 100% { transform: none; }
+  25% { transform: translateY(2px); }
+  55% { transform: translateY(-1px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stamp.land, .stamp.land::after, .result:has(> .stamp.land) { animation: none; }
+  .stamp-splat, .stamp-glint { display: none; }
 }
 
 /* ---------------------------------------------------------------- lists */

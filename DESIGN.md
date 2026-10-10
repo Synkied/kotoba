@@ -75,7 +75,7 @@ A lesson page is a desk for reading and listening at once, on the mint stock.
 - **A lesson is a choice:** made from files the learner picks (linked, never copied; they stay in their folder) plus any new uploads. Importing a folder brings it in as it is by default; one lesson per folder is an option. Nothing is transcribed until asked.
 
 ## Motion
-120ms for hover, 160ms for state changes, ease `cubic-bezier(.2,.7,.2,1)`. No page-load choreography. `prefers-reduced-motion` turns motion off.
+120ms for hover, 160ms for state changes, ease `cubic-bezier(.2,.7,.2,1)`. No page-load choreography. `prefers-reduced-motion` turns motion off. One exception: a fresh score stamp is pressed on (about 1s): it drops, squashes, leaves an ink ring and spray, and the result rocks with the thud. 秀 adds one glint.
 
 ## Layout
 - **Desktop:** 208px spine plus the page.
@@ -87,7 +87,7 @@ A lesson page is a desk for reading and listening at once, on the mint stock.
 - Sentence rows keep the text in its own reading area at narrow widths (≤1100px); actions wrap beneath. Row variants live in CSS rather than inline column definitions. Long headings wrap, including editable deck names.
 - Controls are at least 44px tall on phones and devices with a coarse pointer. The mobile navigation has eight sections including Library and Queue; links stay at least 44px wide, with horizontal scrolling on narrow screens. Add-ons is available above the page header.
 - Inbox organization filters use a native disclosure with label/category selects. Changing a search or filter clears the visible selection. Inbox and Library provide Load more; deck practice loads all deck sentences.
-- Red remains reserved for recording, due counts, misses, and score stamps. Practice entry actions use ink. `--on-red` supplies a contrasting foreground in both themes.
+- Red remains reserved for recording, due counts, misses, and 可 stamps. Score stamps are inked by grade: 秀 ≥90 gold, 優 ≥75 green, 良 ≥50 indigo, 可 red. Practice entry actions use ink. `--on-red` supplies a contrasting foreground in both themes.
 - Failed mutations retain drafts and show actionable errors; deck order/removal updates after server success. Undo remains until used, dismissed, or replaced by another notification.
 - Recording cuts show Saving / Saved / Not saved with Retry. Saves are serialized, and internal link navigation flushes pending cuts first. The script reader uses a native modal dialog with focus containment and restoration.
 - Practice respects focused controls, blocks sentence navigation while recording/scoring/saving, exposes Speak along on phones, and offers Retry for failed score saves. Native waveforms use server peaks and resize with their panel. Furigana and romaji preferences remain consistent across reading screens.

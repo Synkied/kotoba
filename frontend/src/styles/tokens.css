@@ -22,6 +22,10 @@
   --red: #cc1f1a;            /* recording, misses, stamps. Nothing decorative. */
   --red-ink: #b0130e;        /* red used as text on stock */
   --red-wash: #f7d4cf;
+  /* stamp inks by grade (秀 優 良 可); 可 keeps the red. -ink variants are for text on stock */
+  --stamp-shu: #c08a12;  --stamp-shu-ink: #8a5f00;
+  --stamp-yu: #2e7d4f;   --stamp-yu-ink: #1f6b3e;
+  --stamp-ryo: #2f56a8;  --stamp-ryo-ink: #234690;
   --spine: #171411;          /* the nav spine is a black plate */
   --spine-2: #2a2520;
   --spine-ink: #efe8da;
@@ -76,6 +80,9 @@
     --red: #ff5b4f;
     --red-ink: #ff7a6f;
     --red-wash: #4a1d19;
+    --stamp-shu: #f2bf4a;  --stamp-shu-ink: #f6cd6b;
+    --stamp-yu: #5cc98a;   --stamp-yu-ink: #7ad6a0;
+    --stamp-ryo: #7fa2ff;  --stamp-ryo-ink: #9db7ff;
     --spine: #0d0c0a;
     --spine-2: #221f1b;
     --spine-ink: #efe8da;
@@ -89,6 +96,7 @@
   --stock-practice: #161513; --stock-review: #211d2a; --stock-collect: #22201c; --stock-recordings: #1a2127; --stock-library: #172420;
   --ink: #f2ecdf; --ink-2: #d2c9b9; --ink-3: #a99f8f; --paper: #1f1d1a; --on-ink: #161513;
   --on-red: #161513; --red: #ff5b4f; --red-ink: #ff7a6f; --red-wash: #4a1d19;
+  --stamp-shu: #f2bf4a; --stamp-shu-ink: #f6cd6b; --stamp-yu: #5cc98a; --stamp-yu-ink: #7ad6a0; --stamp-ryo: #7fa2ff; --stamp-ryo-ink: #9db7ff;
   --spine: #0d0c0a; --spine-2: #221f1b; --spine-ink: #efe8da; --spine-ink-2: #9d9486;
   --tone-dot: rgb(242 236 223 / .26);
   --lift: 0 1px 0 rgb(0 0 0 / .4), 0 8px 22px -10px rgb(0 0 0 / .7);
