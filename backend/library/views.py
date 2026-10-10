@@ -287,6 +287,14 @@ class SentenceViewSet(viewsets.ModelViewSet):
         p = self.request.query_params
         if p.get("status"):
             qs = qs.filter(source__status=p["status"])
+        if p.get("kind"):  # one or more, comma-separated: kind=audio,video
+            qs = qs.filter(source__kind__in=p["kind"].split(","))
+        if p.get("practice") == "new":
+            qs = qs.filter(last__isnull=True)
+        elif p.get("practice") == "practised":
+            qs = qs.filter(last__isnull=False)
+        elif p.get("practice") == "due":
+            qs = qs.filter(due__lte=timezone.now())
         if p.get("source"):
             qs = qs.filter(source_id=p["source"])
         if p.get("deck"):

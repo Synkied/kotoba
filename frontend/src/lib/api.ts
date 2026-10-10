@@ -189,7 +189,7 @@ export const api = {
     req<Source>(`sources/${id}/sentences`, json('POST', { sentences })),
   bulk: (data: { ids: number[]; status?: string; category?: string; add_label?: string | string[]; delete?: boolean }) =>
     req<{ updated?: number; deleted?: number }>('sources/bulk', json('POST', data)),
-  sentences: (p: { q?: string; category?: string; label?: string; deck?: number; source?: number; status?: string; limit?: number; offset?: number }) =>
+  sentences: (p: { q?: string; category?: string; label?: string; deck?: number; source?: number; status?: string; kind?: string; practice?: string; limit?: number; offset?: number }) =>
     req<Page<Sentence>>('sentences' + qs({ limit: 200, ...p })),
   sentence: (id: number) => req<Sentence>(`sentences/${id}`),
   updateSentence: (id: number, data: Partial<Pick<Sentence, 'text' | 'note' | 'reading_overrides' | 'translations'>>) => req<Sentence>(`sentences/${id}`, json('PATCH', data)),

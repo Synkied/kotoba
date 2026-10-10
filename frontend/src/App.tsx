@@ -19,6 +19,7 @@ import CleanupPage from './pages/Cleanup'
 import LibraryPage from './pages/Lessons'
 import LessonPage from './pages/Lesson'
 import TranscriptionsPage from './pages/Transcriptions'
+import SentencesPage from './pages/Sentences'
 
 type Section = { to: string; name: string; short?: string; stock: string; icon: typeof Inbox; count?: (s: Stats) => number; hot?: boolean }
 const SECTIONS: Section[] = [
@@ -114,6 +115,7 @@ function Shell() {
             <Route path="/recordings" element={<RecordingsPage />} />
             <Route path="/recordings/:id" element={<CleanupPage />} />
             <Route path="/transcriptions" element={<TranscriptionsPage />} />
+            <Route path="/transcriptions/all" element={<SentencesPage />} />
             <Route path="/addons" element={<AddonsPage />} />
             <Route path="*" element={<div className="empty"><h2>Nothing on this page</h2><NavLink className="btn" to="/inbox">Go to the inbox</NavLink></div>} />
           </Routes>

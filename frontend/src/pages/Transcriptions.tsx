@@ -1,4 +1,4 @@
-import { Clock, LoaderCircle } from 'lucide-react'
+import { Clock, LoaderCircle, Rows3 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type TranscriptionQueue } from '../lib/api'
@@ -33,6 +33,7 @@ export default function TranscriptionsPage() {
     <header className="page-head">
       <h1>Transcriptions</h1>
       <span className="grow" />
+      <Link className="btn" to="/transcriptions/all"><Rows3 aria-hidden="true" />All sentences</Link>
       <Link className="btn" to="/collect">Add audio or video</Link>
     </header>
     <p className="meta">Audio and video become timed sentences here. This page updates automatically.</p>
@@ -45,8 +46,8 @@ export default function TranscriptionsPage() {
       <QueueSection title="Waiting" items={waiting} />
       {data.items.length === 0 && <div className="empty">
         <h2>No transcriptions in the queue</h2>
-        <p>Completed transcripts are available in Sources and Library.</p>
-        <Link className="btn" to="/sources">Browse sources</Link>
+        <p>Completed transcripts are available in Sources and Library, and every sentence is in one list.</p>
+        <div className="btn-row"><Link className="btn" to="/transcriptions/all">See all sentences</Link><Link className="btn" to="/sources">Browse sources</Link></div>
       </div>}
     </>}
   </>

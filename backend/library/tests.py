@@ -93,3 +93,27 @@ class LabelTests(TestCase):
         self.assertEqual(r.json()["folder"], "Minna no Nihongo")
         r = self.client.patch(f"/api/decks/{r.json()['id']}", {"folder": ""}, content_type="application/json")
         self.assertEqual(r.json()["folder"], "")
+
+
+class SentenceListFilterTests(TestCase):
+    def setUp(self):
+        from django.utils import timezone
+        audio = Source.objects.create(kind='audio', status='kept', text='a')
+        text = Source.objects.create(kind='text', status='archived', text='b')
+        self.heard = Sentence.objects.create(source=audio, text='聞きました。', last=80, due=timezone.now())
+        self.fresh = Sentence.objects.create(source=audio, text='見ました。', position=1)
+        self.read = Sentence.objects.create(source=text, text='読みました。')
+
+    def ids(self, query):
+        response = self.client.get('/api/sentences?' + query)
+        self.assertEqual(response.status_code, 200, response.content)
+        return {s['id'] for s in response.json()['results']}
+
+    def test_kind_practice_and_status(self):
+        self.assertEqual(self.ids('kind=audio,video'), {self.heard.id, self.fresh.id})
+        self.assertEqual(self.ids('kind=text'), {self.read.id})
+        self.assertEqual(self.ids('practice=new'), {self.fresh.id, self.read.id})
+        self.assertEqual(self.ids('practice=practised'), {self.heard.id})
+        self.assertEqual(self.ids('practice=due'), {self.heard.id})
+        self.assertEqual(self.ids('status=archived'), {self.read.id})
+        self.assertEqual(self.ids('kind=audio&practice=new'), {self.fresh.id})
