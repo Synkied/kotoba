@@ -333,7 +333,8 @@ function Shelf({ lessons, folders, materials, open, actions, onChanged, onMateri
         {path.map(f => <li key={f.id}><ChevronRight aria-hidden="true" />
           <button type="button" className="link" aria-current={f.id === open ? 'location' : undefined} onClick={() => go(f.id)} {...intoFolder(f)}>{f.name}</button></li>)}
       </ol>
-      <span className="grow" />
+    </nav>
+    <div className="lesson-tools" role="toolbar" aria-label={here ? `Folder “${here.name}”` : 'Library'}>
       {here && <>
         <button className="btn small ghost" aria-pressed={here.pinned} disabled={busy} onClick={() => pinFolder(here)}
           title={here.pinned ? 'Shown at the top of the library' : 'Show it at the top of the library too'}><Pin aria-hidden="true" />{here.pinned ? 'Pinned' : 'Pin'}</button>
@@ -343,7 +344,7 @@ function Shelf({ lessons, folders, materials, open, actions, onChanged, onMateri
       <button className="btn small" disabled={busy} onClick={newFolder}><FolderPlus aria-hidden="true" />New folder</button>
       {(shelves.length + listed.length + kept.length > 1 || options.length > 0) &&
         <button className="btn small" aria-pressed={arranging} onClick={() => setArranging(!arranging)} title="Move and reorder with buttons, instead of dragging">Arrange</button>}
-    </nav>
+    </div>
     {edit.error != null && <ErrorNotice error={edit.error} />}
     <p className="meta lesson-drag-hint" role="status">{hint ?? (!arranging && shelves.length + listed.length + kept.length > 1
       ? <><GripVertical aria-hidden="true" className="inline-icon" />Drag to reorder, or onto a folder to move</> : '')}</p>

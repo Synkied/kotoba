@@ -149,12 +149,12 @@ export function TranslateAll({ sentences }: { sentences: Sentence[] }) {
   return <button type="button" className="btn small ghost" onClick={ask} title={lang.cloud ? 'Uses API credits' : 'Runs on this computer'}><Languages aria-hidden="true" />Translate all <span className="num">({n})</span></button>
 }
 
-/** In practice the meaning stays folded until you ask: a hint, not a crib. */
+/** In practice the meaning stays folded inside the sentence's balloon until you ask: a hint, not a crib. */
 export function MeaningHint({ s, open, onOpen, onTranslated }: { s: Sentence; open: boolean; onOpen: () => void; onTranslated: (s: Sentence) => void }) {
   const lang = useLanguage()
   if (open) return <p className="meaning open"><Translation s={s} onTranslated={onTranslated} auto /></p>
   return (
-    <button type="button" className="meaning tone" aria-expanded={false} onClick={onOpen}>
+    <button type="button" className="meaning tone" lang="en" aria-expanded={false} onClick={onOpen}>
       <span>Show the {lang?.name ?? 'translation'} <kbd className="kbd">T</kbd></span>
     </button>
   )

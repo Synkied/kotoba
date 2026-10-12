@@ -6,7 +6,7 @@ A weekly manga magazine of your own sentences. Tokens live in `frontend/src/styl
 - **Stocks.** Each section is printed on its own tinted newsprint. The page ground (`--stock`) changes per section and does the wayfinding:
   inbox `#f4dfd5` salmon · sources `#f0e7c6` straw · decks `#dce8d2` celadon · practice `#fbfaf6` white · review `#e5dff1` lavender · library (folders, files and lessons) `#d5e9e3` mint · collect `#e8e4db` natural.
   Dark mode turns these into deep inks (`#2a1e1a` …) on "beta" black pages.
-- **Ink.** `--ink #1a1714`, `--ink-2 #463f37`, `--ink-3 #5f574d` (≥5.4:1 on every stock). Balloons, inputs and sheets use `--paper #fffdf8`.
+- **Ink.** `--ink #1a1714`, `--ink-2 #463f37`, `--ink-3 #5f574d` (≥5.4:1 on every stock). Balloons, inputs and sheets use `--paper #fffdf8`. A card under the pointer uses `--paper-hover`: the same paper in light, one step up (`#302d29`) in dark.
 - **One red.** `--red #cc1f1a` (text: `--red-ink #b0130e`) is only for recording, misses, due counts and score stamps. Never decorative.
 - **Spine.** The nav is a black plate (`--spine #171411`). The active section steps out onto its own stock.
 - **Screentone** (`.tone`, 4px dot grid) is the only texture. Use it only to push unfocused content back.
@@ -80,7 +80,13 @@ A lesson page is a desk for reading and listening at once, on the mint stock.
 ## Layout
 - **Desktop:** 208px spine plus the page.
 - **≤760px:** a bottom tab bar, and the practice controls stick within thumb reach.
-- **≤900px:** practice stacks the source panel above the stage.
+- **≤900px:** practice stacks the source panel, then the stage, then the score.
+
+## Practice: model, take, score
+- **One session bar** under the progress rule holds everything that applies to every sentence: reading aids (ふりがな, romaji, translation), the model voice (Native / Voice and the voice select) and Speak along. Toggles never sit between the sentences.
+- **The side column** (sticky, ≥18rem) is the model and how you did against it: the source panel (waveform or screenshot) and its link, then the score slot (a fresh stamp with Accuracy / Clarity / Fluency and Heard / Missed / Unclear, else "Last time", else a one-line empty state, plus self-grading without Whisper), then the keys. The score is in the first viewport on desktop. In a narrow column the three scores stack as a tally beside the stamp.
+- **The stage** is the take: the previous sentence as one dimmed line, the big balloon, the level meter, Listen / Say it / Next with the silence note, then the next sentence as one dimmed line (hidden on phones, where Next is in thumb reach). The translation folds inside the big balloon under a dashed rule; T opens it.
+- When stacked, a fresh score scrolls into view clear of the docked controls.
 
 ## Interface refinements
 
@@ -102,7 +108,7 @@ A lesson page is a desk for reading and listening at once, on the mint stock.
 
 - Source pages show the large source panel only when there is a screenshot; for audio the waveform is the source. The player column (≈4fr) stays sticky beside the script and scrolls itself if taller than the screen; at ≤900px the player docks at the top (56px waveform, no hint text) and the script reads beneath it. Start/end sliders fold into "Select a part of the audio"; Clear selection sits beside Play.
 - Following the script: the spoken line gets paper and the ink rule, lines already said turn `--ink-3`, and the script scrolls only when the line leaves the upper band of the reading area, landing it a quarter of the way down. Wheel, touch or page-key scrolling outside the player pauses following; a floating "Back to the current line" resumes it. A line's timecode plays from there; its speaker plays that line only; Previous / Next line sit beside Play. On fine pointers per-line tools appear on hover or focus; stamps always show.
-- **Library: source cards, not sentence lists.** Each kept source is a small paper card on the straw stock (thin ink frame, `--lift` on hover), in as many columns as fit at ≥19rem. A card carries a screenshot thumbnail only for captures. It shows the title (or first sentence, two lines), kind icon · sentence count · length · time, one line of context (the line matching the search, else the next sentence), its category plate and label chips (both filter on click), and a footer with the latest score stamp, "N of M practised" and Practise. The whole card opens the source; selection is per source (checkbox top-right, inset ink frame when selected).
+- **Library: source cards, not sentence lists.** Each kept source is a small paper card on the straw stock (thin ink frame; on hover `--lift`, the `--paper-hover` surface and an underlined title, because a shadow alone vanishes on the dark stocks), in as many columns as fit at ≥19rem. A card carries a screenshot thumbnail only for captures. It shows the title (or first sentence, two lines), kind icon · sentence count · length · time, one line of context (the line matching the search, else the next sentence), its category plate and label chips (both filter on click), and a footer with the latest score stamp, "N of M practised" and Practise. The whole card opens the source; selection is per source (checkbox top-right, inset ink frame when selected).
 - Library filters are pressable chips in rows (Kind, Labels with counts, Category); past 12 labels the rest sit in a compact select.
 - Library's selection toolbar docks over the bottom of the page (above the tab bar on phones; toasts move above it), so selecting never shifts the cards. It counts sources and sentences and offers Add to deck, Practise these and Add labels: a comma-separated line (`,`, `、` and `，` all split) with suggestions from existing labels and a live preview of the chips. Labels keep existing ones, and an addition that would pass three labels on any source is refused with the count, never silently dropped. The server splits commas the same way.
 - Native selects and their options retain ink text on paper, including inside reversed selection toolbars; toolbar text remains reversed without reversing the controls' own foreground.

@@ -502,16 +502,55 @@ ruby rt { font-size: .5em; color: var(--ink-2); font-weight: 400; letter-spacing
 .folder-field .input { height: var(--control-h-s); width: 12rem; font-size: var(--t-s); }
 
 /* ---------------------------------------------------------------- practice */
-.practice { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--gutter); align-items: start; }
-.practice .source-panel { position: sticky; top: var(--s-4); display: grid; gap: var(--gutter); }
+/* the session bar: reading aids, model voice and speak-along, set once for every sentence */
+.practice-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3);
+  margin: var(--s-3) 0 var(--s-4); padding-bottom: var(--s-3);
+  border-bottom: var(--frame-thin) solid color-mix(in srgb, var(--ink) 25%, transparent);
+}
+.practice-bar .chip { height: calc(var(--control-h-s) + 2px); padding: 0 var(--s-3); border-width: var(--frame-thin); border-radius: var(--radius-control); font-weight: 700; }
+.practice-model { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
+.practice-model .select { width: auto; height: calc(var(--control-h-s) + 2px); min-height: 0; padding-block: 0; font-size: var(--t-s); }
+/* side: the model, then the score against it, then the keys; it stays put while the stage moves */
+.practice { display: grid; grid-template-columns: minmax(18rem, 5fr) minmax(0, 7fr); gap: var(--s-6); align-items: start; }
+.practice-side { position: sticky; top: var(--s-4); display: grid; gap: var(--s-4); min-width: 0; }
+.practice .source-panel { display: grid; gap: var(--s-2); }
+.practice .source-panel .meta { margin: 0; }
 .practice .source-panel .panel.big { aspect-ratio: 4 / 3; }
-.practice .stage { display: grid; gap: var(--s-5); min-width: 0; }
+.score-slot { display: grid; gap: var(--s-3); min-width: 0; scroll-margin: var(--s-4); container-type: inline-size; }
+/* a narrow side column: the three scores stack beside the stamp as a ruled tally */
+@container (max-width: 27rem) {
+  .result dl { grid-template-columns: minmax(0, 12rem); gap: var(--s-1); }
+  .result dl > div { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-4); }
+  .result dd { font-size: var(--t-m); }
+}
+.score-empty { margin: 0; padding: var(--s-4) 0; border-top: var(--frame-thin) solid color-mix(in srgb, var(--ink) 25%, transparent); }
+.score-slot .self-grade { padding-top: var(--s-3); border-top: var(--frame-thin) solid color-mix(in srgb, var(--ink) 25%, transparent); }
+.score-slot .result + .self-grade { border-top: 0; padding-top: 0; }
+.practice .stage { display: grid; min-width: 0; align-content: start; }
+.practice .stage > .balloon { margin-block: var(--s-4); }
+.practice .stage > .level { margin-bottom: var(--s-3); }
+.take-hint { margin: var(--s-2) 0 0; }
+/* the neighbours: one dimmed line each, a way back and a look ahead, never a second reading */
+.neighbour { justify-self: start; max-width: 100%; height: auto; padding: 0; border: 0; font-weight: 400; white-space: normal; text-align: left; }
+.neighbour .balloon { margin-block: var(--s-3); max-width: calc(100% - var(--balloon-left-space) - var(--s-5)); padding-block: .45em .5em; font-size: var(--t-s); }
+.neighbour .clip { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.stage > .neighbour:last-child .balloon { margin-top: var(--s-5); }
 .strip { display: grid; gap: var(--s-3); }
 .strip .balloon { justify-self: start; }
-.strip .next { justify-self: start; }
 .focus-balloon { justify-self: stretch; display: block; min-height: 7.5rem; }
 .focus-balloon > .text { display: block; }
-.deck-progress { display: flex; gap: 3px; }
+/* the meaning folds inside the sentence's own balloon, under a dashed rule */
+.focus-balloon .meaning {
+  display: block; width: 100%; margin: var(--s-3) 0 0; padding: var(--s-2) 0 0; min-height: 0;
+  border: 0; border-top: 1px dashed color-mix(in srgb, var(--ink) 40%, transparent); border-radius: 0;
+  background: none; font-size: var(--t-s); line-height: 1.5; color: var(--ink-3);
+}
+.focus-balloon button.meaning::after { display: none; }
+.focus-balloon button.meaning > span { display: inline-flex; }
+.focus-balloon button.meaning:hover, .focus-balloon button.meaning:focus-visible { color: var(--ink); }
+.focus-balloon .meaning.open .translation { margin: 0; font-size: var(--t-m); line-height: 1.6; color: var(--ink-2); }
+.deck-progress { display: flex; gap: 3px; margin-top: var(--s-2); }
 .deck-progress i { flex: 1; height: 6px; background: color-mix(in srgb, var(--stock) 75%, var(--ink) 18%); }
 .deck-progress i.done { background: var(--ink); }
 .deck-progress i.weak { background: var(--red); }
@@ -525,7 +564,7 @@ ruby rt { font-size: .5em; color: var(--ink-2); font-weight: 400; letter-spacing
 .level { width: 100%; height: 4px; background: color-mix(in srgb, var(--stock) 70%, var(--ink) 15%); }
 .level i { display: block; height: 100%; width: 100%; background: var(--red); transform-origin: left; transform: scaleX(0); transition: transform 60ms linear; }
 .result { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--s-5); align-items: center; padding: var(--s-4) 0; border-top: var(--frame-thin) solid var(--ink); }
-.result dl { display: grid; grid-template-columns: repeat(3, auto); justify-content: start; gap: 0 var(--s-6); margin: 0; }
+.result dl { display: grid; grid-template-columns: repeat(3, auto); justify-content: start; gap: 0 var(--s-5); margin: 0; }
 .result dt { font-size: var(--t-s); color: var(--ink-3); }
 .result dd { margin: 0; font-weight: 700; font-size: var(--t-l); font-variant-numeric: tabular-nums; line-height: 1.2; }
 /* the record from earlier sessions, quieter than a fresh score */
@@ -534,10 +573,10 @@ ruby rt { font-size: .5em; color: var(--ink-2); font-weight: 400; letter-spacing
 .result.history > .stamp { --size: 56px; font-size: 1.125rem; margin-inline: var(--s-3); }
 .practice-head h1 { font-size: clamp(1.75rem, 4vw, 2.25rem); flex-wrap: wrap; }
 .practice-head h1 .meta { font-size: var(--t-m); }
-.result .heard { display: grid; gap: var(--s-3); font-size: var(--t-l); line-height: 1.65; color: var(--ink); min-width: 0; }
+.result .heard { display: grid; gap: var(--s-3); font-size: var(--t-m); line-height: 1.7; color: var(--ink); min-width: 0; }
 .result .heard p { margin: 0; display: grid; gap: var(--s-1); overflow-wrap: anywhere; }
 .result .heard b { font-weight: 400; }
-.result .feedback-label { font-size: var(--t-m); font-weight: 700; color: var(--ink-2); }
+.result .feedback-label { font-size: var(--t-s); font-weight: 700; color: var(--ink-2); }
 .self-grade { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; }
 .engine-line { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-4); align-items: center; font-size: var(--t-s); color: var(--ink-3); }
 .engine-line .dot { background: var(--ink-3); }
@@ -553,16 +592,24 @@ ruby rt { font-size: .5em; color: var(--ink-2); font-weight: 400; letter-spacing
 @media (max-width: 760px) { .hints { display: none; } }
 .engine-line .dot.off { box-shadow: inset 0 0 0 1.5px var(--ink-3); background: transparent; }
 @media (max-width: 900px) {
-  .practice { grid-template-columns: 1fr; }
-  .practice .source-panel { position: static; }
+  /* stacked: the source, then the stage, then the score; the keys go last */
+  .practice { grid-template-columns: 1fr; gap: var(--s-2); }
+  .practice-side { display: contents; }
+  .practice .source-panel { order: 0; }
+  .practice .stage { order: 1; }
+  .score-slot { order: 2; }
+  .practice .keys { order: 3; }
   .practice .source-panel .panel.big { aspect-ratio: 16 / 7; }
+  .wave-panel canvas { height: 56px; }
 }
 @media (max-width: 760px) {
   .controls { position: sticky; bottom: calc(68px + env(safe-area-inset-bottom)); z-index: 5; padding: var(--s-2) 0; background: var(--stock); }
   .controls .btn { flex: 1; padding: 0 var(--s-3); }
   .controls .rec { min-width: 0; flex: 2; }
   .balloon.big { font-size: 1.375rem; }
-  .result { grid-template-columns: 1fr; justify-items: start; }
+  /* Next sits in thumb reach, so the look-ahead goes; a fresh score scrolls clear of the docked controls */
+  .stage > .neighbour:last-child { display: none; }
+  .score-slot { scroll-margin-bottom: calc(68px + 80px + env(safe-area-inset-bottom)); }
 }
 
 /* waveform for the native clip */
@@ -979,9 +1026,6 @@ code.inline { font: 400 .95em var(--mono); padding: 0 3px; background: color-mix
 .sheet .code, .install .code { min-width: 0; }
 .source-aside > audio { min-width: 0; }
 .seg input:disabled + span { opacity: .45; cursor: not-allowed; }
-.practice-settings { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-4); font-size: var(--t-s); color: var(--ink-2); }
-.strip > button.btn { max-width: 100%; white-space: normal; text-align: left; border: 0; }
-.strip > button.btn .balloon { max-width: calc(100% - var(--balloon-left-space) - var(--s-5)); }
 .sentence-layout { margin-top: var(--s-5); }
 .reader-bar { flex-wrap: wrap; }
 .reader-bar > b { min-width: 0; overflow-wrap: anywhere; }
@@ -1052,10 +1096,12 @@ code.inline { font: 400 .95em var(--mono); padding: 0 3px; background: color-mix
 .source-card {
   position: relative; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 1fr auto; gap: var(--s-3);
   padding: var(--s-3) var(--s-4); background: var(--paper); border: var(--frame-thin) solid var(--ink);
-  transition: box-shadow var(--t-fast) var(--ease);
+  transition: box-shadow var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
 }
 .source-card:has(.source-card-thumb) { grid-template-columns: 88px minmax(0, 1fr); }
-.source-card:hover { box-shadow: var(--lift); }
+.source-card:hover { box-shadow: var(--lift); background: var(--paper-hover); }
+/* the title underlines too, so hover reads without leaning on the shadow or the tint */
+.source-card:hover .source-card-link { text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
 .source-card[data-selected='true'] { box-shadow: inset 0 0 0 1.5px var(--ink); }
 .source-card[data-selected='true']:hover { box-shadow: inset 0 0 0 1.5px var(--ink), var(--lift); }
 .source-card:focus-within:has(.source-card-link:focus-visible) { outline: 2px solid var(--ink); outline-offset: 2px; }
@@ -1100,13 +1146,14 @@ code.inline { font: 400 .95em var(--mono); padding: 0 3px; background: color-mix
 .lesson-card .btn[aria-pressed='true'] { background: var(--ink); color: var(--on-ink); }
 /* folders: a path back up, folder cards on the shelf, and drag-and-drop targets */
 .lessons-page { position: relative; min-height: 60vh; }
-.lesson-path { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); margin-bottom: var(--s-5); }
+.lesson-path { margin-bottom: var(--s-3); }
+.lesson-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); margin-bottom: var(--s-5); }
 .lesson-path ol { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1); list-style: none; margin: 0; padding: 0; min-width: 0; }
 .lesson-path li { display: inline-flex; align-items: center; gap: var(--s-1); min-width: 0; }
 .lesson-path li > svg { width: 14px; height: 14px; color: var(--ink-3); flex: none; }
 .lesson-path button.link { font: inherit; font-weight: 700; text-decoration: none; padding: 2px var(--s-1); overflow-wrap: anywhere; text-align: left; }
 .lesson-path button.link:not([aria-current]) { font-weight: 400; text-decoration: underline; text-underline-offset: 3px; }
-.lesson-path .btn[aria-pressed='true'] { background: var(--ink); color: var(--on-ink); }
+.lesson-tools .btn[aria-pressed='true'] { background: var(--ink); color: var(--on-ink); }
 /* a folder or a step of the path taking a drop reverses to ink, like the file drop zone;
    a lesson taking one shows where the dragged lesson lands: a rule in the gutter before it */
 .lesson-path button[data-drop], .folder-card[data-drop] { background: var(--ink); color: var(--on-ink); }
@@ -1163,7 +1210,7 @@ a.material-name:hover { text-decoration: underline; text-underline-offset: 3px; 
 }
 .lessons-drop-hint svg { width: 32px; height: 32px; }
 .lessons-drop-hint span { color: var(--ink-2); font-size: var(--t-s); }
-@media (pointer: coarse) { .lesson-path .btn, .lesson-arrange .btn, .lesson-arrange .chip-select, .material-arrange .btn, .material-arrange .chip-select { min-height: 44px; } .lesson-path button.link { min-height: 44px; } .material-row .check { width: 24px; height: 24px; } }
+@media (pointer: coarse) { .lesson-tools .btn, .lesson-arrange .btn, .lesson-arrange .chip-select, .material-arrange .btn, .material-arrange .chip-select { min-height: 44px; } .lesson-path button.link { min-height: 44px; } .material-row .check { width: 24px; height: 24px; } }
 .page-head .btn[aria-pressed='true'] { background: var(--ink); color: var(--on-ink); }
 .inline-icon { width: 14px; height: 14px; margin-right: var(--s-1); vertical-align: -2px; }
 

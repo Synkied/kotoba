@@ -76,6 +76,7 @@ export function PracticeSession({ title, back, sentences: initial, onFinish, sta
   const rec = useRef(new Recorder())
   const starting = useRef(false)
   const levelRef = useRef<HTMLElement>(null)
+  const slot = useRef<HTMLDivElement>(null)
   const toast = useToast()
   const voiceLoading = useVoiceLoading()
   const { refresh } = useStats()
@@ -87,6 +88,12 @@ export function PracticeSession({ title, back, sentences: initial, onFinish, sta
   const done = i >= sentences.length
 
   useEffect(() => { onAt?.(s ? s.id : null) }, [s?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  // a fresh score: where the page stacks (phones, tablets) bring it into view; beside the stage it already is
+  useEffect(() => {
+    if (!res) return
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    slot.current?.scrollIntoView({ block: 'nearest', behavior: still ? 'auto' : 'smooth' })
+  }, [res])
 
   const copyLink = async () => {
     try { await navigator.clipboard.writeText(window.location.href); toast({ text: 'Link to this sentence copied' }) }
@@ -238,7 +245,7 @@ export function PracticeSession({ title, back, sentences: initial, onFinish, sta
         <EngineLine engine={engine} onLoad={loadEngine} />
       </header>
 
-      <div className="deck-progress" aria-hidden="true" style={{ marginBottom: 'var(--s-5)' }}>
+      <div className="deck-progress" aria-hidden="true">
         {sentences.map((x, k) => {
           const r = results[x.id]
           return <i key={x.id} className={k === i ? 'now' : r ? (r.overall < 70 ? 'weak' : 'done') : ''} />
@@ -248,52 +255,69 @@ export function PracticeSession({ title, back, sentences: initial, onFinish, sta
       {done ? (
         <Summary sentences={sentences} results={results} back={back}
           again={(weak) => { setSentences(weak); setResults({}); setI(0) }} onFinish={onFinish} toast={toast} />
-      ) : (
+      ) : (<>
+        {/* how the whole session reads and sounds: one bar, set once, never between the sentences */}
+        <div className="practice-bar">
+          <ReadingAids aids={aids} roman={sentences.some((x) => x.roman)} keys />
+          <span className="grow" />
+          <div className="practice-model" role="group" aria-label="Model voice">
+            <div className="seg">
+              <label><input type="radio" name="model" checked={useNative} disabled={!canNative} onChange={() => setModel('native')} /><span><AudioLines aria-hidden="true" />Native</span></label>
+              <label><input type="radio" name="model" checked={!useNative} onChange={() => setModel('tts')} /><span><Bot aria-hidden="true" />Voice</span></label>
+            </div>
+            {!useNative && (
+              <label><span className="sr">Synthetic voice</span>
+                <select className="select" value={voice} onChange={(e) => setVoice(e.target.value)}>
+                  <option value="browser">Browser voice</option>
+                  {voices.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                </select>
+              </label>
+            )}
+          </div>
+          <button type="button" className="chip" aria-pressed={along} onClick={() => setAlong(!along)} title="Play the model while you record">Speak along</button>
+        </div>
+
         <div className="practice">
-          <div className="source-panel">
-            {canNative ? <WavePanel s={s} playhead={playhead} /> :
-              <SourcePanel big kind={s.source_kind} image={s.image} start={s.start} end={s.end} alt={s.text} />}
-            <div className="btn-row" role="group" aria-label="Model voice">
-              <div className="seg">
-                <label><input type="radio" name="model" checked={useNative} disabled={!canNative} onChange={() => setModel('native')} /><span><AudioLines aria-hidden="true" />Native</span></label>
-                <label><input type="radio" name="model" checked={!useNative} onChange={() => setModel('tts')} /><span><Bot aria-hidden="true" />Voice</span></label>
-              </div>
-              {!useNative && (
-                <label><span className="sr">Synthetic voice</span>
-                  <select className="select" style={{ width: 'auto', height: 32, minHeight: 0, paddingBlock: 0 }} value={voice} onChange={(e) => setVoice(e.target.value)}>
-                    <option value="browser">Browser voice</option>
-                    {voices.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-                  </select>
-                </label>
+          {/* the model, then how you did against it: the score lands where you can see it */}
+          <aside className="practice-side">
+            <div className="source-panel">
+              {canNative ? <WavePanel s={s} playhead={playhead} /> :
+                <SourcePanel big kind={s.source_kind} image={s.image} start={s.start} end={s.end} alt={s.text} />}
+              {!canNative && <p className="meta">{s.source_kind === 'capture' ? 'From a screen capture: no native audio, so the synthetic voice reads it.' : 'This sentence has no timed audio.'}</p>}
+              <p className="meta"><Link to={`/sources/${s.source}`}>{s.source_title}</Link>{s.start != null && <> · <span className="num">{fmtTime(s.start)}</span></>}</p>
+            </div>
+
+            <div className="score-slot" ref={slot}>
+              {res ? <ResultBlock r={res} s={s} /> : s.stamps.length > 0 ? <History s={s} />
+                : engine === 'ready' && <p className="meta score-empty">No tries yet. Say it to get a stamp.</p>}
+              {!res && engine !== 'ready' && engine !== 'unknown' && engine !== 'loading' && (
+                <div className="self-grade" role="group" aria-label="Grade yourself">
+                  <span className="meta">No scoring engine. Grade yourself after saying it:</span>
+                  <button className="btn small" disabled={saving} onClick={() => selfGrade(30)}>Again</button>
+                  <button className="btn small" disabled={saving} onClick={() => selfGrade(65)}>Hard</button>
+                  <button className="btn small" disabled={saving} onClick={() => selfGrade(82)}>Good</button>
+                  <button className="btn small" disabled={saving} onClick={() => selfGrade(96)}>Easy</button>
+                </div>
               )}
             </div>
-            {!canNative && <p className="meta">{s.source_kind === 'capture' ? 'From a screen capture: no native audio, so the synthetic voice reads it.' : 'This sentence has no timed audio.'}</p>}
-            <p className="meta"><Link to={`/sources/${s.source}`}>{s.source_title}</Link>{s.start != null && <> · <span className="num">{fmtTime(s.start)}</span></>}</p>
+
             <Keys meaning={translation} />
-          </div>
+          </aside>
 
           <div className="stage">
-            <div className="strip">
-              {i > 0 && (
-                <button className="btn ghost" style={{ justifySelf: 'start', height: 'auto', padding: 0, fontWeight: 400 }} disabled={recording || scoring || saving} onClick={() => go(-1)} aria-label="Previous sentence">
-                  <Balloon dim tail="none"><Furigana text={sentences[i - 1].text} pairs={[]} show={false} lookup={false} /></Balloon>
-                </button>
-              )}
-              <Balloon big shape={shape} live={recording} className="focus-balloon">
-                <span className="text" aria-live="polite">
-                  {res && res.units.length ? <Units units={res.units} pairs={s.furigana} show={furigana} /> : <Furigana text={s.text} pairs={s.furigana} show={furigana} />}
-                </span>
-                {roman && s.roman && <span className="roman">{s.roman.split('\t')[0]}</span>}
-              </Balloon>
-              <ReadingAids aids={aids} roman={!!s.roman} keys />
+            {i > 0 && (
+              <button className="btn ghost neighbour" disabled={recording || scoring || saving} onClick={() => go(-1)} aria-label="Previous sentence">
+                <Balloon dim tail="none"><span className="clip"><Furigana text={sentences[i - 1].text} pairs={[]} show={false} lookup={false} /></span></Balloon>
+              </button>
+            )}
+            <Balloon big shape={shape} live={recording} className="focus-balloon">
+              <span className="text" aria-live="polite">
+                {res && res.units.length ? <Units units={res.units} pairs={s.furigana} show={furigana} /> : <Furigana text={s.text} pairs={s.furigana} show={furigana} />}
+              </span>
+              {roman && s.roman && <span className="roman">{s.roman.split('\t')[0]}</span>}
               {translation && <MeaningHint s={s} open={meaningFor === s.id} onOpen={() => setMeaningFor(s.id)}
                 onTranslated={(n) => setSentences((list) => list.map((x) => (x.id === n.id ? n : x)))} />}
-              {i < sentences.length - 1 && (
-                <button className="btn ghost next" style={{ height: 'auto', padding: 0, fontWeight: 400 }} disabled={recording || scoring || saving} onClick={() => go(1)} aria-label="Next sentence">
-                  <Balloon dim tail="none">{sentences[i + 1].text}</Balloon>
-                </button>
-              )}
-            </div>
+            </Balloon>
 
             <div className="level" aria-hidden="true"><i ref={levelRef as never} /></div>
 
@@ -319,32 +343,21 @@ export function PracticeSession({ title, back, sentences: initial, onFinish, sta
                 </div>
               )}
             </div>
-            <div className="practice-settings"><label style={{ display: 'inline-flex', gap: 6, alignItems: 'center', cursor: 'pointer' }}>
-                <input type="checkbox" className="check" style={{ width: 14, height: 14 }} checked={along} onChange={(e) => setAlong(e.target.checked)} />
-                Speak along (play the model while recording)
-              </label>
-              <span className="meta">Recording stops by itself after 1.5 seconds of silence.</span>
-            </div>
+            <p className="meta take-hint">{recording ? 'Listening. It stops by itself after 1.5 seconds of silence.' : 'Recording stops by itself after 1.5 seconds of silence.'}</p>
 
-            {!res && s.stamps.length > 0 && <History s={s} />}
-            {res ? <ResultBlock r={res} s={s} /> : engine !== 'ready' && engine !== 'unknown' && engine !== 'loading' && (
-              <div className="self-grade" role="group" aria-label="Grade yourself">
-                <span className="meta">No scoring engine. Grade yourself after saying it:</span>
-                <button className="btn small" disabled={saving} onClick={() => selfGrade(30)}>Again</button>
-                <button className="btn small" disabled={saving} onClick={() => selfGrade(65)}>Hard</button>
-                <button className="btn small" disabled={saving} onClick={() => selfGrade(82)}>Good</button>
-                <button className="btn small" disabled={saving} onClick={() => selfGrade(96)}>Easy</button>
-              </div>
+            {i < sentences.length - 1 && (
+              <button className="btn ghost neighbour" disabled={recording || scoring || saving} onClick={() => go(1)} aria-label="Next sentence">
+                <Balloon dim tail="none"><span className="clip">{sentences[i + 1].text}</span></Balloon>
+              </button>
             )}
-
           </div>
         </div>
-      )}
+      </>)}
     </>
   )
 }
 
-/** The keyboard, kept beside the source where scores and errors never push it out of sight. */
+/** The keyboard, at the foot of the side column, under the source and the score. */
 function Keys({ meaning }: { meaning: boolean }) {
   const keys: [string, string][] = [['L', 'listen'], ['Space', 'record / stop'], ['Esc', 'discard'], ['N', 'next'], ['P', 'previous'],
     ['F', 'furigana'], ['R', 'romaji'], ...(meaning ? [['T', 'meaning'] as [string, string]] : [])]
