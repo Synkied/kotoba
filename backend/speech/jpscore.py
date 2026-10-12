@@ -43,8 +43,41 @@ def _has_kanji(s):
     return any("一" <= c <= "鿿" or c in "々〆ヶ" for c in s)
 
 
-def reading(text):
+_DIGIT = ["", "いち", "に", "さん", "よん", "ご", "ろく", "なな", "はち", "きゅう"]
+_DIGIT_ALT = ["", "いち", "に", "さん", "し", "ご", "ろく", "しち", "はち", "く"]
+_HUNDRED = {1: "ひゃく", 3: "さんびゃく", 6: "ろっぴゃく", 8: "はっぴゃく"}
+_THOUSAND = {1: "せん", 3: "さんぜん", 8: "はっせん"}
+
+
+def _number(n, alt=False):
+    """How a number written in digits is said: 300 -> さんびゃく. `alt` takes the other
+    reading of 4, 7 and 9 (し, しち, く), as in counting or telling the time."""
+    digit = _DIGIT_ALT if alt else _DIGIT
+
+    def below(n):  # under 10,000
+        th, h, t, o = n // 1000, n // 100 % 10, n // 10 % 10, n % 10
+        return ((_THOUSAND.get(th) or digit[th] + "せん") if th else "") + \
+               ((_HUNDRED.get(h) or digit[h] + "ひゃく") if h else "") + \
+               (("" if t == 1 else digit[t]) + "じゅう" if t else "") + digit[o]
+
+    if n == 0:
+        return "ぜろ"
+    out = ""
+    for size, name in ((10 ** 12, "ちょう"), (10 ** 8, "おく"), (10 ** 4, "まん")):
+        if n >= size:
+            out += below(n // size % 10000) + name
+            n %= size
+    return out + below(n)
+
+
+def _spell_numbers(text, alt=False):
+    """Digits as kana, so 1 and いち (or 一) compare as the same word."""
+    return re.sub(r"\d{1,16}", lambda m: _number(int(m.group()), alt), unicodedata.normalize("NFKC", text))
+
+
+def reading(text, alt=False):
     """Hiragana reading, in comparison form."""
+    text = _spell_numbers(text, alt)
     if _kks is None:
         return jpcut.loose(text)
     return jpcut.loose("".join(item["hira"] for item in romanize.japanese_parts(text)))
@@ -59,7 +92,7 @@ def _readings(us, exp, exp_unit, b1, b2):
     for ui in sorted(set(exp_unit[b1:b2]), key=exp_unit[b1:b2].index):
         ruby += us[ui].get("reading") or "".join(us[ui]["keys"])
     runs = re.findall(r"[\u4e00-\u9fff々〆ヶ]+|[^\u4e00-\u9fff々〆ヶ]+", text)
-    return {jpcut.loose(ruby), reading(text), "".join(reading(r) for r in runs)}
+    return {jpcut.loose(ruby), reading(text), reading(text, alt=True), "".join(reading(r) for r in runs)}
 
 
 def _furigana(orig, hira):

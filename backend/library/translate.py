@@ -13,6 +13,7 @@ import ipaddress
 import json
 import os
 import re
+import unicodedata
 import uuid
 import urllib.error
 import urllib.parse
@@ -279,7 +280,8 @@ def status(cfg: dict | None = None) -> dict:
 def _prompt(text: str, before: list[str], after: list[str], lang: str) -> tuple[str, str]:
     system = (f"You translate Japanese into natural {LANGUAGES[lang]} for someone learning Japanese. "
               "Keep the meaning, tone and politeness of the original; don't add explanations, "
-              "romanization, notes or quotation marks. Reply with the translation only.")
+              "romanization, notes or quotation marks. Translate only the sentence you are given, "
+              "never the context around it, however short it is. Reply with the translation only.")
     parts = []
     if before or after:
         parts.append("Context (do not translate):")
@@ -345,20 +347,29 @@ def _clean(reply: str) -> str:
     return text
 
 
+def untranslatable(text: str) -> bool:
+    """Nothing to translate: a bare number or mark, like the 1 announcing an exercise. A model
+    asked about it translates the next sentence from the context instead."""
+    return not re.search(r"[^\W\d_]", unicodedata.normalize("NFKC", text))
+
+
 def translate(sentence, lang: str | None = None, force: bool = False) -> str:
     """Translate one sentence (and save it). Keeps an existing translation unless `force`."""
     lang = lang or language()
     if lang not in LANGUAGES:
         raise TranslateError(f"kotoba can't translate into {lang!r}.")
-    if sentence.translations.get(lang) and not force:
+    if untranslatable(sentence.text):
+        text = sentence.text.strip()
+    elif sentence.translations.get(lang) and not force:
         return sentence.translations[lang]
-    siblings = list(sentence.source.sentences.order_by("position").values_list("id", "text"))
-    at = next((i for i, (pk, _) in enumerate(siblings) if pk == sentence.pk), 0)
-    before = [t for _, t in siblings[max(0, at - 2):at]]
-    after = [t for _, t in siblings[at + 1:at + 2]]
-    text = _clean(_ask(_active(), *_prompt(sentence.text, before, after, lang)))
-    if not text:
-        raise TranslateError("The model answered with nothing. Try again, or try another model.")
+    else:
+        siblings = list(sentence.source.sentences.order_by("position").values_list("id", "text"))
+        at = next((i for i, (pk, _) in enumerate(siblings) if pk == sentence.pk), 0)
+        before = [t for _, t in siblings[max(0, at - 2):at]]
+        after = [t for _, t in siblings[at + 1:at + 2]]
+        text = _clean(_ask(_active(), *_prompt(sentence.text, before, after, lang)))
+        if not text:
+            raise TranslateError("The model answered with nothing. Try again, or try another model.")
     sentence.translations = {**sentence.translations, lang: text}
     type(sentence).objects.filter(pk=sentence.pk).update(translations=sentence.translations)
     return text

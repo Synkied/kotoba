@@ -138,3 +138,23 @@ class VoicevoxReadingTests(SimpleTestCase):
         engine.tts("日本人です", "voicevox:1", 1, [["日本", "にっぽん"], ["人", "じん"]])
         kana = [c.args[1]["text"] for c in vv.call_args_list if c.args[0] == "/accent_phrases"]
         self.assertEqual(kana, ["ニッポ'ンジンデス"])
+
+
+class SpokenNumberTests(SimpleTestCase):
+    """A sentence that is just a number (an exercise announced as "1") is said as a word."""
+
+    def said(self, expected, word):
+        from . import jpscore
+        return jpscore.score(expected, [{'word': word, 'start': 0, 'end': .5, 'probability': .9}])['overall']
+
+    def test_digits_match_their_reading(self):
+        for expected, word in [('1', 'いち'), ('1', '一'), ('一', '1'), ('12', 'じゅうに'), ('3番', 'さんばん'),
+                               ('7', 'しち'), ('7', 'なな'), ('300', 'さんびゃく'), ('問題1', 'もんだいいち')]:
+            self.assertGreater(self.said(expected, word), 90, (expected, word))
+        self.assertEqual(self.said('1', 'に'), 0)
+
+    def test_number_readings(self):
+        from .jpscore import _number
+        self.assertEqual(_number(1234), 'せんにひゃくさんじゅうよん')
+        self.assertEqual(_number(8600), 'はっせんろっぴゃく')
+        self.assertEqual(_number(20019, alt=True), 'にまんじゅうく')
