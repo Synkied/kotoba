@@ -1,4 +1,6 @@
 from django.db import models
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 from django.utils import timezone
 
 import unicodedata
@@ -80,6 +82,9 @@ class Sentence(models.Model):
     best = models.PositiveSmallIntegerField(null=True, blank=True)
     last = models.PositiveSmallIntegerField(null=True, blank=True)
 
+    # what its words were found with (words.engine()); "" until the word index has read it
+    words_engine = models.CharField(max_length=80, blank=True, default="", editable=False, db_index=True)
+
     class Meta:
         ordering = ["source", "position"]
 
@@ -89,6 +94,11 @@ class Sentence(models.Model):
         reading_text = romanize.with_readings(self.text, self.reading_overrides) if self.reading_overrides else self.text
         self.roman = romanize.romanize(reading_text)
         self.search = fold(self.text) + "\n" + romanize.key(self.roman.replace("\n", " "))
+        fields = kwargs.get("update_fields")
+        if fields is None or {"text", "furigana"} & set(fields):
+            self.words_engine = ""  # the word index reads it again (practice scores don't change its words)
+            if fields is not None:
+                kwargs["update_fields"] = [*fields, "words_engine"]
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -133,9 +143,54 @@ class Attempt(models.Model):
     fluency = models.PositiveSmallIntegerField()
     said = models.TextField(blank=True)
     units = models.JSONField(default=list, blank=True)
+    audio = models.FileField(upload_to="takes/", blank=True)  # the take itself, when you chose to keep it
 
     class Meta:
         ordering = ["-created_at"]
+
+
+@receiver(post_delete, sender=Attempt)
+def _drop_take(sender, instance, **kwargs):
+    # attempts go with their sentence; a kept take goes with them
+    if instance.audio:
+        instance.audio.delete(save=False)
+
+
+class Word(models.Model):
+    """A word as the dictionary lists it (読む, not 読んで), found in your sentences by the
+    word index. Words link sentences across sources; marking one known is yours to do."""
+
+    key = models.CharField(max_length=120, unique=True)  # j:<JMdict id>, or m:<form>/<reading> when it isn't listed
+    lemma = models.CharField(max_length=100)
+    reading = models.CharField(max_length=100, blank=True)  # hiragana
+    entry = models.PositiveIntegerField(null=True, blank=True)  # JMdict id
+    search = models.TextField(blank=True, editable=False)  # fold(lemma), the reading and its romaji key
+    known_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["lemma"]
+
+    def save(self, *args, **kwargs):
+        roman = romanize.romanize(self.reading) if self.reading else ""
+        self.search = "\n".join([fold(self.lemma), fold(self.reading), romanize.key(roman)])
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.lemma
+
+
+class WordUse(models.Model):
+    """Where a word stands in a sentence: sentence.text[start:end] is `surface` (読んでいました)."""
+
+    word = models.ForeignKey(Word, related_name="uses", on_delete=models.CASCADE)
+    sentence = models.ForeignKey(Sentence, related_name="word_uses", on_delete=models.CASCADE)
+    start = models.PositiveIntegerField()
+    end = models.PositiveIntegerField()
+    surface = models.CharField(max_length=100)
+
+    class Meta:
+        ordering = ["sentence", "start"]
 
 
 class LessonFolder(models.Model):

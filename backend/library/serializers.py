@@ -27,10 +27,19 @@ def clean_labels(value):
     return out[:MAX_LABELS]
 
 
+def take_url(a):
+    return a.audio.url if a.audio else None
+
+
 class StampSerializer(serializers.ModelSerializer):
+    audio = serializers.SerializerMethodField()
+
     class Meta:
         model = Attempt
-        fields = ["id", "created_at", "overall", "accuracy", "clarity", "fluency", "model"]
+        fields = ["id", "created_at", "overall", "accuracy", "clarity", "fluency", "model", "audio"]
+
+    def get_audio(self, a):
+        return take_url(a)
 
 
 class SentenceSerializer(serializers.ModelSerializer):
@@ -133,8 +142,13 @@ class DeckSerializer(serializers.ModelSerializer):
 
 
 class AttemptSerializer(serializers.ModelSerializer):
+    audio = serializers.SerializerMethodField()
+
     class Meta:
         model = Attempt
         fields = ["id", "sentence", "created_at", "model", "overall", "accuracy", "clarity", "fluency",
-                  "said", "units"]
+                  "said", "units", "audio"]
         read_only_fields = ["created_at"]
+
+    def get_audio(self, a):
+        return take_url(a)

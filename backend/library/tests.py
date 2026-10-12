@@ -1,6 +1,9 @@
-from django.test import TestCase, SimpleTestCase
+import tempfile
+from pathlib import Path
+
+from django.test import TestCase, SimpleTestCase, override_settings
 from . import romanize
-from .models import Sentence, Source
+from .models import Attempt, Sentence, Source
 
 
 class ContextReadingsTests(SimpleTestCase):
@@ -62,6 +65,59 @@ class SentenceDetailTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['reading_overrides'], [])
         self.assertIn(['時', 'とき'], response.json()['furigana'])
+
+
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+class KeptTakeTests(TestCase):
+    def setUp(self):
+        source = Source.objects.create(kind='text', text='三時です。')
+        self.sentence = Sentence.objects.create(source=source, text=source.text)
+        out = self.client.post('/api/attempts', {'sentence': self.sentence.id, 'model': 'tts', 'overall': 60,
+                                                 'accuracy': 60, 'clarity': 60, 'fluency': 60}, content_type='application/json')
+        self.attempt = Attempt.objects.get(pk=out.json()['attempt']['id'])
+        self.url = f'/api/attempts/{self.attempt.id}/audio'
+
+    def keep(self, pcm=b'\x01\x00' * 16000):
+        return self.client.put(self.url, pcm, content_type='application/octet-stream')
+
+    def test_keep_replace_and_let_go(self):
+        r = self.keep()
+        self.assertEqual(r.status_code, 200, r.content)
+        first = Path(Attempt.objects.get(pk=self.attempt.id).audio.path)
+        self.assertEqual(first.read_bytes()[:4], b'RIFF')
+        stamp = self.client.get(f'/api/sentences/{self.sentence.id}').json()['stamps'][0]
+        self.assertTrue(stamp['audio'].startswith('/files/takes/'))
+        self.keep(b'\x02\x00' * 8000)
+        self.assertEqual([p.stat().st_size for p in first.parent.iterdir()], [44 + 16000])
+        self.assertEqual(self.client.delete(self.url).status_code, 204)
+        self.assertFalse(Attempt.objects.get(pk=self.attempt.id).audio)
+        self.assertEqual(Attempt.objects.count(), 1)
+
+    def test_bad_take_and_cascade(self):
+        self.assertEqual(self.keep(b'\x01').status_code, 400)
+        self.assertEqual(self.keep(b'').status_code, 400)
+        self.keep()
+        path = Path(Attempt.objects.get(pk=self.attempt.id).audio.path)
+        self.sentence.delete()
+        self.assertFalse(path.exists())
+
+
+class UntranslatableTests(TestCase):
+    def test_bare_numbers_translate_as_themselves(self):
+        from unittest import mock
+        from . import translate
+        source = Source.objects.create(kind='text', text='1\nこれ、ご主人ですか。')
+        number = Sentence.objects.create(source=source, text='1', position=0,
+                                         translations={'en': 'Is this your husband?'})
+        Sentence.objects.create(source=source, text='これ、ご主人ですか。', position=1)
+        with mock.patch.object(translate, '_ask', side_effect=AssertionError('no model call')):
+            self.assertEqual(translate.translate(number, 'en'), '1')
+        number.refresh_from_db()
+        self.assertEqual(number.translations, {'en': '1'})
+        for text in ['1', '１２.', '(3)', '—']:
+            self.assertTrue(translate.untranslatable(text), text)
+        for text in ['一', '問題1', 'Q1', 'これ']:
+            self.assertFalse(translate.untranslatable(text), text)
 
 
 class LabelTests(TestCase):

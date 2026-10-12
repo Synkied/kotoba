@@ -167,14 +167,13 @@ def _known(forms: list) -> bool:
         f"SELECT 1 FROM forms WHERE form IN ({','.join('?' * len(forms))}) LIMIT 1", forms).fetchone() is not None
 
 
-def entries(forms: list, reading: str = "") -> list:
-    """JMdict entries for any of these written forms; ones read as `reading` and
-    common words come first."""
+def _ranked(forms: list, reading: str = "") -> list:
+    """JMdict entries for any of these written forms, best first: ones read as `reading`,
+    then common words."""
     if not forms or not path().exists():
         return []
-    db = _db()
-    rows = db.execute(f"""SELECT e.id, e.data, MIN(f.rank), e.common FROM forms f JOIN entries e ON e.id = f.entry
-                          WHERE f.form IN ({','.join('?' * len(forms))}) GROUP BY e.id""", forms).fetchall()
+    rows = _db().execute(f"""SELECT e.id, e.data, MIN(f.rank), e.common FROM forms f JOIN entries e ON e.id = f.entry
+                             WHERE f.form IN ({','.join('?' * len(forms))}) GROUP BY e.id""", forms).fetchall()
     hira = romanize._hira(reading)
     out = []
     for id_, data, rank, common in rows:
@@ -183,16 +182,74 @@ def entries(forms: list, reading: str = "") -> list:
         written = any(k["text"] in forms for k in entry["kanji"])
         out.append(((not reads, rank, not written, not common, id_), {"id": id_, **entry}))
     out.sort(key=lambda x: x[0])
+    return [entry for _, entry in out]
+
+
+def headword(form: str, reading: str = "") -> dict | None:
+    """The JMdict entry a word is filed under, with the way it's usually written:
+    {"id", "text", "reading"}. 分かる and わかる are one entry; する, usually written in kana,
+    stays する rather than 為る."""
+    found = _ranked([form], reading)
+    if not found:
+        return None
+    e = found[0]
+    hira = romanize._hira(reading)
+    kana = next((k["text"] for k in e["kana"] if romanize._hira(k["text"]) == hira), None) or (e["kana"][0]["text"] if e["kana"] else form)
+    usually_kana = bool(e["senses"]) and "uk" in e["senses"][0]["misc"]
+    if not e["kanji"] or usually_kana:
+        text = form if not romanize.HAN.search(form) and romanize._hira(form) == romanize._hira(kana) else kana
+    else:
+        # as written here when that's one of its spellings, else its first one
+        text = form if any(k["text"] == form for k in e["kanji"]) else e["kanji"][0]["text"]
+        applies = [k["text"] for k in e["kana"] if not k["kanji"] or text in k["kanji"]]
+        if applies and kana not in applies:
+            kana = applies[0]
+    return {"id": e["id"], "text": text, "reading": romanize._hira(kana)}
+
+
+def entry(id_: int) -> list:
+    """One entry, shaped as entries() gives them (so the word page shows it the same way)."""
+    if not path().exists():
+        return []
+    row = _db().execute("SELECT data FROM entries WHERE id = ?", (id_,)).fetchone()
+    return _shaped([{"id": id_, **json.loads(row[0])}]) if row else []
+
+
+def meaning_matches(ids, text: str) -> set:
+    """Which of these entries have `text` as a whole word in a meaning ("library" is 図書館's)."""
+    ids = list(ids)
+    if not ids or not path().exists():
+        return set()
+    word = re.compile(r"(?<![\w-])" + re.escape(text.strip().lower()) + r"(?![\w-])")
+    out = set()
+    for i in range(0, len(ids), 500):
+        chunk = ids[i:i + 500]
+        for id_, data in _db().execute(f"SELECT id, data FROM entries WHERE id IN ({','.join('?' * len(chunk))})", chunk):
+            if any(word.search(g.lower()) for s in json.loads(data)["senses"] for g in s["gloss"]):
+                out.add(id_)
+    return out
+
+
+def entries(forms: list, reading: str = "") -> list:
+    """JMdict entries for any of these written forms; ones read as `reading` and
+    common words come first."""
+    return _shaped(_ranked(forms, reading)[:MAX_ENTRIES])
+
+
+def _shaped(found: list) -> list:
+    if not found:
+        return []
+    db = _db()
     # "noun (common) (futsuumeishi)" -> "noun (common)": the Japanese grammar term adds nothing here
     tags = {k: re.sub(r" \([a-z]+\)$", "", v)
             for k, v in json.loads(dict(db.execute("SELECT key, value FROM meta")).get("tags") or "{}").items()}
     result = []
-    for _, entry in out[:MAX_ENTRIES]:
-        for s in entry["senses"]:
+    for e in found:
+        for s in e["senses"]:
             s["pos"] = [tags.get(p, p) for p in s["pos"]]
             s["misc"] = [tags.get(m, m) for m in s["misc"]]
-        entry["senses"] = entry["senses"][:MAX_SENSES]
-        result.append(entry)
+        e["senses"] = e["senses"][:MAX_SENSES]
+        result.append(e)
     return result
 
 
@@ -207,7 +264,7 @@ def _tokens(line: str) -> list:
         kana = romanize.token_reading(tagged, n, line[:start])  # the reading the sentence's furigana show
         base = f.orthBase if getattr(f, "orthBase", None) and f.orthBase != "*" else t.surface
         base_kana = f.kanaBase if getattr(f, "kanaBase", None) and f.kanaBase != "*" else kana
-        out.append({"surface": t.surface, "start": start, "end": start + len(t.surface), "pos": f.pos1,
+        out.append({"surface": t.surface, "start": start, "end": start + len(t.surface), "pos": f.pos1, "pos2": f.pos2,
                     "kana": romanize._hira(kana), "base": base, "base_kana": romanize._hira(base_kana),
                     "lemma": (f.lemma or "").split("-")[0]})
         at = start + len(t.surface)
@@ -228,9 +285,17 @@ def _forms(toks: list) -> list:
 
 def _match(run: list) -> tuple | None:
     """The (form, reading) the dictionary lists this run under. A run holding a particle
-    must also be read the dictionary's way: 今日は here is きょう + は, not こんにちは."""
+    must also be read the dictionary's way: 今日は here is きょう + は, not こんにちは.
+    A conjugated verb or adjective is looked for in its dictionary form first: し is する,
+    not 市, and 分かり is 分かる. A word written in kana goes by UniDic's lemma first: き is
+    来る, not 繰る, and こと is 事, not 琴."""
     particle = any(t["pos"] == "助詞" for t in run)
-    for form, reading in _forms(run):
+    forms = _forms(run)
+    forms.reverse()
+    last = run[-1]
+    if len(run) == 1 and romanize.HAN.search(last["lemma"]) and not romanize.HAN.search(last["base"]):
+        forms.insert(0, (last["lemma"], last["base_kana"]))  # 撮る, written in kanji, stays 撮る, not UniDic's 取る
+    for form, reading in forms:
         if not _known([form]):
             continue
         if particle and not any(romanize._hira(k["text"]) == reading for e in entries([form]) for k in e["kana"]):

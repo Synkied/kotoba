@@ -29,6 +29,7 @@ JMDICT = ['{\n', '"version": "3.6.2",\n', '"dictDate": "2026-10-05",\n', '"tags"
 
 class DictionaryCase(SimpleTestCase):
     """A small JMdict, indexed into a scratch data directory."""
+    databases = {"default"}  # the lookup API also asks the word index
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -92,6 +93,7 @@ class LookupTests(DictionaryCase):
 
 
 class MissingDictionaryTests(SimpleTestCase):
+    databases = {"default"}
     def test_reading_without_dictionary_and_download_started(self):
         with tempfile.TemporaryDirectory() as tmp, override_settings(DATA_DIR=Path(tmp)), \
                 mock.patch.object(dictionary.threading, "Thread") as thread:

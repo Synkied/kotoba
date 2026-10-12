@@ -4,6 +4,8 @@ import io
 import json
 import mimetypes
 import re
+import wave
+from collections import defaultdict
 from datetime import datetime, timezone as dt_timezone
 
 from django.core.files.base import ContentFile
@@ -17,8 +19,8 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 
-from . import dictionary, ingest, romanize, srs, translate
-from .models import Attempt, Deck, DeckItem, Lesson, Sentence, Source, fold
+from . import dictionary, ingest, romanize, srs, translate, words
+from .models import Attempt, Deck, DeckItem, Lesson, Sentence, Source, Word, WordUse, fold
 # not in every system mime table; browsers need it to play rendered takes
 mimetypes.add_type("audio/mp4", ".m4a")
 
@@ -32,8 +34,8 @@ IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp"}
 
 
 def _search_filter(qs, q, prefix=""):
-    """Text (any script, kana-insensitive), labels, category, or a reading typed in
-    Latin letters: tokyo finds 東京."""
+    """Text (any script, kana-insensitive), labels, category, a reading typed in Latin
+    letters (tokyo finds 東京), or a word of its translation (library)."""
     q = q.strip()
     if not q:
         return qs
@@ -43,6 +45,8 @@ def _search_filter(qs, q, prefix=""):
     rq = romanize.key(q) if re.search("[a-z]", f) else ""
     if len(rq) >= 2:
         cond |= Q(**{f"{prefix}search__contains": rq})
+    if rq and len(q) >= 3:
+        cond |= Q(**{f"{prefix}translations__icontains": q})
     return qs.filter(cond)
 
 
@@ -304,7 +308,7 @@ class SentenceViewSet(viewsets.ModelViewSet):
         if p.get("label"):
             qs = qs.filter(source__labels__icontains=f'"{p["label"]}"')
         if p.get("q"):
-            qs = _search_filter(qs, p["q"])
+            qs = _sentence_search(qs, p["q"].strip())
         if not p.get("deck"):
             qs = qs.order_by("-source__created_at", "position")
         return qs
@@ -408,6 +412,7 @@ def facets(request):
 def stats(request):
     from speech import jobs
     jobs.kick()   # the app polls this: a cheap moment to pick up waiting uploads
+    words.kick()  # and sentences the word index hasn't read
     now = timezone.now()
     return Response({
         "inbox": Source.objects.filter(status=Source.Status.INBOX).count(),
@@ -445,7 +450,25 @@ def lookup(request):
             return Response({"error": "end must be a character offset"}, status=400)
     else:
         word = dictionary.lookup(text, at, pairs)
-    return Response({"word": word, "dictionary": dictionary.status()})
+    return Response({"word": word, "library": _in_library(word), "dictionary": dictionary.status()})
+
+
+@api_view(["POST"])
+def dictionary_fetch(request):
+    """Start the one-time dictionary download now, rather than with the first lookup."""
+    dictionary.ensure()
+    return Response(dictionary.status())
+
+
+def _in_library(word):
+    """The looked-up word in the word index, when your sentences have it: {id, sentences, status}."""
+    if not word:
+        return None
+    form, reading = (word["lemma"], word["lemma_reading"]) if word["lemma"] else (word["surface"], word["reading"])
+    head = dictionary.headword(form, reading) if word["entries"] else None
+    key = f"j:{head['id']}" if head else f"m:{form}/{romanize._hira(reading or '')}"
+    found = words.with_counts(Word.objects.filter(key=key)).first()
+    return {"id": found.id, "sentences": found.sentences, "status": words.status(found)} if found else None
 
 
 @api_view(["POST"])
@@ -521,6 +544,31 @@ def attempts(request):
     return Response({"attempt": ser.data, "sentence": SentenceSerializer(sentence).data}, status=201)
 
 
+TAKE_RATE = 16000
+TAKE_MAX = TAKE_RATE * 2 * 90  # the recorder stops itself at 60 s
+
+
+@api_view(["PUT", "DELETE"])
+def attempt_audio(request, pk):
+    """Keep a take to hear again later: the body is the take as it was scored, 16 kHz mono
+    int16 PCM, stored as a WAV. DELETE lets it go; the score stays."""
+    attempt = get_object_or_404(Attempt, pk=pk)
+    if attempt.audio:
+        attempt.audio.delete(save=False)
+    if request.method == "DELETE":
+        attempt.save(update_fields=["audio"])
+        return Response(status=204)
+    pcm = request.body
+    if not pcm or len(pcm) % 2 or len(pcm) > TAKE_MAX:
+        return Response({"error": "Send the take as 16 kHz mono 16-bit PCM, at most 90 seconds."}, status=400)
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(TAKE_RATE)
+        w.writeframes(pcm)
+    attempt.audio.save(f"{attempt.sentence_id}-{attempt.id}.wav", ContentFile(buf.getvalue()))
+    return Response(AttemptSerializer(attempt).data)
+
+
 @api_view(["GET"])
 def review(request):
     """Sentences due now, most overdue first, plus a few never-practised ones from kept
@@ -537,3 +585,193 @@ def review(request):
     return Response({"due": SentenceSerializer(due, many=True).data,
                      "new": SentenceSerializer(fresh, many=True).data,
                      "next_due": upcoming})
+
+
+# ---------------------------------------------------------------- words
+
+def _word_row(w, checked=None) -> dict:
+    tries = checked.get(w.id, []) if checked is not None else []
+    return {"id": w.id, "lemma": w.lemma, "reading": w.reading, "romaji": dictionary._romaji(w.reading) if w.reading else "",
+            "entry": w.entry, "status": words.status(w), "known_at": w.known_at,
+            "sentences": getattr(w, "sentences", None), "sources": getattr(w, "sources", None),
+            "tries": len(tries), "misses": tries.count(False), "trouble": words.troubled(tries) if tries else False}
+
+
+def _index_state() -> dict:
+    words.kick()
+    return {"pending": words.pending(), "dictionary": dictionary.status()["state"]}
+
+
+WORD_SORTS = {"count": ("-sentences", "lemma"), "recent": ("-created_at", "lemma"), "az": ("reading", "lemma")}
+
+
+@api_view(["GET"])
+def word_list(request):
+    """?q=&status=new|practised|known|trouble&sort=count|recent|az|trouble&limit=&offset=:
+    the words in the sentences you keep, with how often they come up and how saying them went."""
+    p = request.query_params
+    qs = words.with_counts(Word.objects.all()).filter(sentences__gt=0)
+    q = p.get("q", "").strip()
+    if q:
+        qs = qs.filter(id__in=_word_matches(q))
+    state = p.get("status", "")
+    if state == "known":
+        qs = qs.filter(known_at__isnull=False)
+    elif state == "practised":
+        qs = qs.filter(known_at__isnull=True, passed=True)
+    elif state == "new":
+        qs = qs.filter(known_at__isnull=True, passed=False)
+    sort = p.get("sort", "count")
+    try:
+        limit, offset = min(int(p.get("limit", 100)), 500), max(int(p.get("offset", 0)), 0)
+    except ValueError:
+        return Response({"error": "limit and offset are numbers"}, status=400)
+    if state == "trouble" or sort == "trouble":
+        checked = words.checks()
+        if state == "trouble":
+            qs = qs.filter(id__in=[wid for wid, tries in checked.items() if words.troubled(tries)])
+        rows = list(qs)
+        rows.sort(key=lambda w: (-checked.get(w.id, []).count(False), -w.sentences, w.lemma))
+        page = rows[offset:offset + limit]
+        return Response({"count": len(rows), "results": [_word_row(w, checked) for w in page], **_index_state()})
+    count = qs.count()
+    page = list(qs.order_by(*WORD_SORTS.get(sort, WORD_SORTS["count"]))[offset:offset + limit])
+    checked = words.checks([w.id for w in page])
+    return Response({"count": count, "results": [_word_row(w, checked) for w in page], **_index_state()})
+
+
+def _sentence_search(qs, q, word_ids=None):
+    """Sentences by their text, reading or translation, and those using a word the search finds,
+    in any form: できる finds できます, library finds 図書館. A search finding many words (a
+    common kanji) only goes by the text."""
+    ids = list(_word_matches(q) if word_ids is None else word_ids)
+    text = _search_filter(Sentence.objects.all(), q).values("id")
+    if not ids or len(ids) > 20:
+        return qs.filter(id__in=text)
+    return qs.filter(Q(id__in=text) | Q(id__in=WordUse.objects.filter(word__in=ids).values("sentence_id")))
+
+
+def _word_matches(q: str) -> set:
+    """Ids of the words a search finds: by spelling, any form seen (読んで), reading or romaji
+    (toshokan), a kanji in it, or, typed in Latin letters, a meaning (library finds 図書館)."""
+    f = fold(q)
+    cond = Q(search__contains=f) | Q(uses__surface__contains=q)
+    latin = re.search("[a-z]", f)
+    rq = romanize.key(q) if latin else ""
+    if len(rq) >= 2:
+        cond |= Q(search__contains=rq)
+    found = set(Word.objects.filter(cond).values_list("id", flat=True))
+    if latin and len(q.strip()) >= 3:
+        entries = dict(Word.objects.exclude(entry=None).values_list("entry", "id"))
+        found |= {entries[e] for e in dictionary.meaning_matches(entries, q)}
+    return found
+
+
+def _meaning(word) -> str:
+    """The first sense, short: "library; reading room"."""
+    found = dictionary.entry(word.entry) if word.entry else []
+    return "; ".join(found[0]["senses"][0]["gloss"][:3]) if found and found[0]["senses"] else ""
+
+
+@api_view(["GET"])
+def search(request):
+    """?q=: everything at once, a few of each: words (by spelling, reading or meaning), sentences
+    (by text, reading or translation), sources, lessons and decks, each with how many there are."""
+    q = request.query_params.get("q", "").strip()[:200]
+    if not q:
+        return Response({"q": q, "words": [], "sentences": [], "sources": [], "lessons": [], "decks": [], "counts": {}})
+    found = _word_matches(q)
+    ws = words.with_counts(Word.objects.filter(id__in=found)).filter(sentences__gt=0)
+    exact = fold(q)
+    top_words = sorted(ws, key=lambda w: (fold(w.lemma) != exact and w.reading != exact, -w.sentences, w.lemma))
+    live = Sentence.objects.exclude(source__status=Source.Status.ARCHIVED).select_related("source").prefetch_related("attempts", "decks")
+    sentences = _sentence_search(live, q, [w.id for w in top_words]).order_by("-source__created_at", "position")
+    ids = _search_filter(Sentence.objects.all(), q).values("source_id")
+    sources = (Source.objects.filter(Q(id__in=ids) | Q(title__icontains=q) | Q(text__icontains=q))
+               .annotate(n=Count("sentences")).order_by("-created_at"))
+    lessons = (Lesson.objects.filter(Q(title__icontains=q) | Q(notes__icontains=q) | Q(folder__name__icontains=q)
+                                     | Q(files__name__icontains=q)).distinct().order_by("done_at", "-created_at"))
+    decks = Deck.objects.filter(Q(name__icontains=q) | Q(description__icontains=q) | Q(folder__icontains=q)).annotate(n=Count("items"))
+    return Response({
+        "q": q,
+        "words": [{**_word_row(w), "meaning": _meaning(w)} for w in top_words[:8]],
+        "sentences": SentenceSerializer(sentences[:10], many=True).data,
+        "sources": [{"id": s.id, "kind": s.kind, "status": s.status, "title": str(s) or "Untitled", "sentences": s.n,
+                     "created_at": s.created_at} for s in sources[:6]],
+        "lessons": [{"id": l.id, "title": l.title, "done": l.done_at is not None} for l in lessons[:6]],
+        "decks": [{"id": d.id, "name": d.name, "size": d.n} for d in decks[:6]],
+        "counts": {"words": len(top_words), "sentences": sentences.count(), "sources": sources.count(),
+                   "lessons": lessons.count(), "decks": decks.count()},
+    })
+
+
+@api_view(["GET", "PATCH"])
+def word_detail(request, pk):
+    """A word with its meanings, the sentences it's in (the spans it covers in each) and how saying
+    it went. PATCH {"known": true|false} marks it known, or not."""
+    word = get_object_or_404(Word, pk=pk)
+    if request.method == "PATCH":
+        if "known" in request.data:
+            word.known_at = timezone.now() if request.data.get("known") else None
+            word.save(update_fields=["known_at"])
+    word = words.with_counts(Word.objects.filter(pk=pk)).get()
+    uses = list(words.live_uses().filter(word=word).select_related("sentence")
+                .order_by("-sentence__source__created_at", "sentence__position", "start"))
+    spans, order = {}, []
+    for u in uses:
+        if u.sentence_id not in spans:
+            spans[u.sentence_id] = []
+            order.append(u.sentence_id)
+        if u.sentence.text[u.start:u.end] == u.surface:  # not yet read again after an edit
+            spans[u.sentence_id].append([u.start, u.end])
+    shown = order[:200]
+    found = Sentence.objects.select_related("source").prefetch_related("attempts", "decks").in_bulk(shown)
+    sentences = [{**SentenceSerializer(found[sid]).data, "spans": spans[sid]} for sid in shown if sid in found]
+    checked = words.checks([word.id])
+    forms = sorted({u.surface for u in uses}, key=lambda f: (f != word.lemma, len(f), f))[:12]
+    kanji = [{"char": c, "words": Word.objects.filter(lemma__contains=c, uses__isnull=False).distinct().count()}
+             for c in dict.fromkeys(romanize.HAN.findall(word.lemma))]
+    return Response({**_word_row(word, checked), "forms": forms, "kanji": kanji,
+                     "entries": dictionary.entry(word.entry) if word.entry else
+                     dictionary.entries([word.lemma], word.reading) if dictionary.path().exists() else [],
+                     "results": checked.get(word.id, []),
+                     "sentence_list": sentences, "more": max(0, len(order) - len(shown)), **_index_state()})
+
+
+@api_view(["GET"])
+def word_next(request):
+    """Sentences you're one new word away from, the most useful word first."""
+    try:
+        limit = min(int(request.query_params.get("limit", 20)), 100)
+    except ValueError:
+        return Response({"error": "limit is a number"}, status=400)
+    picks = words.next_sentences(limit)
+    spans = defaultdict(list)
+    for u in WordUse.objects.filter(sentence__in=[s for s, _, _ in picks], word__in=[w for _, w, _ in picks]):
+        spans[(u.sentence_id, u.word_id)].append([u.start, u.end])
+    return Response({"results": [{"sentence": SentenceSerializer(s).data, "word": _word_row(w), "sentences": n,
+                                  "spans": spans[(s.id, w.id)]} for s, w, n in picks], **_index_state()})
+
+
+@api_view(["GET"])
+def sentence_words(request, pk):
+    """The words of a sentence (with how often each comes up) and other sentences sharing its rarer ones."""
+    sentence = get_object_or_404(Sentence, pk=pk)
+    uses = list(sentence.word_uses.all())
+    by_id = {w.id: w for w in words.with_counts(Word.objects.filter(id__in={u.word_id for u in uses}))}
+    checked = words.checks(list(by_id))
+    out = [{**_word_row(by_id[u.word_id], checked), "start": u.start, "end": u.end, "surface": u.surface}
+           for u in uses if u.word_id in by_id and sentence.text[u.start:u.end] == u.surface]
+    related = [{"sentence": SentenceSerializer(s).data, "shared": [{"id": w.id, "lemma": w.lemma, "reading": w.reading} for w in ws]}
+               for s, ws in words.related(sentence)]
+    return Response({"words": out, "related": related, "indexed": sentence.words_engine == words.engine(), **_index_state()})
+
+
+@api_view(["GET"])
+def source_words(request, pk):
+    """How much of a source's vocabulary you have, and its new words that come up most."""
+    source = get_object_or_404(Source, pk=pk)
+    cov = words.coverage(source)
+    cov["top_new"] = [_word_row(w) for w in cov["top_new"]]
+    waiting = source.sentences.exclude(words_engine=words.engine()).count()
+    return Response({**cov, "waiting": waiting, **_index_state()})
