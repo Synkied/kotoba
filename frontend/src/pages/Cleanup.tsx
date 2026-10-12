@@ -3,6 +3,7 @@ import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState,
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError, type Cleanup, type CleanupSettings, type Cut, type Job, type ScriptRow, type TChar } from '../lib/api'
 import { ErrorNotice, Skeleton, usePref, useToast, useAction } from '../components/ui'
+import { Button, ButtonLink, ButtonRow, Checkbox, Field, Input, Kbd, Notice, Panel, Segmented, Select, Sheet, Textarea, buttonClass } from '../components/ds'
 
 // ------------------------------------------------------------------ cut model
 
@@ -310,7 +311,7 @@ function CleanupPageDetail({ id }: { id: number }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [reader])
 
-  if (error) return <ErrorNotice error={error} action={<Link className="btn small" to="/recordings">Back to recordings</Link>} />
+  if (error) return <ErrorNotice error={error} action={<ButtonLink size="small" to="/sources/recordings">Back to recordings</ButtonLink>} />
   if (!data) return <Skeleton rows={4} />
 
   const duration = data.duration || peaks?.duration || 0
@@ -330,7 +331,7 @@ function CleanupPageDetail({ id }: { id: number }) {
   return (
     <div className="recording-editor">
       <header className="recording-head">
-        <Link className="btn icon ghost" to="/recordings" aria-label="Back to recordings"><ChevronLeft aria-hidden="true" /></Link>
+        <ButtonLink variant="ghost" icon to="/sources/recordings" aria-label="Back to recordings"><ChevronLeft aria-hidden="true" /></ButtonLink>
         <div className="recording-heading">
           <h1>{data.title}</h1>
           <div className="recording-summary meta">
@@ -342,23 +343,23 @@ function CleanupPageDetail({ id }: { id: number }) {
         <details ref={actionMenu} className="recording-actions" onKeyDown={e => {
           if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus() }
         }}>
-          <summary className="btn ghost" aria-label="Recording actions"><MoreHorizontal aria-hidden="true" /><span>Actions</span></summary>
+          <summary className={buttonClass({ variant: 'ghost' })} aria-label="Recording actions"><MoreHorizontal aria-hidden="true" /><span>Actions</span></summary>
           <div className="recording-action-menu">
-            <button className="btn ghost" onClick={e => { setSettingsOpen(o => !o); e.currentTarget.closest('details')?.removeAttribute('open') }}><Settings2 aria-hidden="true" />Analysis settings</button>
-            <button className="btn ghost" disabled={busy || !data.can_transcribe && !data.transcribed} onClick={e => { void analyze(data.settings); e.currentTarget.closest('details')?.removeAttribute('open') }}><Scissors aria-hidden="true" />{data.transcribed ? 'Analyse again' : 'Transcribe & analyse'}</button>
-            <Link className="btn ghost" to={`/sources/${data.source}`}>View sentences</Link>
+            <Button variant="ghost" onClick={e => { setSettingsOpen(o => !o); e.currentTarget.closest('details')?.removeAttribute('open') }}><Settings2 aria-hidden="true" />Analysis settings</Button>
+            <Button variant="ghost" disabled={busy || !data.can_transcribe && !data.transcribed} onClick={e => { void analyze(data.settings); e.currentTarget.closest('details')?.removeAttribute('open') }}><Scissors aria-hidden="true" />{data.transcribed ? 'Analyse again' : 'Transcribe & analyse'}</Button>
+            <ButtonLink variant="ghost" to={`/sources/${data.source}`}>View sentences</ButtonLink>
             <MakeSentences data={data} cuts={cuts} fromScript={tab === 'script'} onDone={load} />
-            {data.clean && <a className="btn ghost" href={data.clean + '?dl=1'} title={renderStale ? 'This download is from before your latest edits' : 'Download the clean take'}><Download aria-hidden="true" />Download clean take{renderStale && ' (outdated)'}</a>}
+            {data.clean && <a className={buttonClass({ variant: 'ghost' })} href={data.clean + '?dl=1'} title={renderStale ? 'This download is from before your latest edits' : 'Download the clean take'}><Download aria-hidden="true" />Download clean take{renderStale && ' (outdated)'}</a>}
           </div>
         </details>
-        <button className="btn primary recording-render" disabled={busy || !data.transcribed && cuts.length === 0} onClick={render} title="Render the recording without the enabled cuts">{busy ? 'Working…' : data.clean && !renderStale ? 'Render again' : 'Render clean take'}</button>
+        <Button variant="primary" className="recording-render" disabled={busy || !data.transcribed && cuts.length === 0} onClick={render} title="Render the recording without the enabled cuts">{busy ? 'Working…' : data.clean && !renderStale ? 'Render again' : 'Render clean take'}</Button>
       </header>
-      {saveError != null && <div className="recording-alerts"><ErrorNotice error={saveError} action={<button className="btn small" onClick={() => { void flushSave().catch(() => {}) }}>Retry saving cuts</button>} /></div>}
+      {saveError != null && <div className="recording-alerts"><ErrorNotice error={saveError} action={<Button size="small" onClick={() => { void flushSave().catch(() => {}) }}>Retry saving cuts</Button>} /></div>}
       <div className="recording-workspace">
-        {settingsOpen && <section className="panel recording-settings" aria-label="Analysis settings workspace">
-          <div className="panel-head"><h2>Analysis settings</h2><span className="grow" /><button className="btn small ghost" onClick={() => setSettingsOpen(false)}><X aria-hidden="true" />Back to editing</button></div>
+        {settingsOpen && <Panel as="section" className="recording-settings" aria-label="Analysis settings workspace">
+          <div className="panel-head"><h2>Analysis settings</h2><span className="grow" /><Button variant="ghost" size="small" onClick={() => setSettingsOpen(false)}><X aria-hidden="true" />Back to editing</Button></div>
           <div className="recording-settings-scroll"><SettingsSheet data={data} busy={busy} onAnalyze={(s, re) => { void analyze(s, re); setSettingsOpen(false) }} /></div>
-        </section>}
+        </Panel>}
         <div className="recording-edit-area" hidden={settingsOpen}>
           <div className="recording-pane-bar">
             <div className="tabs" role="group" aria-label="Editing view">
@@ -366,25 +367,25 @@ function CleanupPageDetail({ id }: { id: number }) {
               <button aria-pressed={tab === 'script'} onClick={() => setTab('script')}>Script{scriptSentences.length > 0 && <span className="n num">{scriptSentences.length}</span>}</button>
               <button className="recording-cuts-tab" aria-pressed={tab === 'cuts'} onClick={() => setTab('cuts')}>Cuts <span className="n num">{cuts.length}</span></button>
             </div>
-            <label className="recording-follow meta"><input className="check" type="checkbox" aria-label="Follow playback" checked={followPlayback} onChange={e => setFollowPlayback(e.target.checked)} /><span>Follow<span className="recording-follow-extra"> playback</span></span></label>
+            <label className="recording-follow meta"><Checkbox type="checkbox" aria-label="Follow playback" checked={followPlayback} onChange={e => setFollowPlayback(e.target.checked)} /><span>Follow<span className="recording-follow-extra"> playback</span></span></label>
           </div>
           <div className={'cut-cols recording-panes' + (tab === 'cuts' ? ' showing-cuts' : '')}>
-            <section className="panel cut-text" aria-label={tab === 'script' ? 'Script' : 'Transcript'}>
+            <Panel as="section" className="cut-text" aria-label={tab === 'script' ? 'Script' : 'Transcript'}>
               <div className="panel-head recording-transcript-head"><h2>{tab === 'script' ? 'Script' : 'Transcript'}</h2><span className="meta">{tab === 'script' ? 'Click a sentence to seek' : 'Click text to seek · struck-through text is cut'}</span></div>
-          {!data.transcribed && !busy && <div className="notice recording-transcribe-notice"><FileText aria-hidden="true" />
+          {!data.transcribed && !busy && <Notice className="recording-transcribe-notice"><FileText aria-hidden="true" />
             {data.can_transcribe ? <span>Use <b>Transcribe &amp; analyse</b> in the actions menu to detect speech and suggested cuts. Add your script first for better matching.</span> : <span>Whisper and ffmpeg are needed for transcription. <Link to="/addons">See Add-ons</Link>. You can still draw and render cuts.</span>}
-          </div>}
+          </Notice>}
           {tab !== 'script'
             ? <Transcript ref={transcriptRef} utts={data.utts} cuts={cuts} busy={busy} onPick={(t, c) => { seek(c ? Math.max(0, c.start - 0.5) : t); if (c) { setSel(c.id); wave.current?.reveal(c) } }} />
             : <ScriptPane data={data} cuts={cuts} audioTime={() => audio.current?.currentTime ?? 0} playing={playing}
                 onSaved={(script) => { setData({ ...data, script, report: null }); }} onSeek={(t) => { seek(t); wave.current?.revealTime(t) }}
                 onRead={() => setReader(true)} onAnalyze={() => analyze(data.settings)} />}
-            </section>
-            <section className="panel cut-list-panel" aria-label="Cuts">
+            </Panel>
+            <Panel as="section" className="cut-list-panel" aria-label="Cuts">
               <div className="panel-head">
                 <h2>Cuts <span className="meta num">{cuts.filter(c => c.on).length}/{cuts.length} applied</span></h2><span className="grow" />
-                <button className="btn small ghost" title="Apply every cut of the types shown" onClick={() => change(cuts.map(c => show[c.type] ? { ...c, on: true } : c))}>Cut shown</button>
-                <button className="btn small ghost" title="Keep all audio in cuts of the types shown" onClick={() => change(cuts.map(c => show[c.type] ? { ...c, on: false } : c))}>Keep shown</button>
+                <Button variant="ghost" size="small" title="Apply every cut of the types shown" onClick={() => change(cuts.map(c => show[c.type] ? { ...c, on: true } : c))}>Cut shown</Button>
+                <Button variant="ghost" size="small" title="Keep all audio in cuts of the types shown" onClick={() => change(cuts.map(c => show[c.type] ? { ...c, on: false } : c))}>Keep shown</Button>
               </div>
               <details className="recording-filters"><summary>Filter cut types <span className="meta">{TYPES.filter(t => show[t]).length}/{TYPES.length} shown</span></summary><div className="recording-filter-body">
         <div className="legend" role="group" aria-label="Cut types shown">
@@ -392,68 +393,63 @@ function CleanupPageDetail({ id }: { id: number }) {
             const all = cuts.filter((c) => c.type === t), on = all.filter((c) => c.on).length
             return (
               <label key={t} title={TYPE_HELP[t]}>
-                <input type="checkbox" className="check" checked={show[t]} onChange={(e) => setShow({ ...show, [t]: e.target.checked })} />
+                <Checkbox type="checkbox" checked={show[t]} onChange={(e) => setShow({ ...show, [t]: e.target.checked })} />
                 <i className={'swatch cut-' + t} aria-hidden="true" />{TYPE_NAME[t]}
                 <span className="meta num">{on}{on !== all.length ? `/${all.length}` : ''}</span>
               </label>
             )
           })}
-        </div>      {cuts.some(c => c.type === 'pause') && <div className="notice">
+        </div>      {cuts.some(c => c.type === 'pause') && <Notice>
         <div><p>Non-speech cuts may contain music or ambience. Filters change visibility only; hidden cuts still apply.</p>
-          <button className="btn small" disabled={!cuts.some(c => c.type === 'pause' && c.on)} onClick={() => {
+          <Button size="small" disabled={!cuts.some(c => c.type === 'pause' && c.on)} onClick={() => {
             change(cuts.map(c => c.type === 'pause' ? { ...c, on: false } : c))
             setShow({ ...show, pause: true })
             toast({ text: 'Non-speech cuts turned off. Music and ambience in those sections will be kept.' })
-          }}>Keep all non-speech audio</button>
+          }}>Keep all non-speech audio</Button>
           <p className="meta">To keep it after reanalysis, turn off “Automatically trim gaps without speech” in Settings. Render again to update a previously cleaned recording.</p>
         </div>
-      </div>}
+      </Notice>}
               </div></details>
               <CutList cuts={cuts} sel={sel} show={show} onSelect={pickCut} onChange={change} onAudition={audition} onDelete={c => { change(cuts.filter(x => x !== c)); setSel(null) }} />
-            </section>
+            </Panel>
           </div>
         </div>
       </div>
-      <section className="panel cut-wave" aria-label="Waveform">
+      <Panel as="section" className="cut-wave" aria-label="Waveform">
         <div className="wave-bar">
-          <button className="btn icon" onClick={togglePlay} aria-label={playing ? 'Pause' : 'Play'} title="Play / pause (space)">
+          <Button icon onClick={togglePlay} aria-label={playing ? 'Pause' : 'Play'} title="Play / pause (space)">
             {playing ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
-          </button>
+          </Button>
           <span className="time num"><span ref={timeEl}>0:00.0</span> / {fmt(mode === 'clean' ? audio.current?.duration : duration)}</span>
-          <div className="seg" role="radiogroup" aria-label="Playback">
-            {([['edited', 'Skip cuts'], ['orig', 'Original'], ['clean', 'Rendered']] as [Mode, string][]).map(([m, label]) => (
-              <label key={m} title={m === 'clean' && !data.clean ? 'Render first' : undefined}>
-                <input type="radio" name="mode" checked={mode === m} disabled={m === 'clean' && !data.clean} onChange={() => setMode(m)} />
-                <span>{label}</span>
-              </label>
-            ))}
-          </div>
+          <Segmented role="radiogroup" aria-label="Playback" name="mode" value={mode} onChange={setMode}
+            options={([['edited', 'Skip cuts'], ['orig', 'Original'], ['clean', 'Rendered']] as [Mode, string][]).map(([m, label]) =>
+              ({ value: m, label, disabled: m === 'clean' && !data.clean, title: m === 'clean' && !data.clean ? 'Render first' : undefined }))} />
           <span className="grow" />
-          <button className="btn small ghost recording-fit" aria-label="Fit recording" onClick={() => wave.current?.fit()} title="Show the full recording"><Maximize aria-hidden="true" /><span>Fit recording</span></button>
+          <Button variant="ghost" size="small" className="recording-fit" aria-label="Fit recording" onClick={() => wave.current?.fit()} title="Show the full recording"><Maximize aria-hidden="true" /><span>Fit recording</span></Button>
           <ZoomControl onZoom={(z) => wave.current?.zoom(z)} />
         </div>
         <div className="recording-selection" aria-label="Selected cut">
-          <div className="btn-row">
-            <button className="btn small icon ghost" disabled={!visibleCuts.length} onClick={() => stepCut(-1)} aria-label="Previous cut" title="Previous cut (J)"><ChevronLeft aria-hidden="true" /></button>
-            <button className="btn small icon ghost" disabled={!visibleCuts.length} onClick={() => stepCut(1)} aria-label="Next cut" title="Next cut (K)"><ChevronRight aria-hidden="true" /></button>
-          </div>
+          <ButtonRow>
+            <Button variant="ghost" size="small" icon disabled={!visibleCuts.length} onClick={() => stepCut(-1)} aria-label="Previous cut" title="Previous cut (J)"><ChevronLeft aria-hidden="true" /></Button>
+            <Button variant="ghost" size="small" icon disabled={!visibleCuts.length} onClick={() => stepCut(1)} aria-label="Next cut" title="Next cut (K)"><ChevronRight aria-hidden="true" /></Button>
+          </ButtonRow>
           {selected ? <>
             <span className="meta recording-selection-label"><b>{TYPE_NAME[selected.type]}</b> <span className="num">{fmt(selected.start, 2)} – {fmt(selected.end, 2)}</span></span>
-            <button className="btn small" aria-label="Preview result" title="Preview result (A)" onClick={() => audition(selected, false)}><Play aria-hidden="true" /><span className="recording-selection-action">Preview result</span></button>
-            <button className="btn small ghost" aria-label={selected.on ? 'Keep this audio' : 'Cut this audio'} title={selected.on ? 'Keep this audio (X)' : 'Cut this audio (X)'} onClick={() => change(cuts.map(c => c.id === selected.id ? { ...c, on: !c.on } : c))}>{selected.on ? <RotateCcw aria-hidden="true" /> : <Scissors aria-hidden="true" />}<span className="recording-selection-action">{selected.on ? 'Keep this audio' : 'Cut this audio'}</span></button>
+            <Button size="small" aria-label="Preview result" title="Preview result (A)" onClick={() => audition(selected, false)}><Play aria-hidden="true" /><span className="recording-selection-action">Preview result</span></Button>
+            <Button variant="ghost" size="small" aria-label={selected.on ? 'Keep this audio' : 'Cut this audio'} title={selected.on ? 'Keep this audio (X)' : 'Cut this audio (X)'} onClick={() => change(cuts.map(c => c.id === selected.id ? { ...c, on: !c.on } : c))}>{selected.on ? <RotateCcw aria-hidden="true" /> : <Scissors aria-hidden="true" />}<span className="recording-selection-action">{selected.on ? 'Keep this audio' : 'Cut this audio'}</span></Button>
           </> : <span className="meta recording-selection-label">Select a cut to adjust or preview it. Drag the waveform to make a cut.</span>}
         </div>
         <Wave ref={wave} peaks={peaks} peaksError={peaksError} duration={duration} cuts={cuts} sel={sel} show={show} mode={mode} audio={audio}
           onSeek={seek} onSelect={setSel} onChange={change} />
         <details className="wave-shortcuts"><summary>Editing shortcuts</summary><div className="hints wave-help">
           <span>Click: seek or pick a cut</span><span>Drag an edge: adjust</span><span>Drag empty space: new cut</span><span>Double-click a cut: on/off</span>
-          <span><kbd className="kbd">space</kbd> play</span><span><kbd className="kbd">x</kbd> on/off</span><span><kbd className="kbd">del</kbd> delete</span>
-          <span><kbd className="kbd">j</kbd><kbd className="kbd">k</kbd> previous / next cut</span><span><kbd className="kbd">a</kbd> hear the result</span><span><kbd className="kbd">ctrl</kbd>+wheel zoom</span>
+          <span><Kbd>space</Kbd> play</span><span><Kbd>x</Kbd> on/off</span><span><Kbd>del</Kbd> delete</span>
+          <span><Kbd>j</Kbd><Kbd>k</Kbd> previous / next cut</span><span><Kbd>a</Kbd> hear the result</span><span><Kbd>ctrl</Kbd>+wheel zoom</span>
         </div></details>
         <audio ref={audio} src={media} preload="auto" hidden
           onPlay={() => setPlaying(true)} onPause={() => { setPlaying(false); wave.current?.draw() }} onEnded={() => setPlaying(false)}
           onSeeked={() => { if (timeEl.current && audio.current) timeEl.current.textContent = fmt(audio.current.currentTime) }} />
-      </section>
+      </Panel>
 
       {job && <JobBar job={job} onClose={closeJob} />}
       {reader && <Reader title={data.title} sentences={scriptSentences} onClose={() => setReader(false)} />}
@@ -797,7 +793,7 @@ function CutList({ cuts, sel, show, onSelect, onChange, onAudition, onDelete }: 
         const text = c.reason.includes(':') ? c.reason.slice(c.reason.indexOf(':') + 1).trim() : c.type === 'pause' ? 'no recognized speech' : ''
         return (
           <li key={c.id} className={(c.on ? '' : 'off ') + (c.id === sel ? 'sel' : '')} onClick={(e) => { if (!(e.target as HTMLElement).closest('input,button')) onSelect(c) }}>
-            <input type="checkbox" className="check" checked={c.on} onChange={(e) => set(c, { on: e.target.checked })} aria-label={`Apply the ${TYPE_NAME[c.type].toLowerCase()} cut at ${fmt(c.start)}`} />
+            <Checkbox type="checkbox" checked={c.on} onChange={(e) => set(c, { on: e.target.checked })} aria-label={`Apply the ${TYPE_NAME[c.type].toLowerCase()} cut at ${fmt(c.start)}`} />
             <div className="cut-body">
               <div className="cut-head">
                 <i className={'swatch cut-' + c.type} aria-hidden="true" /><b>{TYPE_NAME[c.type]}</b>
@@ -806,17 +802,17 @@ function CutList({ cuts, sel, show, onSelect, onChange, onAudition, onDelete }: 
               {text && <div className="cut-said" lang="ja">{text}</div>}
               {c.id === sel && (
                 <div className="cut-edit">
-                  <label className="meta">start <input className="input num" type="number" step="0.01" min="0" defaultValue={c.start.toFixed(3)} key={'s' + c.start}
+                  <label className="meta">start <Input className="num" type="number" step="0.01" min="0" defaultValue={c.start.toFixed(3)} key={'s' + c.start}
                     onChange={(e) => { const v = parseFloat(e.target.value); if (isFinite(v) && v < c.end) set(c, { start: v }) }} /></label>
-                  <label className="meta">end <input className="input num" type="number" step="0.01" min="0" defaultValue={c.end.toFixed(3)} key={'e' + c.end}
+                  <label className="meta">end <Input className="num" type="number" step="0.01" min="0" defaultValue={c.end.toFixed(3)} key={'e' + c.end}
                     onChange={(e) => { const v = parseFloat(e.target.value); if (isFinite(v) && v > c.start) set(c, { end: v }) }} /></label>
-                  <button className="btn small ghost" onClick={() => onDelete(c)}><X aria-hidden="true" />Delete</button>
+                  <Button variant="ghost" size="small" onClick={() => onDelete(c)}><X aria-hidden="true" />Delete</Button>
                 </div>
               )}
             </div>
             <div className="cut-acts">
-              <button className="btn small" onClick={() => { onSelect(c); onAudition(c, false) }} title="Hear the result around this cut (a)"><Play aria-hidden="true" />Result</button>
-              <button className="btn small ghost" onClick={() => { onSelect(c); onAudition(c, true) }} title="Hear only what gets cut"><Scissors aria-hidden="true" />Cut</button>
+              <Button size="small" onClick={() => { onSelect(c); onAudition(c, false) }} title="Hear the result around this cut (a)"><Play aria-hidden="true" />Result</Button>
+              <Button variant="ghost" size="small" onClick={() => { onSelect(c); onAudition(c, true) }} title="Hear only what gets cut"><Scissors aria-hidden="true" />Cut</Button>
             </div>
           </li>
         )
@@ -878,13 +874,13 @@ function ScriptPane({ data, cuts, audioTime, playing, onSaved, onSeek, onRead, o
     return (
       <div className="cut-scroll script-edit">
         {!sentences.length && <p className="meta">Paste or import the text you read for this recording. Analysing then cuts anything that isn't in it and keeps only the last complete take of each sentence. One sentence per line, or separated by 。</p>}
-        <textarea className="textarea" aria-label="Script text" lang="ja" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={'今日は学校に行きました。\n昨日は雨でした。'} spellCheck={false} rows={10} />
-        <div className="btn-row">
-          <button className="btn primary small" disabled={action.busy} aria-busy={action.busy} onClick={() => save(draft)}>Save script</button>
-          {sentences.length > 0 && <button className="btn small ghost" onClick={() => { setDraft(data.script); setEditing(false) }}>Cancel</button>}
-          <button className="btn small" onClick={() => file.current?.click()}><Upload aria-hidden="true" />Import .txt</button>
+        <Textarea aria-label="Script text" lang="ja" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={'今日は学校に行きました。\n昨日は雨でした。'} spellCheck={false} rows={10} />
+        <ButtonRow>
+          <Button variant="primary" size="small" disabled={action.busy} aria-busy={action.busy} onClick={() => save(draft)}>Save script</Button>
+          {sentences.length > 0 && <Button variant="ghost" size="small" onClick={() => { setDraft(data.script); setEditing(false) }}>Cancel</Button>}
+          <Button size="small" onClick={() => file.current?.click()}><Upload aria-hidden="true" />Import .txt</Button>
           <span className="grow" /><span className="meta num">{n ? `${n} sentence${n > 1 ? 's' : ''}` : ''}</span>
-        </div>
+        </ButtonRow>
         {action.error != null && <ErrorNotice error={action.error} />}
         {picker}
       </div>
@@ -895,15 +891,15 @@ function ScriptPane({ data, cuts, audioTime, playing, onSaved, onSeek, onRead, o
   for (const x of st) counts[x] = (counts[x] ?? 0) + 1
   return (
     <div className="cut-scroll">
-      {stale && <div className="notice script-notice">Script changed since the last analysis.<span className="grow" /><button className="btn small primary" onClick={() => { setStale(false); onAnalyze() }}>Analyse again</button></div>}
-      {!report && !stale && data.transcribed && data.settings.no_script && <div className="notice script-notice">Using the script is turned off in the settings.</div>}
+      {stale && <Notice className="script-notice">Script changed since the last analysis.<span className="grow" /><Button variant="primary" size="small" onClick={() => { setStale(false); onAnalyze() }}>Analyse again</Button></Notice>}
+      {!report && !stale && data.transcribed && data.settings.no_script && <Notice className="script-notice">Using the script is turned off in the settings.</Notice>}
       <div className="script-bar">
         {aligned && <span className="meta">{counts.ok ?? 0} read{counts.partial ? ` · ${counts.partial} partly` : ''}{counts.missing ? ` · ${counts.missing} missing` : ''}{counts.cut ? ` · ${counts.cut} cut by your edits` : ''}</span>}
         <span className="grow" />
-        <button className="btn small" onClick={onRead} title="Full-screen reading view, for recording"><BookOpen aria-hidden="true" />Read</button>
-        <button className="btn small ghost" onClick={() => { setDraft(data.script); setEditing(true) }}>Edit</button>
-        <button className="btn small ghost" onClick={() => file.current?.click()}><Upload aria-hidden="true" />Import</button>
-        <button className="btn small ghost" onClick={() => { if (window.confirm('Remove the script for this recording?')) { setDraft(''); save('') } }}>Remove</button>
+        <Button size="small" onClick={onRead} title="Full-screen reading view, for recording"><BookOpen aria-hidden="true" />Read</Button>
+        <Button variant="ghost" size="small" onClick={() => { setDraft(data.script); setEditing(true) }}>Edit</Button>
+        <Button variant="ghost" size="small" onClick={() => file.current?.click()}><Upload aria-hidden="true" />Import</Button>
+        <Button variant="ghost" size="small" onClick={() => { if (window.confirm('Remove the script for this recording?')) { setDraft(''); save('') } }}>Remove</Button>
       </div>
       <ol className="script-rows" lang="ja">
         {sentences.map((text, i) => {
@@ -951,9 +947,9 @@ function Reader({ title, sentences, onClose }: { title: string; sentences: strin
       }}>
       <div className="reader-bar">
         <b>{title}</b><span className="grow" />
-        <button className="btn small" onClick={() => setSize(Math.max(16, size - 4))} aria-label="Smaller text">A−</button>
-        <button className="btn small" onClick={() => setSize(Math.min(72, size + 4))} aria-label="Bigger text">A+</button>
-        <button ref={close} className="btn small primary" onClick={onClose}>Close <kbd className="kbd">esc</kbd></button>
+        <Button size="small" onClick={() => setSize(Math.max(16, size - 4))} aria-label="Smaller text">A−</Button>
+        <Button size="small" onClick={() => setSize(Math.min(72, size + 4))} aria-label="Bigger text">A+</Button>
+        <Button ref={close} variant="primary" size="small" onClick={onClose}>Close <Kbd>esc</Kbd></Button>
       </div>
       <ol className="reader-text" lang="ja" style={{ fontSize: size }}>
         {sentences.map((t, i) => <li key={i}>{t}</li>)}
@@ -989,8 +985,8 @@ function MakeSentences({ data, cuts, fromScript, onDone }: { data: Cleanup; cuts
   }
   return (
     <span className="btn-row">
-      <button className="btn small" disabled={busy} onClick={go} title="Use these as the recording's practice sentences, timed to the audio"><ListPlus aria-hidden="true" />Use as sentences</button>
-      <Link className="btn small primary" to={`/practice?source=${data.source}`}><Play aria-hidden="true" />Practise</Link>
+      <Button size="small" disabled={busy} onClick={go} title="Use these as the recording's practice sentences, timed to the audio"><ListPlus aria-hidden="true" />Use as sentences</Button>
+      <ButtonLink variant="primary" size="small" to={`/practice?source=${data.source}`}><Play aria-hidden="true" />Practise</ButtonLink>
     </span>
   )
 }
@@ -1016,30 +1012,30 @@ function SettingsSheet({ data, busy, onAnalyze }: { data: Cleanup; busy: boolean
     script_match: +f.script_match, model: f.model.trim() || undefined, device: f.device || undefined, compute_type: f.compute_type || undefined,
   }, f.retranscribe)
   const num = (k: 'cue_back' | 'repeat_threshold' | 'utt_gap' | 'max_pause' | 'pad' | 'lead' | 'script_match', label: string, step: number, max?: number) => (
-    <label className="field"><span>{label}</span>
-      <input className="input num" type="number" min={0} max={max} step={step} value={f[k]} onChange={(e) => set(k, e.target.value)} />
-    </label>
+    <Field><span>{label}</span>
+      <Input className="num" type="number" min={0} max={max} step={step} value={f[k]} onChange={(e) => set(k, e.target.value)} />
+    </Field>
   )
   return (
-    <section className="sheet cut-settings" aria-label="Analysis settings">
+    <Sheet className="cut-settings" aria-label="Analysis settings">
       <div className="cut-settings-grid">
         <fieldset>
           <legend>Retakes and fillers</legend>
-          <label className="field"><span>Retake cue words</span><input className="input" lang="ja" value={f.cues} onChange={(e) => set('cues', e.target.value)} placeholder="comma separated" /></label>
+          <Field><span>Retake cue words</span><Input lang="ja" value={f.cues} onChange={(e) => set('cues', e.target.value)} placeholder="comma separated" /></Field>
           {num('cue_back', 'Utterances cut before a cue said after a pause', 1)}
-          <label className="opt"><input type="checkbox" className="check" checked={!f.no_fillers} onChange={(e) => set('no_fillers', !e.target.checked)} />Cut fillers (えーと, あのー…)</label>
-          <label className="field"><span>Extra filler patterns</span><input className="input" lang="ja" value={f.fillers} onChange={(e) => set('fillers', e.target.value)} placeholder="comma separated regexes, e.g. なんか" /></label>
+          <label className="opt"><Checkbox type="checkbox" checked={!f.no_fillers} onChange={(e) => set('no_fillers', !e.target.checked)} />Cut fillers (えーと, あのー…)</label>
+          <Field><span>Extra filler patterns</span><Input lang="ja" value={f.fillers} onChange={(e) => set('fillers', e.target.value)} placeholder="comma separated regexes, e.g. なんか" /></Field>
         </fieldset>
         <fieldset>
           <legend>Script and repeats</legend>
-          <label className="opt"><input type="checkbox" className="check" checked={!f.no_script} onChange={(e) => set('no_script', !e.target.checked)} />Let the script guide the cuts</label>
+          <label className="opt"><Checkbox type="checkbox" checked={!f.no_script} onChange={(e) => set('no_script', !e.target.checked)} />Let the script guide the cuts</label>
           {num('script_match', 'Share of an utterance that must be in the script', 0.05, 1)}
-          <label className="opt"><input type="checkbox" className="check" checked={!f.no_repeats} onChange={(e) => set('no_repeats', !e.target.checked)} />Cut repeats and false starts (without a script)</label>
+          <label className="opt"><Checkbox type="checkbox" checked={!f.no_repeats} onChange={(e) => set('no_repeats', !e.target.checked)} />Cut repeats and false starts (without a script)</label>
           {num('repeat_threshold', 'Repeat similarity', 0.05, 1)}
         </fieldset>
         <fieldset>
           <legend>Timing (seconds)</legend>
-          <label className="opt"><input type="checkbox" className="check" checked={!f.no_pauses} onChange={(e) => set('no_pauses', !e.target.checked)} />Automatically trim gaps without speech</label>
+          <label className="opt"><Checkbox type="checkbox" checked={!f.no_pauses} onChange={(e) => set('no_pauses', !e.target.checked)} />Automatically trim gaps without speech</label>
           <p className="meta">Turn this off to preserve music, ambience and pauses when analyzing again. Other speech cuts still apply.</p>
           {num('utt_gap', 'Pause between two utterances', 0.05)}
           {num('max_pause', 'Longest pause kept', 0.05)}
@@ -1048,30 +1044,30 @@ function SettingsSheet({ data, busy, onAnalyze }: { data: Cleanup; busy: boolean
         </fieldset>
         <fieldset>
           <legend>Whisper</legend>
-          <label className="field"><span>Model</span>
-            <input className="input" list="whisper-models" value={f.model} onChange={(e) => set('model', e.target.value)} placeholder={`automatic: ${d.model}`} />
+          <Field><span>Model</span>
+            <Input list="whisper-models" value={f.model} onChange={(e) => set('model', e.target.value)} placeholder={`automatic: ${d.model}`} />
             <datalist id="whisper-models"><option value="large-v3" /><option value="large-v3-turbo" /><option value="kotoba-tech/kotoba-whisper-v2.0-faster" /><option value="medium" /><option value="small" /></datalist>
-          </label>
-          <label className="field"><span>Device</span>
-            <select className="select input" value={f.device} onChange={(e) => set('device', e.target.value)}>
+          </Field>
+          <Field><span>Device</span>
+            <Select className="input" value={f.device} onChange={(e) => set('device', e.target.value)}>
               <option value="">automatic ({d.device})</option><option value="cuda">GPU (cuda)</option><option value="cpu">CPU</option>
-            </select>
-          </label>
-          <label className="field"><span>Precision</span>
-            <select className="select input" value={f.compute_type} onChange={(e) => set('compute_type', e.target.value)}>
+            </Select>
+          </Field>
+          <Field><span>Precision</span>
+            <Select className="input" value={f.compute_type} onChange={(e) => set('compute_type', e.target.value)}>
               <option value="">automatic ({d.compute_type})</option><option>float16</option><option>int8_float16</option><option>int8</option><option>float32</option>
-            </select>
-          </label>
-          <label className="opt"><input type="checkbox" className="check" checked={f.retranscribe} onChange={(e) => set('retranscribe', e.target.checked)} />Transcribe again</label>
+            </Select>
+          </Field>
+          <label className="opt"><Checkbox type="checkbox" checked={f.retranscribe} onChange={(e) => set('retranscribe', e.target.checked)} />Transcribe again</label>
         </fieldset>
       </div>
-      <div className="btn-row">
-        <button className="btn primary" disabled={busy} onClick={submit}><Scissors aria-hidden="true" />{data.transcribed && !f.retranscribe ? 'Analyse with these settings' : 'Transcribe & analyse'}</button>
-        <button className="btn ghost" onClick={() => setF({ ...init(), ...Object.fromEntries(Object.entries(d).filter(([k]) => k in f).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : typeof v === 'boolean' ? v : String(v)])), fillers: '', model: '', device: '', compute_type: '' })}>
+      <ButtonRow>
+        <Button variant="primary" disabled={busy} onClick={submit}><Scissors aria-hidden="true" />{data.transcribed && !f.retranscribe ? 'Analyse with these settings' : 'Transcribe & analyse'}</Button>
+        <Button variant="ghost" onClick={() => setF({ ...init(), ...Object.fromEntries(Object.entries(d).filter(([k]) => k in f).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : typeof v === 'boolean' ? v : String(v)])), fillers: '', model: '', device: '', compute_type: '' })}>
           <RotateCcw aria-hidden="true" />Defaults
-        </button>
-      </div>
-    </section>
+        </Button>
+      </ButtonRow>
+    </Sheet>
   )
 }
 
@@ -1091,8 +1087,8 @@ function JobBar({ job, onClose }: { job: Job; onClose: () => void }) {
         <b>{job.state === 'error' ? `${what} failed` : job.state === 'done' ? 'Done' : job.state === 'queued' ? `${what}: waiting for the current job` : what}</b>
         <span className="meta num">{running && job.progress != null ? `${Math.round(job.progress * 100)}%` : ''}</span>
         <span className="grow" />
-        <button className="btn small ghost" onClick={() => setOpen((o) => !o)} aria-expanded={open}>{open ? 'Hide log' : 'Log'}</button>
-        {!running && <button className="btn small ghost icon" onClick={onClose} aria-label="Close"><X aria-hidden="true" /></button>}
+        <Button variant="ghost" size="small" onClick={() => setOpen((o) => !o)} aria-expanded={open}>{open ? 'Hide log' : 'Log'}</Button>
+        {!running && <Button variant="ghost" size="small" icon onClick={onClose} aria-label="Close"><X aria-hidden="true" /></Button>}
       </div>
       <div className={'job-progress' + (running && job.progress == null ? ' indet' : '')}><i style={{ transform: `scaleX(${running ? job.progress ?? 0.3 : 1})` }} /></div>
       {job.error && <p className="job-error">{job.error}</p>}

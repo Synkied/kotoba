@@ -1,8 +1,10 @@
-import { Clock, LoaderCircle, Rows3 } from 'lucide-react'
+import { Clock, LoaderCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type TranscriptionQueue } from '../lib/api'
-import { ErrorNotice } from '../components/ui'
+import { ErrorNotice, PageHome } from '../components/ui'
+import { SourcesTabs } from '../components/SourcesTabs'
+import { Button, ButtonLink, ButtonRow, EmptyState, Notice } from '../components/ds'
 
 export default function TranscriptionsPage() {
   const [data, setData] = useState<TranscriptionQueue | null>(null)
@@ -31,24 +33,24 @@ export default function TranscriptionsPage() {
 
   return <>
     <header className="page-head">
-      <h1>Transcriptions</h1>
+      <h1><PageHome to="/sources/queue">Transcription queue</PageHome></h1>
       <span className="grow" />
-      <Link className="btn" to="/transcriptions/all"><Rows3 aria-hidden="true" />All sentences</Link>
-      <Link className="btn" to="/collect">Add audio or video</Link>
+      <ButtonLink to="/collect">Add audio or video</ButtonLink>
     </header>
+    <SourcesTabs />
     <p className="meta">Audio and video become timed sentences here. This page updates automatically.</p>
-    {error != null && <ErrorNotice error={error} action={<button className="btn small" onClick={() => setRetry((n) => n + 1)}>Try again</button>} />}
+    {error != null && <ErrorNotice error={error} action={<Button size="small" onClick={() => setRetry((n) => n + 1)}>Try again</Button>} />}
     {!data && error == null && <p className="transcription-loading" role="status"><LoaderCircle className="loading-spinner" aria-hidden="true" />Loading transcriptions…</p>}
     {data && <>
-      {!data.can_transcribe && data.items.length > 0 && <p className="notice">Transcription needs Whisper and ffmpeg. <Link to="/addons">Check transcription setup</Link>.</p>}
+      {!data.can_transcribe && data.items.length > 0 && <Notice as="p">Transcription needs Whisper and ffmpeg. <Link to="/addons">Check transcription setup</Link>.</Notice>}
       <p className="sr" role="status">{ongoing.length} ongoing, {waiting.length} waiting.</p>
       <QueueSection title="Ongoing" items={ongoing} />
       <QueueSection title="Waiting" items={waiting} />
-      {data.items.length === 0 && <div className="empty">
+      {data.items.length === 0 && <EmptyState>
         <h2>No transcriptions in the queue</h2>
         <p>Completed transcripts are available in Sources and Library, and every sentence is in one list.</p>
-        <div className="btn-row"><Link className="btn" to="/transcriptions/all">See all sentences</Link><Link className="btn" to="/sources">Browse sources</Link></div>
-      </div>}
+        <ButtonRow><ButtonLink to="/sources/sentences">See all sentences</ButtonLink><ButtonLink to="/sources">Browse sources</ButtonLink></ButtonRow>
+      </EmptyState>}
     </>}
   </>
 }
@@ -67,7 +69,7 @@ function QueueSection({ title, items }: { title: string; items: TranscriptionQue
             <span className="meta">{running ? 'Transcribing…' : `Waiting · ${index + 1} in queue`}{running && progress != null && ` · ${progress}%`}</span>
             {running && progress != null && <progress value={progress} max={100} aria-label={`Transcription progress for ${item.title}`} />}
           </div>
-          <Link className="btn small" to={`/sources/${item.source}`}>Open source</Link>
+          <ButtonLink size="small" to={`/sources/${item.source}`}>Open source</ButtonLink>
         </li>
       })}</ul>}
   </section>

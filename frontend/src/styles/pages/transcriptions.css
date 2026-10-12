@@ -1,0 +1,13 @@
+/* Transcriptions page. */
+.transcription-loading { display: flex; align-items: center; gap: var(--s-2); padding-block: var(--s-5); }
+.transcription-section { margin-top: var(--s-5); }
+.transcription-section h2 { margin-bottom: var(--s-2); }
+.transcription-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--s-4); align-items: center; padding-block: var(--s-4); border-bottom: 1px solid var(--rule); }
+.transcription-row > svg { width: 22px; height: 22px; }
+.transcription-main { display: grid; gap: var(--s-1); min-width: 0; }
+.transcription-main > a { font-weight: 700; overflow-wrap: anywhere; }
+.transcription-main progress { width: 100%; max-width: 28rem; height: 6px; accent-color: var(--ink); }
+@media (max-width: 760px) {
+  .transcription-row { gap: var(--s-2); }
+  .transcription-row > .btn { grid-column: 2; justify-self: start; }
+}

@@ -1,4 +1,4 @@
-import { ChevronLeft, Play, X } from 'lucide-react'
+import { Play, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api, type Sentence } from '../lib/api'
@@ -7,7 +7,9 @@ import { Furigana } from '../components/Furigana'
 import { SentenceText } from '../components/SentenceText'
 import { fmtTime } from '../components/SourcePanel'
 import { Stamps } from '../components/Stamp'
-import { ErrorNotice, SearchBox, Skeleton, useAsync, usePref } from '../components/ui'
+import { ErrorNotice, SearchBox, Skeleton, useAsync, usePref, PageHome } from '../components/ui'
+import { Button, ButtonLink, Checkbox, ChipButton, EmptyState, Select } from '../components/ds'
+import { SourcesTabs } from '../components/SourcesTabs'
 
 const KINDS = [
   { id: '', name: 'All' }, { id: 'audio,video', name: 'Transcribed' }, { id: 'capture', name: 'Captures' },
@@ -49,7 +51,7 @@ export default function SentencesPage() {
     <div className="group">
       <span className="meta">{title}</span>
       <div className="chips">
-        {options.map((o) => <button key={o.id} className="chip" aria-pressed={f[name] === o.id} onClick={() => set(name, o.id)}>{o.name}</button>)}
+        {options.map((o) => <ChipButton key={o.id} aria-pressed={f[name] === o.id} onClick={() => set(name, o.id)}>{o.name}</ChipButton>)}
       </div>
     </div>
   )
@@ -57,11 +59,11 @@ export default function SentencesPage() {
   return (
     <>
       <header className="page-head">
-        <Link className="btn icon ghost" to="/transcriptions" aria-label="Transcription queue"><ChevronLeft aria-hidden="true" /></Link>
-        <h1>All sentences <span className="meta num">{data ? plural(data.count, 'sentence') : ''}</span></h1>
+        <h1><PageHome to="/sources/sentences">All sentences</PageHome> <span className="meta num">{data ? plural(data.count, 'sentence') : ''}</span></h1>
         <span className="grow" />
         <div className="search"><SearchBox value={f.q} onChange={(v) => set('q', v)} placeholder="Look up a sentence or reading" /></div>
       </header>
+      <SourcesTabs />
 
       <div className="filters" role="group" aria-label="Filters">
         {chips('Kind', 'kind', KINDS)}
@@ -70,46 +72,46 @@ export default function SentencesPage() {
         {labels.length > 0 && (
           <div className="group">
             <span className="meta">Label</span>
-            <select className="select chip-select" aria-label="Label" value={f.label} onChange={(e) => set('label', e.target.value)}>
+            <Select className="chip-select" aria-label="Label" value={f.label} onChange={(e) => set('label', e.target.value)}>
               <option value="">Any label</option>
               {labels.map((l) => <option key={l.name} value={l.name}>{l.name} ({l.count})</option>)}
               {f.label && !labels.some((l) => l.name === f.label) && <option value={f.label}>{f.label}</option>}
-            </select>
+            </Select>
             {categories.length > 0 && <>
               <span className="meta">Category</span>
-              <select className="select chip-select" aria-label="Category" value={f.category} onChange={(e) => set('category', e.target.value)}>
+              <Select className="chip-select" aria-label="Category" value={f.category} onChange={(e) => set('category', e.target.value)}>
                 <option value="">Any category</option>
                 {categories.map((c) => <option key={c.name} value={c.name}>{c.name} ({c.count})</option>)}
                 {f.category && !categories.some((c) => c.name === f.category) && <option value={f.category}>{f.category}</option>}
-              </select>
+              </Select>
             </>}
           </div>
         )}
-        {filtered && <div className="group"><span className="grow" /><button className="btn small ghost" onClick={() => setParams({}, { replace: true })}><X aria-hidden="true" />Clear filters</button></div>}
+        {filtered && <div className="group"><span className="grow" /><Button variant="ghost" size="small" onClick={() => setParams({}, { replace: true })}><X aria-hidden="true" />Clear filters</Button></div>}
       </div>
 
       {selected.size > 0 && (
         <div className="toolbar active selection-dock" role="toolbar" aria-label="Selection">
           <span className="num" style={{ fontWeight: 700 }}>{plural(ids.length, 'sentence')}</span>
           <DeckPicker small sentenceIds={() => ids} onDone={() => setSelected(new Set())} />
-          <button className="btn small" style={{ background: 'var(--on-ink)', color: 'var(--ink)' }}
-            onClick={() => nav('/practice?ids=' + ids.join(','))}><Play aria-hidden="true" />Practise these</button>
+          <Button size="small" style={{ background: 'var(--on-ink)', color: 'var(--ink)' }}
+            onClick={() => nav('/practice?ids=' + ids.join(','))}><Play aria-hidden="true" />Practise these</Button>
           <span className="grow" />
-          <button className="btn small ghost" onClick={() => setSelected(new Set())}>Clear</button>
+          <Button variant="ghost" size="small" onClick={() => setSelected(new Set())}>Clear</Button>
         </div>
       )}
 
-      {error ? <ErrorNotice error={error} action={<button className="btn small" onClick={reload}>Try again</button>} /> :
+      {error ? <ErrorNotice error={error} action={<Button size="small" onClick={reload}>Try again</Button>} /> :
         loading && !data ? <Skeleton /> :
         !items.length ? (
-          <div className="empty">
+          <EmptyState>
             <h2>{filtered ? 'Nothing matches' : 'No sentences yet'}</h2>
             <p>{filtered ? 'Try fewer filters, or search by reading: “kyou” finds 今日.' : 'Sentences appear here once audio is transcribed or text is collected.'}</p>
-            {!filtered && <Link className="btn primary" to="/collect">Add audio or text</Link>}
-          </div>
+            {!filtered && <ButtonLink variant="primary" to="/collect">Add audio or text</ButtonLink>}
+          </EmptyState>
         ) : <>
           <label className="meta" style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)' }}>
-            <input type="checkbox" className="check" checked={allPicked}
+            <Checkbox type="checkbox" checked={allPicked}
               onChange={() => setSelected(allPicked ? new Set() : new Set(items.map((s) => s.id)))} />
             Select all {items.length < (data?.count ?? 0) ? `${items.length} shown` : ''}
           </label>
@@ -117,7 +119,7 @@ export default function SentencesPage() {
             {items.map((s) => <Row key={s.id} s={s} furigana={furigana} picked={selected.has(s.id)} onPick={() => pick(s.id)} />)}
           </ul>
         </>}
-      {data && items.length < data.count && <button className="btn" disabled={loading} onClick={() => setLimit((n) => n + 200)}>{loading ? 'Loading…' : 'Load more sentences'}</button>}
+      {data && items.length < data.count && <Button disabled={loading} onClick={() => setLimit((n) => n + 200)}>{loading ? 'Loading…' : 'Load more sentences'}</Button>}
     </>
   )
 }
@@ -125,7 +127,7 @@ export default function SentencesPage() {
 function Row({ s, furigana, picked, onPick }: { s: Sentence; furigana: boolean; picked: boolean; onPick: () => void }) {
   return (
     <li className="row row-select">
-      <input type="checkbox" className="check" checked={picked} onChange={onPick} aria-label={`Select “${s.text}”`} />
+      <Checkbox type="checkbox" checked={picked} onChange={onPick} aria-label={`Select “${s.text}”`} />
       <div style={{ display: 'grid', gap: 4, minWidth: 0 }}>
         <SentenceText><Furigana text={s.text} pairs={s.furigana} show={furigana} /></SentenceText>
         <span className="meta"><Link to={`/sources/${s.source}`}>{s.source_title || 'Untitled'}</Link>
@@ -133,8 +135,8 @@ function Row({ s, furigana, picked, onPick }: { s: Sentence; furigana: boolean; 
           {s.decks.length > 0 && <> · {s.decks.map((d) => d.name).join(', ')}</>}</span>
       </div>
       <div className="acts">
-        <Link className="btn small ghost" to={`/sentences/${s.id}`}>Details</Link>
-        <Link className="btn small ghost" to={`/practice?ids=${s.id}`}><Play aria-hidden="true" />Practise</Link>
+        <ButtonLink variant="ghost" size="small" to={`/sentences/${s.id}`}>Details</ButtonLink>
+        <ButtonLink variant="ghost" size="small" to={`/practice?ids=${s.id}`}><Play aria-hidden="true" />Practise</ButtonLink>
         <span className="record"><Stamps stamps={s.stamps} max={3} /></span>
       </div>
     </li>
