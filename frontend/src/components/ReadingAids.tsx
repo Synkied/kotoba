@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Languages, RefreshCw } from 'lucide-react'
 import { api, ApiError, type Language, type Sentence } from '../lib/api'
 import { usePref } from './ui'
+import { Button, ChipButton, Kbd } from './ds'
 
 /** Furigana, romaji and a translation: what helps you read a sentence. One row of
  *  pressed chips, always right under the text. */
@@ -17,7 +18,7 @@ export type Aids = ReturnType<typeof useAids>
 export function ReadingAids({ aids, roman = true, keys = false }: { aids: Aids; roman?: boolean; keys?: boolean }) {
   const lang = useLanguage()
   const chip = (on: boolean, set: (v: boolean) => void, label: React.ReactNode, key: string, title: string) =>
-    <button type="button" className="chip" aria-pressed={on} onClick={() => set(!on)} title={keys ? `${title} (${key})` : title}>{label}</button>
+    <ChipButton type="button" aria-pressed={on} onClick={() => set(!on)} title={keys ? `${title} (${key})` : title}>{label}</ChipButton>
   return (
     <div className="aids" role="group" aria-label="Reading aids">
       {chip(aids.furigana, aids.setFurigana, <span lang="ja">ふりがな</span>, 'F', 'Furigana over the kanji')}
@@ -146,7 +147,7 @@ export function TranslateAll({ sentences }: { sentences: Sentence[] }) {
       : `${them} will be translated on this computer or your network by ${who}, one after another. That keeps the processor or graphics card busy and can take a while.`
     if (window.confirm(`Translate ${n} ${n === 1 ? 'sentence' : 'sentences'} into ${lang.name}?\n\n${cost}`)) want(missing.map((x) => x.id))
   }
-  return <button type="button" className="btn small ghost" onClick={ask} title={lang.cloud ? 'Uses API credits' : 'Runs on this computer'}><Languages aria-hidden="true" />Translate all <span className="num">({n})</span></button>
+  return <Button type="button" variant="ghost" size="small" onClick={ask} title={lang.cloud ? 'Uses API credits' : 'Runs on this computer'}><Languages aria-hidden="true" />Translate all <span className="num">({n})</span></Button>
 }
 
 /** In practice the meaning stays folded inside the sentence's balloon until you ask: a hint, not a crib. */
@@ -155,7 +156,7 @@ export function MeaningHint({ s, open, onOpen, onTranslated }: { s: Sentence; op
   if (open) return <p className="meaning open"><Translation s={s} onTranslated={onTranslated} auto /></p>
   return (
     <button type="button" className="meaning tone" lang="en" aria-expanded={false} onClick={onOpen}>
-      <span>Show the {lang?.name ?? 'translation'} <kbd className="kbd">T</kbd></span>
+      <span>Show the {lang?.name ?? 'translation'} <Kbd>T</Kbd></span>
     </button>
   )
 }

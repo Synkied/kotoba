@@ -1,0 +1,40 @@
+/* Feedback: empty states, skeletons, notices, toasts. */
+.empty {
+  display: grid; justify-items: start; gap: var(--s-3); max-width: 34rem; padding: var(--s-7) 0;
+}
+.empty h2 { font-size: var(--t-l); }
+.empty p { color: var(--ink-2); }
+.empty code, .code {
+  display: block; width: 100%; padding: var(--s-3) var(--s-4); background: var(--ink); color: var(--on-ink);
+  font: 400 var(--t-s)/1.6 var(--mono); white-space: pre-wrap; word-break: break-all; border-radius: 2px;
+}
+.skeleton { display: grid; gap: var(--s-4); }
+.skeleton i {
+  display: block; height: 72px; background: color-mix(in srgb, var(--stock) 82%, var(--ink));
+  animation: pulse 1.2s var(--ease) infinite alternate;
+}
+@keyframes pulse { to { opacity: .45; } }
+.notice {
+  display: flex; gap: var(--s-3); align-items: flex-start; padding: var(--s-3) var(--s-4);
+  border: var(--frame-thin) solid var(--ink); background: var(--paper); font-size: var(--t-s);
+}
+.notice svg { width: 18px; height: 18px; flex: none; margin-top: 1px; }
+.notice.error { border-color: var(--red); color: var(--red-ink); }
+.notice b { color: var(--ink); }
+.toast {
+  max-width: calc(100vw - 2 * var(--s-4)); overflow-wrap: anywhere;
+  position: fixed; left: 50%; bottom: var(--s-5); translate: -50% 0; z-index: 60;
+  display: flex; align-items: center; gap: var(--s-4); padding: var(--s-2) var(--s-2) var(--s-2) var(--s-4);
+  background: var(--ink); color: var(--on-ink); font-size: var(--t-s); font-weight: 700; box-shadow: var(--lift);
+  animation: toast-in var(--t-state) var(--ease);
+}
+.toast .btn { border-color: var(--on-ink); background: transparent; color: var(--on-ink); }
+@keyframes toast-in { from { opacity: 0; translate: -50% 8px; } }
+@media (max-width: 760px) {
+  .toast { bottom: calc(84px + env(safe-area-inset-bottom)); }
+  .toast { width: max-content; }
+}
+.toast-error { display: block; font-weight: 400; margin-top: var(--s-1); }
+.save-status { font-size: var(--t-s); color: var(--ink-2); margin-bottom: var(--s-3); }
+.toast > span { flex: 1; min-width: 0; }
+.toast > .btn { flex: none; }

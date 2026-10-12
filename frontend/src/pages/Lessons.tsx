@@ -5,6 +5,7 @@ import { api, type FileKind, type Lesson, type LessonFolder, type Material } fro
 import { fileSize, folderLabel, folderOptions, folderPath, fromDropped, fromPicked, lessonsIn, materialsIn, planImport, runImport, subfolders, tidyImport, within, type DiskFolder, type ImportMode } from '../lib/lessonTree'
 import { useStats } from '../App'
 import { ErrorNotice, SearchBox, Skeleton, dayLabel, useAction, useAsync, useToast } from '../components/ui'
+import { Button, ButtonRow, Checkbox, EmptyState, Field, Input, Select, Sheet } from '../components/ds'
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
 
@@ -135,13 +136,13 @@ export default function LessonsPage() {
           <button type="button" aria-pressed={archive} onClick={() => show('archive')}><Archive aria-hidden="true" />Archive</button>
         </div>
         {!archive && <>
-          <button className="btn" disabled={upload.busy} aria-busy={upload.busy} onClick={() => filePicker.current?.click()} title={`Keep files ${here ? `in “${here.name}”` : 'here'} as they are, without making a lesson`}>
-            <Upload aria-hidden="true" />{upload.busy ? 'Adding…' : 'Add files'}</button>
+          <Button disabled={upload.busy} aria-busy={upload.busy} onClick={() => filePicker.current?.click()} title={`Keep files ${here ? `in “${here.name}”` : 'here'} as they are, without making a lesson`}>
+            <Upload aria-hidden="true" />{upload.busy ? 'Adding…' : 'Add files'}</Button>
           <input ref={filePicker} type="file" multiple hidden accept="application/pdf,.pdf,audio/*,video/*,image/*,.txt,.md" onChange={e => { if (e.target.files?.length) addFiles([...e.target.files]); e.target.value = '' }} />
-          <button className="btn" onClick={() => picker.current?.click()} title="Bring in a folder from your computer, with its folders and files"><FolderInput aria-hidden="true" />Import folder</button>
+          <Button onClick={() => picker.current?.click()} title="Bring in a folder from your computer, with its folders and files"><FolderInput aria-hidden="true" />Import folder</Button>
           <input ref={picker} type="file" hidden {...{ webkitdirectory: '' }} onChange={e => { if (e.target.files?.length) take(fromPicked(e.target.files)); e.target.value = '' }} />
         </>}
-        {!creating && <button className="btn primary" onClick={() => setCreating({ files: [], materials: [] })}><Plus aria-hidden="true" />New lesson</button>}
+        {!creating && <Button variant="primary" onClick={() => setCreating({ files: [], materials: [] })}><Plus aria-hidden="true" />New lesson</Button>}
       </header>
 
       {incoming && <ImportSheet {...incoming} into={archive ? null : open} folders={folders}
@@ -152,15 +153,15 @@ export default function LessonsPage() {
       {(actions.error ?? upload.error) != null && <ErrorNotice error={actions.error ?? upload.error} />}
       {archive && <div className="lessons-search"><SearchBox value={q} onChange={setQ} placeholder="Search done lessons by title, notes, folder or file" /></div>}
 
-      {error ? <ErrorNotice error={error} action={<button className="btn small" onClick={reload}>Try again</button>} /> :
-        tree.error ?? files.error ? <ErrorNotice error={tree.error ?? files.error} action={<button className="btn small" onClick={reloadAll}>Try again</button>} /> :
+      {error ? <ErrorNotice error={error} action={<Button size="small" onClick={reload}>Try again</Button>} /> :
+        tree.error ?? files.error ? <ErrorNotice error={tree.error ?? files.error} action={<Button size="small" onClick={reloadAll}>Try again</Button>} /> :
         (loading && !data) || !tree.data || !files.data ? <Skeleton /> :
         archive ? (
           !lessons.length ? (
-            <div className="empty">
+            <EmptyState>
               <h2>{q ? 'Nothing matches' : 'The archive is empty'}</h2>
               <p>{q ? 'Try another word from the title, the notes, the folder or a file name.' : 'When you finish a lesson, choose “Done”. It leaves your current lessons and waits here, with its files and notes, for whenever you want to look back.'}</p>
-            </div>
+            </EmptyState>
           ) : days.map(day => {
             const { date, rel } = dayLabel(day.items[0].done_at!)
             return (
@@ -171,16 +172,16 @@ export default function LessonsPage() {
             )
           })
         ) : empty ? (
-          !creating && <div className="empty">
+          !creating && <EmptyState>
             <h2>Your library is empty</h2>
             <p>Keep your material here the way you sort it: folders as deep as you like, holding files as they are (the textbook PDF, its tracks, scans) and lessons. A lesson is what you study in one sitting: pick the files that go in it, add notes and the sources you practise from it. Already have it all sorted on your computer? Import the folder, or drop it here.</p>
-            <div className="btn-row">
-              <button className="btn primary" onClick={() => picker.current?.click()}><FolderInput aria-hidden="true" />Import folder</button>
-              <button className="btn" onClick={() => filePicker.current?.click()}><Upload aria-hidden="true" />Add files</button>
-              <button className="btn" onClick={() => setCreating({ files: [], materials: [] })}><Plus aria-hidden="true" />New lesson</button>
-              {stats?.lessons === 0 && <button className="btn" onClick={() => show('archive')}><Archive aria-hidden="true" />Open the archive</button>}
-            </div>
-          </div>
+            <ButtonRow>
+              <Button variant="primary" onClick={() => picker.current?.click()}><FolderInput aria-hidden="true" />Import folder</Button>
+              <Button onClick={() => filePicker.current?.click()}><Upload aria-hidden="true" />Add files</Button>
+              <Button onClick={() => setCreating({ files: [], materials: [] })}><Plus aria-hidden="true" />New lesson</Button>
+              {stats?.lessons === 0 && <Button onClick={() => show('archive')}><Archive aria-hidden="true" />Open the archive</Button>}
+            </ButtonRow>
+          </EmptyState>
         ) : <Shelf lessons={lessons} folders={folders} materials={materials} open={open} actions={actions} onChanged={reloadAll}
               onMaterials={changed => files.set(prev => (prev ?? []).map(m => changed.find(c => c.id === m.id) ?? m))}
               onNewLesson={ids => setCreating({ files: [], materials: ids })}
@@ -336,14 +337,14 @@ function Shelf({ lessons, folders, materials, open, actions, onChanged, onMateri
     </nav>
     <div className="lesson-tools" role="toolbar" aria-label={here ? `Folder “${here.name}”` : 'Library'}>
       {here && <>
-        <button className="btn small ghost" aria-pressed={here.pinned} disabled={busy} onClick={() => pinFolder(here)}
-          title={here.pinned ? 'Shown at the top of the library' : 'Show it at the top of the library too'}><Pin aria-hidden="true" />{here.pinned ? 'Pinned' : 'Pin'}</button>
-        <button className="btn small ghost" disabled={busy} onClick={() => rename(here)}><Pencil aria-hidden="true" />Rename</button>
-        <button className="btn small ghost" disabled={busy} onClick={() => remove(here)}><Trash2 aria-hidden="true" />Delete folder</button>
+        <Button variant="ghost" size="small" aria-pressed={here.pinned} disabled={busy} onClick={() => pinFolder(here)}
+          title={here.pinned ? 'Shown at the top of the library' : 'Show it at the top of the library too'}><Pin aria-hidden="true" />{here.pinned ? 'Pinned' : 'Pin'}</Button>
+        <Button variant="ghost" size="small" disabled={busy} onClick={() => rename(here)}><Pencil aria-hidden="true" />Rename</Button>
+        <Button variant="ghost" size="small" disabled={busy} onClick={() => remove(here)}><Trash2 aria-hidden="true" />Delete folder</Button>
       </>}
-      <button className="btn small" disabled={busy} onClick={newFolder}><FolderPlus aria-hidden="true" />New folder</button>
+      <Button size="small" disabled={busy} onClick={newFolder}><FolderPlus aria-hidden="true" />New folder</Button>
       {(shelves.length + listed.length + kept.length > 1 || options.length > 0) &&
-        <button className="btn small" aria-pressed={arranging} onClick={() => setArranging(!arranging)} title="Move and reorder with buttons, instead of dragging">Arrange</button>}
+        <Button size="small" aria-pressed={arranging} onClick={() => setArranging(!arranging)} title="Move and reorder with buttons, instead of dragging">Arrange</Button>}
     </div>
     {edit.error != null && <ErrorNotice error={edit.error} />}
     <p className="meta lesson-drag-hint" role="status">{hint ?? (!arranging && shelves.length + listed.length + kept.length > 1
@@ -391,7 +392,7 @@ function Shelf({ lessons, folders, materials, open, actions, onChanged, onMateri
       <section className="day" aria-labelledby="files-head">
         <div className="day-head"><span className="date" id="files-head">Files</span><span className="meta num">{kept.length}</span>
           <span className="grow" />
-          <label className="meta material-all"><input type="checkbox" className="check" checked={selected.length === kept.length}
+          <label className="meta material-all"><Checkbox type="checkbox" checked={selected.length === kept.length}
             ref={el => { if (el) el.indeterminate = selected.length > 0 && selected.length < kept.length }}
             onChange={() => setPicked(selected.length === kept.length ? new Set() : new Set(kept.map(m => m.id)))} />Select all</label></div>
         <ul className="material-list">{kept.map((m, i) => (
@@ -406,30 +407,30 @@ function Shelf({ lessons, folders, materials, open, actions, onChanged, onMateri
     )}
 
     {!shelves.length && !listed.length && !kept.length && here && (
-      <div className="empty lesson-folder-empty">
+      <EmptyState className="lesson-folder-empty">
         <h2>“{here.name}” is empty</h2>
         <p>Add files to keep them here as they are, make a lesson, or drag a lesson, a file or a folder onto its name in the path above. A folder from your computer dropped here comes in with its folders.</p>
-      </div>
+      </EmptyState>
     )}
 
     {selected.length > 0 && (
       <div className="toolbar active selection-dock" role="toolbar" aria-label="Selected files">
         <span className="num" style={{ fontWeight: 700 }}>{selected.length === 1 ? '1 file' : `${selected.length} files`}</span>
-        <button className="btn small" style={{ background: 'var(--on-ink)', color: 'var(--ink)' }} disabled={busy} onClick={() => onNewLesson(selected.map(m => m.id))}>
-          <BookPlus aria-hidden="true" />Make a lesson</button>
-        {recordings.length > 0 && <button className="btn small ghost" disabled={busy} onClick={() => transcribe(recordings)}>
-          <AudioLines aria-hidden="true" />Transcribe{recordings.length > 1 ? ` ${recordings.length}` : ''}</button>}
+        <Button size="small" style={{ background: 'var(--on-ink)', color: 'var(--ink)' }} disabled={busy} onClick={() => onNewLesson(selected.map(m => m.id))}>
+          <BookPlus aria-hidden="true" />Make a lesson</Button>
+        {recordings.length > 0 && <Button variant="ghost" size="small" disabled={busy} onClick={() => transcribe(recordings)}>
+          <AudioLines aria-hidden="true" />Transcribe{recordings.length > 1 ? ` ${recordings.length}` : ''}</Button>}
         <label className="selection-move"><span className="sr">Move the selected files to</span>
-          <select className="select chip-select" disabled={busy} value="" onChange={e => e.target.value && moveFiles(selected.map(m => m.id), e.target.value === 'top' ? null : Number(e.target.value))}>
+          <Select className="chip-select" disabled={busy} value="" onChange={e => e.target.value && moveFiles(selected.map(m => m.id), e.target.value === 'top' ? null : Number(e.target.value))}>
             <option value="">Move to…</option>
             {open !== null && <option value="top">Top level</option>}
             {options.filter(o => o.id !== open).map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-          </select></label>
-        <button className="btn small ghost" disabled={busy} onClick={() => pinFiles(selected, true)}><Pin aria-hidden="true" />Pin</button>
-        {selected.length === 1 && <button className="btn small ghost" disabled={busy} onClick={() => renameFile(selected[0])}><Pencil aria-hidden="true" />Rename</button>}
-        <button className="btn small ghost" disabled={busy} onClick={() => deleteFiles(selected)}><Trash2 aria-hidden="true" />Delete</button>
+          </Select></label>
+        <Button variant="ghost" size="small" disabled={busy} onClick={() => pinFiles(selected, true)}><Pin aria-hidden="true" />Pin</Button>
+        {selected.length === 1 && <Button variant="ghost" size="small" disabled={busy} onClick={() => renameFile(selected[0])}><Pencil aria-hidden="true" />Rename</Button>}
+        <Button variant="ghost" size="small" disabled={busy} onClick={() => deleteFiles(selected)}><Trash2 aria-hidden="true" />Delete</Button>
         <span className="grow" />
-        <button className="btn small ghost" disabled={busy} onClick={() => setPicked(new Set())}>Clear</button>
+        <Button variant="ghost" size="small" disabled={busy} onClick={() => setPicked(new Set())}>Clear</Button>
       </div>
     )}
   </>
@@ -440,10 +441,10 @@ type DragProps = React.HTMLAttributes<HTMLLIElement> & { 'data-drop'?: boolean; 
 /** Pin or unpin a folder or a file: pinned, it shows at the top of the library too. */
 function PinButton({ name, pinned, busy, onPin }: { name: string; pinned: boolean; busy: boolean; onPin: () => void }) {
   return (
-    <button className="btn small icon ghost card-pin" aria-pressed={pinned} disabled={busy} onClick={onPin}
+    <Button variant="ghost" size="small" icon className="card-pin" aria-pressed={pinned} disabled={busy} onClick={onPin}
       aria-label={`Pin ${name} to the top of the library`} title={pinned ? 'Pinned to the top of the library' : 'Pin to the top of the library'}>
       <Pin aria-hidden="true" />
-    </button>
+    </Button>
   )
 }
 
@@ -476,7 +477,7 @@ function MaterialRow({ m, picked = false, onPick, busy, onPin, where, drag, arra
   const Icon = kindIcon[m.kind]
   return (
     <li className="material-row" data-selected={picked || undefined} {...drag}>
-      {onPick && <input type="checkbox" className="check" checked={picked} onChange={onPick} aria-label={`Select ${m.name}`} />}
+      {onPick && <Checkbox type="checkbox" checked={picked} onChange={onPick} aria-label={`Select ${m.name}`} />}
       <Icon aria-hidden="true" className="material-icon" />
       <div className="material-main">
         {m.source !== null
@@ -502,13 +503,13 @@ function Arrange({ label, busy, first, last, onUp, onDown, folder, options, onMo
 }) {
   return (
     <div className={className}>
-      <button className="btn small icon ghost" disabled={busy || first} onClick={onUp} aria-label={`Move ${label} up`} title="Move up"><ArrowUp aria-hidden="true" /></button>
-      <button className="btn small icon ghost" disabled={busy || last} onClick={onDown} aria-label={`Move ${label} down`} title="Move down"><ArrowDown aria-hidden="true" /></button>
+      <Button variant="ghost" size="small" icon disabled={busy || first} onClick={onUp} aria-label={`Move ${label} up`} title="Move up"><ArrowUp aria-hidden="true" /></Button>
+      <Button variant="ghost" size="small" icon disabled={busy || last} onClick={onDown} aria-label={`Move ${label} down`} title="Move down"><ArrowDown aria-hidden="true" /></Button>
       <label className="grow"><span className="sr">Folder for {label}</span>
-        <select className="select chip-select" disabled={busy} value={folder ?? ''} onChange={e => onMove(e.target.value ? Number(e.target.value) : null)}>
+        <Select className="chip-select" disabled={busy} value={folder ?? ''} onChange={e => onMove(e.target.value ? Number(e.target.value) : null)}>
           <option value="">Top level</option>
           {options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-        </select></label>
+        </Select></label>
     </div>
   )
 }
@@ -540,7 +541,7 @@ function ImportSheet({ tree, skipped, into, folders, onCancel, onDone }: {
     }
   })
   return (
-    <section className="sheet new-lesson" aria-labelledby="import-head">
+    <Sheet className="new-lesson" aria-labelledby="import-head">
       <h2 id="import-head"><FolderInput aria-hidden="true" />Import {names.length === 1 ? `“${names[0]}”` : 'folders'}</h2>
       {plan.files ? <>
         <div className="tabs" role="group" aria-label="Bring it in">
@@ -556,15 +557,15 @@ function ImportSheet({ tree, skipped, into, folders, onCancel, onDone }: {
         {action.busy && <div role="status"><span className="meter" aria-hidden="true"><i style={{ width: `${(100 * sent) / plan.files}%` }} /></span>
           <p className="meta num">{sent} of {plan.files} files{current && <> · <span lang="ja">{current}</span></>}</p></div>}
         {action.error != null && <ErrorNotice error={action.error} />}
-        <div className="btn-row">
-          <button className="btn primary" disabled={action.busy || action.error != null} aria-busy={action.busy} onClick={start}>{action.busy ? 'Importing…' : 'Import'}</button>
-          <button type="button" className="btn ghost" disabled={action.busy} onClick={action.error != null ? () => onDone(null) : onCancel}>{action.error != null ? 'Close' : 'Cancel'}</button>
-        </div>
+        <ButtonRow>
+          <Button variant="primary" disabled={action.busy || action.error != null} aria-busy={action.busy} onClick={start}>{action.busy ? 'Importing…' : 'Import'}</Button>
+          <Button type="button" variant="ghost" disabled={action.busy} onClick={action.error != null ? () => onDone(null) : onCancel}>{action.error != null ? 'Close' : 'Cancel'}</Button>
+        </ButtonRow>
       </> : <>
         <p>Nothing here a folder can keep: PDFs, audio, video, images and text files.{skipped.length > 0 && ` Found ${skipped.slice(0, 6).join(', ')}${skipped.length > 6 ? '…' : ''}.`}</p>
-        <div className="btn-row"><button className="btn" onClick={onCancel}>Close</button></div>
+        <ButtonRow><Button onClick={onCancel}>Close</Button></ButtonRow>
       </>}
-    </section>
+    </Sheet>
   )
 }
 
@@ -588,13 +589,13 @@ function LessonCard({ l, actions, where, arrange, drag }: {
         {note && <p className="source-card-line">{note}</p>}
       </div>
       {arrange ?? <div className="source-card-foot">
-        <button className="btn small ghost" aria-pressed={l.pinned} disabled={actions.busy} onClick={() => actions.pin(l)}>
+        <Button variant="ghost" size="small" aria-pressed={l.pinned} disabled={actions.busy} onClick={() => actions.pin(l)}>
           <Pin aria-hidden="true" />{l.pinned ? 'Pinned' : 'Pin'}
-        </button>
+        </Button>
         <span className="grow" />
         {l.done_at
-          ? <button className="btn small" disabled={actions.busy} onClick={() => actions.again(l)}><RotateCcw aria-hidden="true" />Study again</button>
-          : <button className="btn small" disabled={actions.busy} onClick={() => actions.done(l)}><Check aria-hidden="true" />Done</button>}
+          ? <Button size="small" disabled={actions.busy} onClick={() => actions.again(l)}><RotateCcw aria-hidden="true" />Study again</Button>
+          : <Button size="small" disabled={actions.busy} onClick={() => actions.done(l)}><Check aria-hidden="true" />Done</Button>}
       </div>}
     </li>
   )
@@ -631,10 +632,10 @@ export function NewLesson({ onCancel, initialFiles = [], initialMaterials = [], 
   const first = files[0]?.name ?? materials.find(m => m.id === chosen[0])?.name
   const named = title.trim() || first?.replace(/\.[^.]+$/, '')
   return (
-    <form className="sheet new-lesson" onSubmit={create}>
+    <Sheet as="form" className="new-lesson" onSubmit={create}>
       <h2><Plus aria-hidden="true" />New lesson{folder !== null && <span className="meta"> in {folderLabel(folders, folder)}</span>}</h2>
-      <label className="field"><span>Title</span>
-        <input className="input" autoFocus maxLength={200} value={title} onChange={e => setTitle(e.target.value)} placeholder={first ? first.replace(/\.[^.]+$/, '') : 'Minna no Nihongo, lesson 19'} /></label>
+      <Field><span>Title</span>
+        <Input autoFocus maxLength={200} value={title} onChange={e => setTitle(e.target.value)} placeholder={first ? first.replace(/\.[^.]+$/, '') : 'Minna no Nihongo, lesson 19'} /></Field>
       {offered.length > 0 && (
         <fieldset className="lesson-pick">
           <legend>Files from {folder !== null ? 'this folder' : 'the top level'} <span className="meta num">{chosen.length ? `${chosen.length} picked` : 'none picked yet'}</span></legend>
@@ -643,7 +644,7 @@ export function NewLesson({ onCancel, initialFiles = [], initialMaterials = [], 
             const Icon = kindIcon[m.kind]
             return (
               <li key={m.id} className="material-row" data-selected={chosen.includes(m.id) || undefined}>
-                <input type="checkbox" className="check" id={`pick-${m.id}`} checked={chosen.includes(m.id)} disabled={action.busy} onChange={() => toggle(m.id)} />
+                <Checkbox type="checkbox" id={`pick-${m.id}`} checked={chosen.includes(m.id)} disabled={action.busy} onChange={() => toggle(m.id)} />
                 <Icon aria-hidden="true" className="material-icon" />
                 <label className="material-main" htmlFor={`pick-${m.id}`}><span className="material-name" lang="ja">{m.name}</span>
                   <span className="meta num">{kindName[m.kind]} · {fileSize(m.size)}</span></label>
@@ -662,13 +663,13 @@ export function NewLesson({ onCancel, initialFiles = [], initialMaterials = [], 
       </label>
       {files.length > 0 && <ul className="lesson-files-pending">{files.map((f, i) => (
         <li key={f.name + i}><span>{f.name}</span><span className="meta num">{fileSize(f.size)}</span>
-          <button type="button" className="btn small icon ghost" aria-label={`Remove ${f.name}`} disabled={action.busy} onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))}><X aria-hidden="true" /></button></li>
+          <Button type="button" variant="ghost" size="small" icon aria-label={`Remove ${f.name}`} disabled={action.busy} onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))}><X aria-hidden="true" /></Button></li>
       ))}</ul>}
       {action.error != null && <ErrorNotice error={action.error} />}
-      <div className="btn-row">
-        <button className="btn primary" disabled={!named || action.busy} aria-busy={action.busy}>{action.busy ? 'Creating…' : 'Create lesson'}</button>
-        {onCancel && <button type="button" className="btn ghost" disabled={action.busy} onClick={onCancel}>Cancel</button>}
-      </div>
-    </form>
+      <ButtonRow>
+        <Button variant="primary" disabled={!named || action.busy} aria-busy={action.busy}>{action.busy ? 'Creating…' : 'Create lesson'}</Button>
+        {onCancel && <Button type="button" variant="ghost" disabled={action.busy} onClick={onCancel}>Cancel</Button>}
+      </ButtonRow>
+    </Sheet>
   )
 }

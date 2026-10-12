@@ -1,0 +1,39 @@
+/* Base: element defaults, the page ground, selection, links. */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--stock, var(--stock-collect));
+  color: var(--ink);
+  font: 400 var(--t-m)/1.6 var(--font);
+  font-kerning: normal;
+  line-break: strict;
+  -webkit-font-smoothing: antialiased;
+  caret-color: var(--red);
+  scrollbar-color: var(--ink-3) transparent;
+  transition: background-color var(--t-state) var(--ease);
+}
+::selection { background: var(--ink); color: var(--on-ink); }
+button, input, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: inherit; text-underline-offset: .2em; text-decoration-thickness: 1px; }
+/* Text links keep their own width inside grid and column-flex layouts. */
+a:not(.btn):not(.brand):not(:has(.panel)):not(.spine nav a):not(.tabbar a) {
+  width: fit-content; max-width: 100%; justify-self: start; align-self: start;
+}
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.num { font-variant-numeric: tabular-nums; }
+[lang='ja'] { font-feature-settings: 'palt' 0; }
+h1, h2, h3 { margin: 0; font-weight: 700; line-height: 1.25; text-wrap: balance; }
+h1 { font-size: var(--t-l); letter-spacing: -.01em; }
+h2, h3 { font-size: var(--t-m); }
+p { margin: 0; text-wrap: pretty; }
+.meta { font-size: var(--t-s); color: var(--ink-3); }
+.skip {
+  position: fixed; left: var(--s-4); top: -4rem; z-index: 50; padding: var(--s-2) var(--s-3);
+  background: var(--ink); color: var(--on-ink); font-weight: 700; text-decoration: none;
+}
+.skip:focus { top: var(--s-3); }
+.action-scope { border: 0; padding: 0; margin: 0; min-width: 0; }
+.action-scope:disabled { cursor: progress; }

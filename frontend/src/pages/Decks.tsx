@@ -2,7 +2,8 @@ import { Folder, Pencil, Plus, Play } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api, byFolder, type Deck } from '../lib/api'
-import { ErrorNotice, Skeleton, useAsync, useAction } from '../components/ui'
+import { ErrorNotice, Skeleton, useAsync, useAction, PageHome } from '../components/ui'
+import { Button, ButtonLink, ChipButton, EmptyState, Input, Plate } from '../components/ds'
 
 export default function DecksPage() {
   const { data, error, loading, reload, set } = useAsync(() => api.decks(), [])
@@ -38,11 +39,11 @@ export default function DecksPage() {
   return (
     <>
       <header className="page-head">
-        <h1>Decks <span className="meta num">{data ? data.count : ''}</span></h1>
+        <h1><PageHome to="/decks">Decks</PageHome> <span className="meta num">{data ? data.count : ''}</span></h1>
         <span className="grow" />
         <form onSubmit={create} className="btn-row">
-          <label><span className="sr">New deck name</span><input className="input" style={{ width: '16rem' }} placeholder={open ? `New deck in ${open}` : 'New deck, e.g. Lesson 19'} value={name} onChange={(e) => setName(e.target.value)} /></label>
-          <button className="btn primary" aria-busy={action.busy} disabled={!name.trim() || action.busy}><Plus aria-hidden="true" />Create</button>
+          <label><span className="sr">New deck name</span><Input style={{ width: '16rem' }} placeholder={open ? `New deck in ${open}` : 'New deck, e.g. Lesson 19'} value={name} onChange={(e) => setName(e.target.value)} /></label>
+          <Button variant="primary" aria-busy={action.busy} disabled={!name.trim() || action.busy}><Plus aria-hidden="true" />Create</Button>
         </form>
       </header>
       {action.error != null && <ErrorNotice error={action.error} />}
@@ -51,25 +52,25 @@ export default function DecksPage() {
           <div className="group" role="group" aria-label="Folders">
             <span className="meta">Folder</span>
             <div className="chips">
-              <button type="button" className="chip" aria-pressed={open === null} onClick={() => show(null)}>All <span className="n">{decks.length}</span></button>
+              <ChipButton type="button" aria-pressed={open === null} onClick={() => show(null)}>All <span className="n">{decks.length}</span></ChipButton>
               {groups.map(([f, ds]) => (
-                <button type="button" className="chip" key={f} aria-pressed={open === f} onClick={() => show(f)}>
+                <ChipButton type="button" key={f} aria-pressed={open === f} onClick={() => show(f)}>
                   {f || 'No folder'} <span className="n">{ds.length}</span>
-                </button>
+                </ChipButton>
               ))}
             </div>
-            {open && <button type="button" className="btn small ghost" disabled={action.busy} onClick={() => rename(open)}><Pencil aria-hidden="true" />Rename folder</button>}
+            {open && <Button type="button" variant="ghost" size="small" disabled={action.busy} onClick={() => rename(open)}><Pencil aria-hidden="true" />Rename folder</Button>}
           </div>
         </div>
       )}
-      {error ? <ErrorNotice error={error} action={<button className="btn small" onClick={reload}>Try again</button>} /> :
+      {error ? <ErrorNotice error={error} action={<Button size="small" onClick={reload}>Try again</Button>} /> :
         loading && !data ? <Skeleton /> :
         !decks.length ? (
-          <div className="empty">
+          <EmptyState>
             <h2>No decks yet</h2>
             <p>A deck is an ordered run of sentences you practise together: a lesson, an episode, a game chapter. Create one here, or pick sentences in Sources and choose “Add to deck”. Put related decks in a folder from the deck’s page.</p>
-            <Link className="btn" to="/sources">Open Sources</Link>
-          </div>
+            <ButtonLink to="/sources">Open Sources</ButtonLink>
+          </EmptyState>
         ) : (
           <div className="table-scroll" tabIndex={0} role="region" aria-label="Decks"><table className="deck-table">
             <thead><tr>
@@ -101,8 +102,8 @@ function DeckRow({ d }: { d: Deck }) {
       <td className="n hide-s">{d.practised}</td>
       <td className="hide-s"><span className="meter" role="img" aria-label={`${d.practised} of ${d.size} practised`}><i style={{ width: d.size ? `${(100 * d.practised) / d.size}%` : 0 }} /></span></td>
       <td className="n hide-s">{d.average != null ? Math.round(d.average) : '–'}</td>
-      <td className="n">{d.due ? <span className="plate red">{d.due}</span> : <span className="meta">0</span>}</td>
-      <td style={{ textAlign: 'right' }}>{d.size > 0 && <Link className="btn small" to={`/practice?deck=${d.id}`}><Play aria-hidden="true" />Practise</Link>}</td>
+      <td className="n">{d.due ? <Plate tone="red">{d.due}</Plate> : <span className="meta">0</span>}</td>
+      <td style={{ textAlign: 'right' }}>{d.size > 0 && <ButtonLink size="small" to={`/practice?deck=${d.id}`}><Play aria-hidden="true" />Practise</ButtonLink>}</td>
     </tr>
   )
 }

@@ -1,0 +1,11 @@
+/* Touch targets: on phones and coarse pointers every control grows to 44px.
+   Loaded last on purpose: it must win over page-level control sizing. */
+@media (max-width: 760px), (pointer: coarse) {
+  :root { --control-h: 44px; --control-h-s: 44px; }
+  .btn, .btn.small { min-height: 44px; height: auto; padding-block: var(--s-2); }
+  .btn.icon { min-width: 44px; }
+  .input, .select { min-height: 44px !important; font-size: var(--t-m); }
+  button.chip, label.chip { min-height: 44px; height: auto; }
+  .seg span { min-height: 44px; }
+  .check { width: 24px; height: 24px; }
+}

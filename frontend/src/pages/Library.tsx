@@ -6,7 +6,9 @@ import { DeckPicker } from '../components/DeckPicker'
 import { fmtTime } from '../components/SourcePanel'
 import { Stamp } from '../components/Stamp'
 import { MAX_LABELS, mergeLabels, parseLabels } from '../lib/labels'
-import { ErrorNotice, SearchBox, Skeleton, clock, dayLabel, useAsync, useToast, useAction } from '../components/ui'
+import { ErrorNotice, SearchBox, Skeleton, clock, dayLabel, useAsync, useToast, useAction, PageHome } from '../components/ui'
+import { Button, ButtonLink, Checkbox, Chip, ChipButton, EmptyState, Field, Input, Plate, Select } from '../components/ds'
+import { SourcesTabs } from '../components/SourcesTabs'
 
 const KINDS: { id: SourceKind | ''; name: string }[] = [
   { id: '', name: 'All' }, { id: 'capture', name: 'Captures' }, { id: 'audio', name: 'Audio' },
@@ -84,32 +86,33 @@ export default function LibraryPage() {
   return (
     <>
       <header className="page-head">
-        <h1>Sources <span className="meta num">{data ? plural(data.count, 'source') : ''}</span></h1>
+        <h1><PageHome to="/sources">Sources</PageHome> <span className="meta num">{data ? plural(data.count, 'source') : ''}</span></h1>
         <span className="grow" />
         <div className="search"><SearchBox value={q} onChange={setQ} placeholder="Look up a sentence, label or reading" /></div>
       </header>
+      <SourcesTabs />
 
       <div className="filters" role="group" aria-label="Filters">
         <div className="group">
           <span className="meta">Kind</span>
           <div className="chips">
-            {KINDS.map((k) => <button key={k.id} className="chip" aria-pressed={kind === k.id} onClick={() => setKind(k.id)}>{k.name}</button>)}
+            {KINDS.map((k) => <ChipButton key={k.id} aria-pressed={kind === k.id} onClick={() => setKind(k.id)}>{k.name}</ChipButton>)}
           </div>
-          {filtered && <><span className="grow" /><button className="btn small ghost" onClick={() => { setQ(''); setKind(''); setCategory(''); setLabel('') }}><X aria-hidden="true" />Clear filters</button></>}
+          {filtered && <><span className="grow" /><Button variant="ghost" size="small" onClick={() => { setQ(''); setKind(''); setCategory(''); setLabel('') }}><X aria-hidden="true" />Clear filters</Button></>}
         </div>
         {labels.length > 0 && (
           <div className="group">
             <span className="meta">Labels</span>
             <div className="chips">
-              {shownLabels.map(l => <button key={l.name} className="chip" aria-pressed={label === l.name} onClick={() => filterLabel(l.name)}>{l.name}<span className="n">{l.count}</span></button>)}
+              {shownLabels.map(l => <ChipButton key={l.name} aria-pressed={label === l.name} onClick={() => filterLabel(l.name)}>{l.name}<span className="n">{l.count}</span></ChipButton>)}
               {moreLabels.length > 0 && (
-                <select className="select chip-select" aria-label="More labels" value={moreLabels.some(l => l.name === label) ? label : ''} onChange={(e) => setLabel(e.target.value)}>
+                <Select className="chip-select" aria-label="More labels" value={moreLabels.some(l => l.name === label) ? label : ''} onChange={(e) => setLabel(e.target.value)}>
                   <option value="">{moreLabels.length} more…</option>
                   {moreLabels.map(l => <option key={l.name} value={l.name}>{l.name} ({l.count})</option>)}
-                </select>
+                </Select>
               )}
               {/* a label filtered from a card before the facets refresh still shows */}
-              {label && !labels.some(l => l.name === label) && <button className="chip" aria-pressed onClick={() => setLabel('')}>{label}</button>}
+              {label && !labels.some(l => l.name === label) && <ChipButton aria-pressed onClick={() => setLabel('')}>{label}</ChipButton>}
             </div>
           </div>
         )}
@@ -117,7 +120,7 @@ export default function LibraryPage() {
           <div className="group">
             <span className="meta">Category</span>
             <div className="chips">
-              {categories.map(c => <button key={c.name} className="chip" aria-pressed={category === c.name} onClick={() => filterCategory(c.name)}>{c.name}<span className="n">{c.count}</span></button>)}
+              {categories.map(c => <ChipButton key={c.name} aria-pressed={category === c.name} onClick={() => filterCategory(c.name)}>{c.name}<span className="n">{c.count}</span></ChipButton>)}
             </div>
           </div>
         )}
@@ -127,21 +130,21 @@ export default function LibraryPage() {
         <div className="toolbar active selection-dock" role="toolbar" aria-label="Selection">
           <span className="num" style={{ fontWeight: 700 }}>{plural(selected.size, 'source')} · {plural(sentenceIds.length, 'sentence')}</span>
           <DeckPicker small sentenceIds={() => sentenceIds} onDone={clearSelection} />
-          <button className="btn small" style={{ background: 'var(--on-ink)', color: 'var(--ink)' }} disabled={!sentenceIds.length}
-            onClick={() => nav('/practice?ids=' + sentenceIds.join(','))}><Play aria-hidden="true" />Practise these</button>
-          <button className="btn small ghost" disabled={labelAction.busy} aria-expanded={labelDraft !== null} onClick={() => setLabelDraft(d => d === null ? '' : null)}><Tag aria-hidden="true" />Add labels</button>
+          <Button size="small" style={{ background: 'var(--on-ink)', color: 'var(--ink)' }} disabled={!sentenceIds.length}
+            onClick={() => nav('/practice?ids=' + sentenceIds.join(','))}><Play aria-hidden="true" />Practise these</Button>
+          <Button variant="ghost" size="small" disabled={labelAction.busy} aria-expanded={labelDraft !== null} onClick={() => setLabelDraft(d => d === null ? '' : null)}><Tag aria-hidden="true" />Add labels</Button>
           <span className="grow" />
-          <button className="btn small ghost" disabled={labelAction.busy} onClick={clearSelection}>Clear</button>
+          <Button variant="ghost" size="small" disabled={labelAction.busy} onClick={clearSelection}>Clear</Button>
           {labelDraft !== null && <form className="bulk-label-form" onSubmit={addLabels} onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setLabelDraft(null) } }}>
-            <label className="field"><span>Labels for {plural(selectedSources.length, 'source')}, separated by commas</span>
-              <input className="input" autoFocus maxLength={130} list="library-labels" value={labelDraft} disabled={labelAction.busy}
+            <Field><span>Labels for {plural(selectedSources.length, 'source')}, separated by commas</span>
+              <Input autoFocus maxLength={130} list="library-labels" value={labelDraft} disabled={labelAction.busy}
                 aria-invalid={full.length > 0 || undefined} aria-describedby="bulk-label-help"
-                onChange={e => { setLabelDraft(e.target.value); labelAction.clearError() }} placeholder="minna no nihongo, lesson 18" /></label>
+                onChange={e => { setLabelDraft(e.target.value); labelAction.clearError() }} placeholder="minna no nihongo, lesson 18" /></Field>
             <datalist id="library-labels">{labels.map(l => <option key={l.name} value={l.name} />)}</datalist>
-            <button className="btn small" style={{ background: 'var(--on-ink)', color: 'var(--ink)' }} disabled={labelAction.busy || !adding.length}>{labelAction.busy ? 'Adding…' : adding.length > 1 ? `Add ${adding.length} labels` : 'Add label'}</button>
-            <button type="button" className="btn small ghost" disabled={labelAction.busy} onClick={() => setLabelDraft(null)}>Cancel</button>
+            <Button size="small" style={{ background: 'var(--on-ink)', color: 'var(--ink)' }} disabled={labelAction.busy || !adding.length}>{labelAction.busy ? 'Adding…' : adding.length > 1 ? `Add ${adding.length} labels` : 'Add label'}</Button>
+            <Button type="button" variant="ghost" size="small" disabled={labelAction.busy} onClick={() => setLabelDraft(null)}>Cancel</Button>
             <div id="bulk-label-help" className="bulk-label-help">
-              {adding.length > 0 && <div className="chips" aria-label="Labels to add">{adding.map(l => <span key={l} className="chip">{l}</span>)}</div>}
+              {adding.length > 0 && <div className="chips" aria-label="Labels to add">{adding.map(l => <Chip key={l}>{l}</Chip>)}</div>}
               <p className="meta">{full.length
                 ? `${full.length === 1 ? 'One selected source already has' : `${full.length} selected sources already have`} too many labels for this. Up to ${MAX_LABELS} per source.`
                 : `Existing labels are kept; up to ${MAX_LABELS} per source.`}</p>
@@ -151,14 +154,14 @@ export default function LibraryPage() {
         </div>
       )}
 
-      {error ? <ErrorNotice error={error} action={<button className="btn small" onClick={reload}>Try again</button>} /> :
+      {error ? <ErrorNotice error={error} action={<Button size="small" onClick={reload}>Try again</Button>} /> :
         loading && !data ? <Skeleton /> :
         !groups.length ? (
-          <div className="empty">
+          <EmptyState>
             <h2>{filtered ? 'Nothing matches' : 'No sources yet'}</h2>
             <p>{filtered ? 'Try fewer filters, or search by reading: “kyou” finds 今日.' : 'Sources you keep from the inbox live here, with every sentence and every attempt at saying it.'}</p>
-            {!filtered && <Link className="btn primary" to="/inbox">Go to the inbox</Link>}
-          </div>
+            {!filtered && <ButtonLink variant="primary" to="/inbox">Go to the inbox</ButtonLink>}
+          </EmptyState>
         ) : groups.map((day) => {
           const { date, rel } = dayLabel(day.items[0].s.created_at)
           return (
@@ -171,7 +174,7 @@ export default function LibraryPage() {
             </section>
           )
         })}
-      {data && data.results.length < data.count && <button className="btn" disabled={loading} onClick={() => setLimit((n) => n + 200)}>{loading ? 'Loading…' : 'Load more sources'}</button>}
+      {data && data.results.length < data.count && <Button disabled={loading} onClick={() => setLimit((n) => n + 200)}>{loading ? 'Loading…' : 'Load more sources'}</Button>}
     </>
   )
 }
@@ -197,13 +200,13 @@ function SourceCard({ s, n, q, selected, onToggle, label, category, onLabel, onC
         <p className="meta source-card-meta num">
           <Icon aria-hidden="true" />{kindName} · {plural(s.sentences.length, 'sentence')}
           {s.duration ? ` · ${fmtTime(s.duration).replace(/\.\d$/, '')}` : ''} · {clock(s.created_at)}
-          {n > 1 && <span className="plate hollow num">×{n}</span>}
+          {n > 1 && <Plate tone="hollow" className="num">×{n}</Plate>}
         </p>
         {excerpt && <p className="source-card-line" lang="ja">{excerpt}</p>}
         {(s.category || s.labels.length > 0) && (
           <div className="chips source-card-tags">
             {s.category && <button className="plate plate-filter" aria-pressed={category === s.category} title={`Show only “${s.category}”`} onClick={() => onCategory(s.category)}>{s.category}</button>}
-            {s.labels.map((l) => <button key={l} className="chip" aria-pressed={label === l} title={label === l ? 'Show all labels' : `Show only “${l}”`} onClick={() => onLabel(l)}>{l}</button>)}
+            {s.labels.map((l) => <ChipButton key={l} aria-pressed={label === l} title={label === l ? 'Show all labels' : `Show only “${l}”`} onClick={() => onLabel(l)}>{l}</ChipButton>)}
           </div>
         )}
       </div>
@@ -211,9 +214,9 @@ function SourceCard({ s, n, q, selected, onToggle, label, category, onLabel, onC
         {last && <Stamp s={last} />}
         <span className="meta num">{s.sentences.length === 0 ? 'No sentences yet' : practised === 0 ? 'Not practised yet' : `${practised} of ${s.sentences.length} practised`}</span>
         <span className="grow" />
-        {s.sentences.length > 0 && <Link className="btn small" to={`/practice?source=${s.id}`}><Play aria-hidden="true" />Practise</Link>}
+        {s.sentences.length > 0 && <ButtonLink size="small" to={`/practice?source=${s.id}`}><Play aria-hidden="true" />Practise</ButtonLink>}
       </div>
-      <input type="checkbox" className="check source-card-check" checked={selected} onChange={onToggle} aria-label={`Select ${title}`} />
+      <Checkbox type="checkbox" className="source-card-check" checked={selected} onChange={onToggle} aria-label={`Select ${title}`} />
     </li>
   )
 }
@@ -224,9 +227,9 @@ export function CopyButton({ text }: { text: string }) {
   const toast = useToast()
   useEffect(() => () => clearTimeout(timer.current), [])
   return (
-    <button className="btn small icon ghost" aria-label={done ? 'Copied' : 'Copy'} title="Copy"
+    <Button variant="ghost" size="small" icon aria-label={done ? 'Copied' : 'Copy'} title="Copy"
       onClick={async () => { try { await navigator.clipboard.writeText(text); setDone(true); clearTimeout(timer.current); timer.current = setTimeout(() => setDone(false), 1400); toast({ text: 'Copied' }) } catch { toast({ text: 'Couldn’t copy. Select the text and copy it manually, or open kotoba over HTTPS.' }) } }}>
       {done ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
-    </button>
+    </Button>
   )
 }

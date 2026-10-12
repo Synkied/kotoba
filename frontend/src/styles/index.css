@@ -1,0 +1,33 @@
+/* kotoba styles, in cascade order. Tokens first; touch targets last so they win. */
+@import './kana.css';
+@import './tokens.css';
+@import './base.css';
+@import './shell.css';
+
+@import './components/controls.css';
+@import './components/panel.css';
+@import './components/balloon.css';
+@import './components/sentence-text.css';
+@import './components/sentence-audio.css';
+@import './components/stamp.css';
+@import './components/lists.css';
+@import './components/feedback.css';
+@import './components/word-lookup.css';
+
+@import './pages/addons.css';
+@import './pages/cleanup.css';
+@import './pages/collect.css';
+@import './pages/decks.css';
+@import './pages/lesson.css';
+@import './pages/library.css';
+@import './pages/practice.css';
+@import './pages/recordings.css';
+@import './pages/sentence.css';
+@import './pages/source.css';
+@import './pages/sources.css';
+@import './pages/transcriptions.css';
+@import './pages/words.css';
+@import './pages/search.css';
+@import './pages/design.css';
+
+@import './touch.css';

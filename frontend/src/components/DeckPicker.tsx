@@ -1,5 +1,6 @@
 import { api, byFolder } from '../lib/api'
 import { ErrorNotice, useAction, useAsync, useToast } from './ui'
+import { Button, Select } from './ds'
 
 /** A standard select: "Add to deck…", existing decks, then "New deck…". */
 export function DeckPicker({ sentenceIds, onDone, small }: { sentenceIds: () => Promise<number[]> | number[]; onDone?: () => void; small?: boolean }) {
@@ -28,7 +29,7 @@ export function DeckPicker({ sentenceIds, onDone, small }: { sentenceIds: () => 
   return (
     <div className="deck-picker"><label>
       <span className="sr">Add to deck</span>
-      <select className="select" style={{ height: small ? 'var(--control-h-s)' : 'var(--control-h)', minHeight: 0, paddingBlock: 0, width: 'auto', fontSize: 'var(--t-s)' }}
+      <Select style={{ height: small ? 'var(--control-h-s)' : 'var(--control-h)', minHeight: 0, paddingBlock: 0, width: 'auto', fontSize: 'var(--t-s)' }}
         disabled={action.busy || list.loading || !!list.error} aria-busy={action.busy || list.loading} value="" onChange={(e) => choose(e.target.value)}>
         <option value="">{list.loading ? 'Loading decks…' : 'Add to deck…'}</option>
         {byFolder(decks).map(([folder, ds], _, groups) => {
@@ -36,7 +37,7 @@ export function DeckPicker({ sentenceIds, onDone, small }: { sentenceIds: () => 
           return groups.length > 1 ? <optgroup key={folder} label={folder || 'No folder'}>{options}</optgroup> : options
         })}
         <option value="new">New deck…</option>
-      </select>
-    </label>{list.error != null && <ErrorNotice error={list.error} action={<button className="btn small" onClick={list.reload}>Retry loading decks</button>} />}{action.error != null && <ErrorNotice error={action.error} />}</div>
+      </Select>
+    </label>{list.error != null && <ErrorNotice error={list.error} action={<Button size="small" onClick={list.reload}>Retry loading decks</Button>} />}{action.error != null && <ErrorNotice error={action.error} />}</div>
   )
 }

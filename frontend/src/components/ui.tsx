@@ -1,6 +1,8 @@
 import { Search as SearchIcon, AlertTriangle, LoaderCircle, X } from 'lucide-react'
 import { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { onVoiceLoading, voiceLoadingNow } from '../lib/audio'
+import { Button, Input, Notice } from './ds'
 
 export function shortcutBlocked(e: KeyboardEvent) {
   return e.defaultPrevented || e.isComposing || e.repeat || e.metaKey || e.ctrlKey || e.altKey ||
@@ -36,11 +38,17 @@ export function SearchBox({ value, onChange, placeholder }: { value: string; onC
     <label className="search">
       <span className="sr">Search</span>
       <SearchIcon aria-hidden="true" />
-      <input ref={ref} className="input" type="search" value={value} placeholder={placeholder}
+      <Input ref={ref} type="search" value={value} placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && (onChange(''), ref.current?.blur())} />
       {!value && <span className="kbd" aria-hidden="true">/</span>}
     </label>
   )
+}
+
+/** A page's title, as a link back to the page itself: it clears a search, filter or folder. */
+export function PageHome({ to, children }: { to: string; children: ReactNode }) {
+  const loc = useLocation()
+  return <Link to={to} className="page-home" aria-current={loc.pathname === to && !loc.search ? 'page' : undefined}>{children}</Link>
 }
 
 export function Skeleton({ rows = 4 }: { rows?: number }) {
@@ -49,10 +57,10 @@ export function Skeleton({ rows = 4 }: { rows?: number }) {
 
 export function ErrorNotice({ error, action }: { error: unknown; action?: ReactNode }) {
   return (
-    <div className="notice error" role="alert">
+    <Notice tone="error" role="alert">
       <AlertTriangle aria-hidden="true" />
       <div style={{ display: 'grid', gap: 8 }}><span>{String((error as Error)?.message ?? error)}</span>{action}</div>
-    </div>
+    </Notice>
   )
 }
 
@@ -79,8 +87,8 @@ export function ToastHost({ children }: { children: ReactNode }) {
         {toast && (
           <div className="toast" role="status">
             <span>{toast.text}{undoAction.error != null && <span role="alert" className="toast-error">Undo failed. Check your connection and try Undo again.</span>}</span>
-            {toast.undo && <button className="btn small" disabled={undoAction.busy} onClick={() => undoAction.run(async () => { await toast.undo?.(); setToast(null) })}>Undo</button>}
-            <button className="btn small icon" aria-label="Dismiss notification" onClick={() => setToast(null)}><X aria-hidden="true" /></button>
+            {toast.undo && <Button size="small" disabled={undoAction.busy} onClick={() => undoAction.run(async () => { await toast.undo?.(); setToast(null) })}>Undo</Button>}
+            <Button size="small" icon aria-label="Dismiss notification" onClick={() => setToast(null)}><X aria-hidden="true" /></Button>
           </div>
         )}
         {!toast && voiceLoading && (

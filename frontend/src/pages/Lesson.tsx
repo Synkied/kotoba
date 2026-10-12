@@ -7,6 +7,7 @@ import { ErrorNotice, Skeleton, useAction, useAsync, usePref, useToast } from '.
 import { lessonContents, useLessonActions } from './Lessons'
 import { Listen, lessonTracks } from '../components/LessonListen'
 import { fileSize, folderOptions, materialsIn } from '../lib/lessonTree'
+import { Button, ButtonLink, ButtonRow, Checkbox, EmptyState, Field, Input, Plate, Select, Textarea, buttonClass } from '../components/ds'
 
 export default function LessonPage() {
   const id = Number(useParams().id)
@@ -29,7 +30,7 @@ function LessonDetail({ id }: { id: number }) {
     const t = setInterval(() => api.lesson(id).then(set, () => { /* the next look may work */ }), 5000)
     return () => clearInterval(t)
   }, [transcribing, id, set])
-  if (error) return <ErrorNotice error={error} action={<button className="btn" onClick={reload}>Try again</button>} />
+  if (error) return <ErrorNotice error={error} action={<Button onClick={reload}>Try again</Button>} />
   if (!l) return <Skeleton rows={3} />
 
   const rename = (e: React.FormEvent) => {
@@ -50,28 +51,28 @@ function LessonDetail({ id }: { id: number }) {
     <>
       {(actions.error ?? edit.error) != null && <ErrorNotice error={actions.error ?? edit.error} />}
       <header className="page-head">
-        <Link className="btn icon ghost" to={l.done_at && !l.pinned ? '/library?view=archive' : l.folder ? `/library?folder=${l.folder}` : '/library'} aria-label="Back to the library"><ChevronLeft aria-hidden="true" /></Link>
+        <ButtonLink variant="ghost" icon to={l.done_at && !l.pinned ? '/library?view=archive' : l.folder ? `/library?folder=${l.folder}` : '/library'} aria-label="Back to the library"><ChevronLeft aria-hidden="true" /></ButtonLink>
         {name === null ? <>
-          <h1><button className="btn ghost lesson-title" title="Rename" disabled={busy} onClick={() => setName(l.title)}>{l.title}</button>
+          <h1><Button variant="ghost" className="lesson-title" title="Rename" disabled={busy} onClick={() => setName(l.title)}>{l.title}</Button>
             <span className="meta num">{lessonContents(l)}</span>
-            {l.done_at && <span className="plate hollow">Done {new Date(l.done_at).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}</span>}</h1>
+            {l.done_at && <Plate tone="hollow">Done {new Date(l.done_at).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}</Plate>}</h1>
           <span className="grow" />
-          <button className="btn ghost" disabled={busy} onClick={() => setName(l.title)}><Pencil aria-hidden="true" />Rename</button>
+          <Button variant="ghost" disabled={busy} onClick={() => setName(l.title)}><Pencil aria-hidden="true" />Rename</Button>
         </> : <>
           <form className="btn-row lesson-rename" onSubmit={rename}>
             <label><span className="sr">Lesson title</span>
-              <input className="input" autoFocus maxLength={200} value={name} disabled={edit.busy} onFocus={e => e.target.select()}
+              <Input autoFocus maxLength={200} value={name} disabled={edit.busy} onFocus={e => e.target.select()}
                 onChange={e => setName(e.target.value)} onKeyDown={e => e.key === 'Escape' && setName(null)} /></label>
-            <button className="btn small primary" disabled={!name.trim() || edit.busy} aria-busy={edit.busy}>{edit.busy ? 'Saving…' : 'Save'}</button>
-            <button type="button" className="btn small ghost" disabled={edit.busy} onClick={() => setName(null)}>Cancel</button>
+            <Button variant="primary" size="small" disabled={!name.trim() || edit.busy} aria-busy={edit.busy}>{edit.busy ? 'Saving…' : 'Save'}</Button>
+            <Button type="button" variant="ghost" size="small" disabled={edit.busy} onClick={() => setName(null)}>Cancel</Button>
           </form>
           <span className="grow" />
         </>}
-        <button className="btn ghost" disabled={busy} onClick={remove}><Trash2 aria-hidden="true" />Delete</button>
-        <button className="btn" aria-pressed={l.pinned} disabled={busy} onClick={() => actions.pin(l)}><Pin aria-hidden="true" />{l.pinned ? 'Pinned' : 'Pin'}</button>
+        <Button variant="ghost" disabled={busy} onClick={remove}><Trash2 aria-hidden="true" />Delete</Button>
+        <Button aria-pressed={l.pinned} disabled={busy} onClick={() => actions.pin(l)}><Pin aria-hidden="true" />{l.pinned ? 'Pinned' : 'Pin'}</Button>
         {l.done_at
-          ? <button className="btn primary" disabled={busy} onClick={() => actions.again(l)}><RotateCcw aria-hidden="true" />Study again</button>
-          : <button className="btn primary" disabled={busy} onClick={() => actions.done(l)}><Check aria-hidden="true" />Done</button>}
+          ? <Button variant="primary" disabled={busy} onClick={() => actions.again(l)}><RotateCcw aria-hidden="true" />Study again</Button>
+          : <Button variant="primary" disabled={busy} onClick={() => actions.done(l)}><Check aria-hidden="true" />Done</Button>}
       </header>
 
       {folders.data && (folders.data.length > 0 || l.folder !== null) && <LessonFolderField l={l} options={folderOptions(folders.data)} busy={busy}
@@ -80,7 +81,7 @@ function LessonDetail({ id }: { id: number }) {
       <div className={'lesson-desk' + (pdfs.length ? '' : ' no-sheet')}>
         {pdfs.length > 0 ? <Sheet pdfs={pdfs} />
           : tracks.length > 0 ? <Listen l={l} tracks={tracks} onChange={set} />
-          : <div className="empty lesson-empty"><h2>Nothing to study yet</h2><p>Add the worksheet, the textbook pages or the recordings. A PDF opens here; recordings play beside it with their transcript.</p><AddFiles l={l} onChange={set} primary /></div>}
+          : <EmptyState className="lesson-empty"><h2>Nothing to study yet</h2><p>Add the worksheet, the textbook pages or the recordings. A PDF opens here; recordings play beside it with their transcript.</p><AddFiles l={l} onChange={set} primary /></EmptyState>}
         <div className="lesson-side">
           {pdfs.length > 0 && tracks.length > 0 && <Listen l={l} tracks={tracks} onChange={set} />}
           <Drawer id="notes" title="Notes" meta={l.notes.split('\n').find(x => x.trim())} defaultOpen>
@@ -103,10 +104,10 @@ function LessonFolderField({ l, options, busy, onMove }: { l: Lesson; options: {
   return (
     <p className="lesson-folder">
       <label className="folder-field"><Folder aria-hidden="true" />Folder
-        <select className="select chip-select" disabled={busy} value={l.folder ?? ''} onChange={e => onMove(e.target.value ? Number(e.target.value) : null)}>
+        <Select className="chip-select" disabled={busy} value={l.folder ?? ''} onChange={e => onMove(e.target.value ? Number(e.target.value) : null)}>
           <option value="">None, top level</option>
           {options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-        </select></label>
+        </Select></label>
       {l.folder !== null && <Link className="meta" to={`/library?folder=${l.folder}`}>Open the folder</Link>}
     </p>
   )
@@ -134,7 +135,7 @@ function Sheet({ pdfs }: { pdfs: LessonFile[] }) {
           ? <div className="tabs" role="group" aria-label="PDFs">{pdfs.map(f => <button key={f.id} type="button" aria-pressed={f.id === pdf.id} onClick={() => setShown(f.id)}>{f.name.replace(/\.pdf$/i, '')}</button>)}</div>
           : <h2 className="lesson-file-name">{pdf.name.replace(/\.pdf$/i, '')}</h2>}
         <span className="grow" />
-        <a className="btn small icon ghost" href={pdf.url} target="_blank" rel="noreferrer" aria-label={`Open ${pdf.name} in a new tab`} title="Open in a new tab"><ExternalLink aria-hidden="true" /></a>
+        <a className={buttonClass({ variant: 'ghost', size: 'small', icon: true })} href={pdf.url} target="_blank" rel="noreferrer" aria-label={`Open ${pdf.name} in a new tab`} title="Open in a new tab"><ExternalLink aria-hidden="true" /></a>
       </div>
       <iframe key={pdf.id} src={pdf.url} title={pdf.name} />
     </section>
@@ -151,7 +152,7 @@ function AddFiles({ l, onChange, primary = false }: { l: Lesson; onChange: (l: L
   }
   return <>
     {action.error != null && <ErrorNotice error={action.error} />}
-    <label className={'btn lesson-add-files' + (primary ? ' primary' : ' small')} aria-busy={action.busy}>
+    <label className={buttonClass(primary ? { variant: 'primary' } : { size: 'small' }, 'lesson-add-files')} aria-busy={action.busy}>
       <Upload aria-hidden="true" />{action.busy ? 'Adding…' : 'Add files'}
       <input ref={input} type="file" multiple className="sr" disabled={action.busy} accept="application/pdf,.pdf,audio/*,video/*,image/*,.txt,.md" onChange={e => upload(e.target.files)} />
     </label>
@@ -178,18 +179,18 @@ function Files({ l, onChange }: { l: Lesson; onChange: (l: Lesson) => void }) {
             <Icon aria-hidden="true" className="lesson-file-icon" />
             <span className="lesson-file-name" lang="ja">{f.name}</span>
             {f.source && f.job !== null && <Link className={'lesson-file-job' + (f.job === 'failed' ? ' failed' : '')} to={`/sources/${f.source}`}>{jobLabel[f.job]}</Link>}
-            <a className="btn small icon ghost" href={f.url} target="_blank" rel="noreferrer" aria-label={`Open ${f.name} in a new tab`} title="Open in a new tab"><ExternalLink aria-hidden="true" /></a>
-            <button className="btn small icon ghost" disabled={action.busy} aria-label={`Remove ${f.name}`} title="Remove" onClick={() => remove(f)}><X aria-hidden="true" /></button>
+            <a className={buttonClass({ variant: 'ghost', size: 'small', icon: true })} href={f.url} target="_blank" rel="noreferrer" aria-label={`Open ${f.name} in a new tab`} title="Open in a new tab"><ExternalLink aria-hidden="true" /></a>
+            <Button variant="ghost" size="small" icon disabled={action.busy} aria-label={`Remove ${f.name}`} title="Remove" onClick={() => remove(f)}><X aria-hidden="true" /></Button>
           </div>
           {f.kind === 'image' && <img className="lesson-image" src={f.url} alt={f.name} loading="lazy" />}
         </li>
       )
     })}</ul>}
     {action.error != null && <ErrorNotice error={action.error} />}
-    <div className="btn-row">
+    <ButtonRow>
       <AddFiles l={l} onChange={onChange} />
       <FromFolder l={l} onChange={onChange} />
-    </div>
+    </ButtonRow>
   </>
 }
 
@@ -202,23 +203,23 @@ function FromFolder({ l, onChange }: { l: Lesson; onChange: (l: Lesson) => void 
   const linked = new Set(l.files.map(f => f.material))
   const offered = materialsIn(all.data ?? [], l.folder).filter(m => !linked.has(m.id))
   const add = () => action.run(async () => { onChange(await api.linkLessonMaterials(l.id, chosen)); setChosen([]); setOpen(false) })
-  if (!open) return <button className="btn small ghost" onClick={() => setOpen(true)}><Folder aria-hidden="true" />Add from the folder</button>
+  if (!open) return <Button variant="ghost" size="small" onClick={() => setOpen(true)}><Folder aria-hidden="true" />Add from the folder</Button>
   return (
     <div className="lesson-pick">
       {all.error != null ? <ErrorNotice error={all.error} /> : !all.data ? <Skeleton rows={2} /> : !offered.length
         ? <p className="meta">{l.folder === null ? 'No other files at the top level of the library' : 'No other files in this lesson’s folder'} yet.</p>
         : <ul className="material-list">{offered.map(m => (
             <li key={m.id} className="material-row" data-selected={chosen.includes(m.id) || undefined}>
-              <input type="checkbox" className="check" id={`link-${m.id}`} checked={chosen.includes(m.id)} disabled={action.busy}
+              <Checkbox type="checkbox" id={`link-${m.id}`} checked={chosen.includes(m.id)} disabled={action.busy}
                 onChange={() => setChosen(prev => prev.includes(m.id) ? prev.filter(x => x !== m.id) : [...prev, m.id])} />
               <label className="material-main" htmlFor={`link-${m.id}`}><span className="material-name" lang="ja">{m.name}</span><span className="meta num">{fileSize(m.size)}</span></label>
             </li>
           ))}</ul>}
       {action.error != null && <ErrorNotice error={action.error} />}
-      <div className="btn-row">
-        {offered.length > 0 && <button className="btn small primary" disabled={!chosen.length || action.busy} aria-busy={action.busy} onClick={add}>{chosen.length > 1 ? `Add ${chosen.length} files` : 'Add'}</button>}
-        <button className="btn small ghost" disabled={action.busy} onClick={() => { setOpen(false); setChosen([]) }}>Cancel</button>
-      </div>
+      <ButtonRow>
+        {offered.length > 0 && <Button variant="primary" size="small" disabled={!chosen.length || action.busy} aria-busy={action.busy} onClick={add}>{chosen.length > 1 ? `Add ${chosen.length} files` : 'Add'}</Button>}
+        <Button variant="ghost" size="small" disabled={action.busy} onClick={() => { setOpen(false); setChosen([]) }}>Cancel</Button>
+      </ButtonRow>
     </div>
   )
 }
@@ -230,11 +231,11 @@ function Notes({ l, onChange }: { l: Lesson; onChange: (l: Lesson) => void }) {
   const save = () => action.run(async () => { onChange(await api.updateLesson(l.id, { notes: draft })) })
   return (
     <div className="lesson-notes">
-      <textarea className="textarea" aria-label="Notes" value={draft} onChange={e => setDraft(e.target.value)}
+      <Textarea aria-label="Notes" value={draft} onChange={e => setDraft(e.target.value)}
         onBlur={() => dirty && save()} placeholder="What to do, page numbers, what you found hard…" />
-      {action.error != null && <ErrorNotice error={action.error} action={<button className="btn small" onClick={save}>Try again</button>} />}
-      {dirty && <div className="btn-row"><button className="btn small" disabled={action.busy} onClick={save}>{action.busy ? 'Saving…' : 'Save notes'}</button>
-        <button className="btn small ghost" disabled={action.busy} onClick={() => setDraft(l.notes)}>Discard</button></div>}
+      {action.error != null && <ErrorNotice error={action.error} action={<Button size="small" onClick={save}>Try again</Button>} />}
+      {dirty && <ButtonRow><Button size="small" disabled={action.busy} onClick={save}>{action.busy ? 'Saving…' : 'Save notes'}</Button>
+        <Button variant="ghost" size="small" disabled={action.busy} onClick={() => setDraft(l.notes)}>Discard</Button></ButtonRow>}
     </div>
   )
 }
@@ -254,29 +255,29 @@ function Sources({ l, onChange }: { l: Lesson; onChange: (l: Lesson) => void }) 
           <Link to={`/sources/${s.id}`} lang="ja">{s.title}</Link>
           <span className="meta num">{s.sentences} sentence{s.sentences === 1 ? '' : 's'}{s.status === 'inbox' ? ' · in the inbox' : s.status === 'archived' ? ' · archived' : ''}</span>
           <span className="grow" />
-          {s.sentences > 0 && <Link className="btn small" to={`/practice?source=${s.id}`}><Play aria-hidden="true" />Practise</Link>}
-          <button className="btn small icon ghost" disabled={action.busy} aria-label={`Unlink ${s.title}`} title="Unlink" onClick={() => link(l.sources.filter(x => x.id !== s.id).map(x => x.id))}><X aria-hidden="true" /></button>
+          {s.sentences > 0 && <ButtonLink size="small" to={`/practice?source=${s.id}`}><Play aria-hidden="true" />Practise</ButtonLink>}
+          <Button variant="ghost" size="small" icon disabled={action.busy} aria-label={`Unlink ${s.title}`} title="Unlink" onClick={() => link(l.sources.filter(x => x.id !== s.id).map(x => x.id))}><X aria-hidden="true" /></Button>
         </li>
       ))}</ul>
       {q !== null && (
         <div className="lesson-source-picker">
-          <label className="field"><span>Find a source by title, text, label or reading</span>
-            <input className="input" autoFocus value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => e.key === 'Escape' && setQ(null)} placeholder="lesson 19" /></label>
+          <Field><span>Find a source by title, text, label or reading</span>
+            <Input autoFocus value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => e.key === 'Escape' && setQ(null)} placeholder="lesson 19" /></Field>
           {found.error != null && <ErrorNotice error={found.error} />}
           <ul className="lesson-source-list">{(found.data?.results ?? []).filter(s => !linked.has(s.id)).map(s => (
             <li key={s.id}>
               <span lang="ja">{s.title || s.sentences[0]?.text || s.text.slice(0, 60) || 'Untitled'}</span>
               <span className="meta num">{s.sentences.length} sentence{s.sentences.length === 1 ? '' : 's'}</span>
               <span className="grow" />
-              <button className="btn small" disabled={action.busy} onClick={() => link([...linked, s.id])}><Plus aria-hidden="true" />Link</button>
+              <Button size="small" disabled={action.busy} onClick={() => link([...linked, s.id])}><Plus aria-hidden="true" />Link</Button>
             </li>
           ))}</ul>
           {found.data && !found.data.results.some(s => !linked.has(s.id)) && <p className="meta">{q ? 'No other source matches.' : 'Every source is linked already.'}</p>}
-          <button className="btn small ghost" onClick={() => setQ(null)}>Done linking</button>
+          <Button variant="ghost" size="small" onClick={() => setQ(null)}>Done linking</Button>
         </div>
       )}
       {action.error != null && <ErrorNotice error={action.error} />}
-      {q === null && <button className="btn small lesson-link" onClick={() => setQ('')}><Plus aria-hidden="true" />Link a source</button>}
+      {q === null && <Button size="small" className="lesson-link" onClick={() => setQ('')}><Plus aria-hidden="true" />Link a source</Button>}
     </div>
   )
 }

@@ -8,6 +8,7 @@ import { SourcePanel, fmtTime } from '../components/SourcePanel'
 import { Stamps } from '../components/Stamp'
 import { playClip, speak, stopAudio } from '../lib/audio'
 import { ErrorNotice, Skeleton, useAsync, usePref, useToast, useAction } from '../components/ui'
+import { Button, ButtonLink, EmptyState, Input } from '../components/ds'
 
 export default function DeckPage() {
   const id = Number(useParams().id)
@@ -71,34 +72,34 @@ function DeckPageDetail({ id }: { id: number }) {
     })
   }
 
-  if (deck.error) return <ErrorNotice error={deck.error} action={<button className="btn" onClick={deck.reload}>Try again</button>} />
+  if (deck.error) return <ErrorNotice error={deck.error} action={<Button onClick={deck.reload}>Try again</Button>} />
   if (!deck.data) return <Skeleton rows={3} />
   return (
     <>
       {action.error != null && <ErrorNotice error={action.error} />}
       <fieldset className="action-scope" disabled={action.busy} aria-busy={action.busy}>
       <header className="page-head">
-        <Link className="btn icon ghost" to="/decks" aria-label="All decks"><ChevronLeft aria-hidden="true" /></Link>
+        <ButtonLink variant="ghost" icon to="/decks" aria-label="All decks"><ChevronLeft aria-hidden="true" /></ButtonLink>
         {name === null ? (
-          <h1><button className="btn ghost" style={{ font: 'inherit', height: 'auto', padding: 0 }} title="Rename" onClick={() => setName(deck.data!.name)}>{deck.data.name}</button>
+          <h1><Button variant="ghost" style={{ font: 'inherit', height: 'auto', padding: 0 }} title="Rename" onClick={() => setName(deck.data!.name)}>{deck.data.name}</Button>
             <span className="meta num">{items.length} sentences</span></h1>
         ) : (
           <form className="btn-row" onSubmit={async (e) => { e.preventDefault(); if (name.trim()) await action.run(async () => { deck.set(await api.updateDeck(id, { name: name.trim() })); setName(null) }) }}>
-            <label><span className="sr">Deck name</span><input className="input" autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && setName(null)} /></label>
-            <button className="btn small primary">Save</button>
+            <label><span className="sr">Deck name</span><Input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && setName(null)} /></label>
+            <Button variant="primary" size="small">Save</Button>
           </form>
         )}
         <span className="grow" />
-        <button className="btn ghost" onClick={async () => { if (window.confirm(`Delete the deck “${deck.data!.name}”? Its sentences stay in Sources.`)) { await action.run(async () => { await api.deleteDeck(id); nav('/decks') }) } }}><Trash2 aria-hidden="true" />Delete deck</button>
-        {items.length > 0 && <Link className="btn primary" to={`/practice?deck=${id}`}><Play aria-hidden="true" />Practise</Link>}
+        <Button variant="ghost" onClick={async () => { if (window.confirm(`Delete the deck “${deck.data!.name}”? Its sentences stay in Sources.`)) { await action.run(async () => { await api.deleteDeck(id); nav('/decks') }) } }}><Trash2 aria-hidden="true" />Delete deck</Button>
+        {items.length > 0 && <ButtonLink variant="primary" to={`/practice?deck=${id}`}><Play aria-hidden="true" />Practise</ButtonLink>}
       </header>
       <FolderField deck={deck.data} onSaved={deck.set} run={action.run} />
-      {list.error ? <ErrorNotice error={list.error} action={<button className="btn" onClick={list.reload}>Try again</button>} /> : list.loading && !list.data ? <Skeleton /> : !items.length ? (
-        <div className="empty">
+      {list.error ? <ErrorNotice error={list.error} action={<Button onClick={list.reload}>Try again</Button>} /> : list.loading && !list.data ? <Skeleton /> : !items.length ? (
+        <EmptyState>
           <h2>This deck is empty</h2>
           <p>Select sentences in Sources, the inbox or a source, then choose “Add to deck → {deck.data.name}”.</p>
-          <Link className="btn primary" to="/sources">Open Sources</Link>
-        </div>
+          <ButtonLink variant="primary" to="/sources">Open Sources</ButtonLink>
+        </EmptyState>
       ) : (
         <ol className="rows" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
           {items.map((s, k) => (
@@ -112,13 +113,13 @@ function DeckPageDetail({ id }: { id: number }) {
                 <span className="meta"><Link to={`/sources/${s.source}`}>{s.source_title}</Link>{s.start != null && <> · <span className="num">{fmtTime(s.start)}</span></>}</span>
               </div>
               <div className="acts">
-                <button className="btn small ghost" onClick={() => void listen(s)} aria-label={`${playing === s.id ? 'Stop audio' : 'Listen to sentence'} ${k + 1}`}>
+                <Button variant="ghost" size="small" onClick={() => void listen(s)} aria-label={`${playing === s.id ? 'Stop audio' : 'Listen to sentence'} ${k + 1}`}>
                   {playing === s.id ? <Square aria-hidden="true" /> : <Play aria-hidden="true" />}{playing === s.id ? 'Stop' : 'Listen'}
-                </button>
-                <Link className="btn small ghost" to={`/sentences/${s.id}`}>Details</Link>
-                <button className="btn small icon ghost" onClick={() => reorder(k, k - 1)} disabled={k === 0} aria-label="Move up"><ArrowUp aria-hidden="true" /></button>
-                <button className="btn small icon ghost" onClick={() => reorder(k, k + 1)} disabled={k === items.length - 1} aria-label="Move down"><ArrowDown aria-hidden="true" /></button>
-                <button className="btn small icon ghost" onClick={() => remove(s)} aria-label="Remove from deck"><X aria-hidden="true" /></button>
+                </Button>
+                <ButtonLink variant="ghost" size="small" to={`/sentences/${s.id}`}>Details</ButtonLink>
+                <Button variant="ghost" size="small" icon onClick={() => reorder(k, k - 1)} disabled={k === 0} aria-label="Move up"><ArrowUp aria-hidden="true" /></Button>
+                <Button variant="ghost" size="small" icon onClick={() => reorder(k, k + 1)} disabled={k === items.length - 1} aria-label="Move down"><ArrowDown aria-hidden="true" /></Button>
+                <Button variant="ghost" size="small" icon onClick={() => remove(s)} aria-label="Remove from deck"><X aria-hidden="true" /></Button>
                 <span className="record"><Stamps stamps={s.stamps} max={3} /></span>
               </div>
             </li>
@@ -143,7 +144,7 @@ function FolderField({ deck, onSaved, run }: { deck: Deck; onSaved: (d: Deck) =>
     <p style={{ margin: '0 0 var(--s-4)' }}>
       <label className="folder-field">
         <Folder aria-hidden="true" />Folder
-        <input className="input" list="deck-folders" placeholder="None" value={value} onChange={(e) => setValue(e.target.value)}
+        <Input list="deck-folders" placeholder="None" value={value} onChange={(e) => setValue(e.target.value)}
           onBlur={() => void save()} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') setValue(deck.folder) }} />
       </label>
       <datalist id="deck-folders">{folders.map((f) => <option key={f} value={f} />)}</datalist>

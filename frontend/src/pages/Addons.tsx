@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom'
 import { Check, Cloud, HardDrive, Pencil, Plus, Trash2 } from 'lucide-react'
 import { api, type Addons, type TranslationStatus, type Translator, type TranslatorCheck, type TranslatorDraft, type TranslatorKind } from '../lib/api'
 import { setLanguage } from '../components/ReadingAids'
-import { ErrorNotice, Skeleton, dayLabel, clock, useAction } from '../components/ui'
+import { ErrorNotice, Skeleton, dayLabel, clock, useAction, PageHome } from '../components/ui'
 import { CopyButton } from './Library'
+import { Button, ButtonRow, Field, Input, Segmented, Select, Sheet } from '../components/ds'
 
 type Dot = 'ok' | 'warn' | 'off'
 
@@ -39,9 +40,9 @@ export default function AddonsPage() {
 
   return (
     <>
-      <header className="page-head"><h1>Add-ons</h1></header>
+      <header className="page-head"><h1><PageHome to="/addons">Add-ons</PageHome></h1></header>
       {error != null && <ErrorNotice error={error} />}
-      <section className="sheet addons">
+      <Sheet className="addons">
         <p>kotoba keeps and organises your sentences on its own. These pieces add listening and speaking. Each one is optional, and the hub works without them.</p>
 
         <Addon dot={whisper} name="Speaking scores and transcription" by="Whisper">
@@ -50,7 +51,7 @@ export default function AddonsPage() {
             <Install cmds={[...(!a.ffmpeg ? ['# ffmpeg, from your package manager, e.g.', 'sudo apt install ffmpeg'] : []),
               ...(w.state === 'missing' ? ['make install EXTRAS=whisper    # or: uv sync --extra whisper'] : [])]} />
           ) : (w.state === 'idle' || w.state === 'error') && (
-            <div><button className="btn small" disabled={busy} onClick={async () => { setBusy(true); try { await api.engineLoad() } catch (err) { setError(err) } finally { setBusy(false) } }}>Load Whisper now</button></div>
+            <div><Button size="small" disabled={busy} onClick={async () => { setBusy(true); try { await api.engineLoad() } catch (err) { setError(err) } finally { setBusy(false) } }}>Load Whisper now</Button></div>
           )}
           {(q.waiting > 0 || q.failed > 0 || q.jobs.length > 0) && (
             <p className="meta">
@@ -72,7 +73,7 @@ export default function AddonsPage() {
           <p className="meta">Press a hotkey and drag over text on screen: the text and its screenshot land in the inbox, queued offline when kotoba isn't reachable. It runs on the computer you read on.</p>
           <Install cmds={['make ocr-client', `screen-ocr --server ${window.location.origin}`]} />
         </Addon>
-      </section>
+      </Sheet>
     </>
   )
 }
@@ -108,14 +109,14 @@ function TranslationAddon() {
   return (
     <Addon dot={dot} name="Translations" by="a local LLM, or an API">
       <p className="meta">Translates each sentence with the lines around it as context. A model on your own machine keeps sentences private; Ollama and llama.cpp both work.</p>
-      <div className="btn-row">
+      <ButtonRow>
         <label className="btn-row"><span>Translate into</span>
-          <select className="select" style={{ width: 'auto' }} value={t.to} disabled={busy} onChange={(e) => load(api.setLanguage(e.target.value))}>
+          <Select style={{ width: 'auto' }} value={t.to} disabled={busy} onChange={(e) => load(api.setLanguage(e.target.value))}>
             {t.languages.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
-          </select>
+          </Select>
         </label>
         <span className="meta num">{t.translated} of {t.sentences} sentences translated</span>
-      </div>
+      </ButtonRow>
 
       <fieldset className="translators" disabled={busy}>
         <legend>Translator <span className="meta">one at a time</span></legend>
@@ -136,8 +137,8 @@ function TranslationAddon() {
             </label>
             {x.builtin ? <span className="meta hint">Set in <code className="inline">.env</code></span> : (
               <span className="btn-row">
-                <button type="button" className="btn small ghost" onClick={() => setEditing(x)}><Pencil aria-hidden="true" />Edit</button>
-                <button type="button" className="btn small ghost icon" aria-label={`Remove ${x.name}`} title="Remove" onClick={() => remove(x)}><Trash2 aria-hidden="true" /></button>
+                <Button type="button" variant="ghost" size="small" onClick={() => setEditing(x)}><Pencil aria-hidden="true" />Edit</Button>
+                <Button type="button" variant="ghost" size="small" icon aria-label={`Remove ${x.name}`} title="Remove" onClick={() => remove(x)}><Trash2 aria-hidden="true" /></Button>
               </span>
             )}
           </div>
@@ -145,10 +146,10 @@ function TranslationAddon() {
         {editing === 'new' ? (
           <TranslatorForm defaults={t.defaults} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); load(Promise.resolve()) }} />
         ) : (
-          <div className="btn-row">
-            <button type="button" className="btn small" onClick={() => setEditing('new')}><Plus aria-hidden="true" />Add a translator</button>
-            {!t.ready && <button type="button" className="btn small ghost" onClick={() => load(Promise.resolve())}>Check again</button>}
-          </div>
+          <ButtonRow>
+            <Button type="button" size="small" onClick={() => setEditing('new')}><Plus aria-hidden="true" />Add a translator</Button>
+            {!t.ready && <Button type="button" variant="ghost" size="small" onClick={() => load(Promise.resolve())}>Check again</Button>}
+          </ButtonRow>
         )}
       </fieldset>
       {error != null && <ErrorNotice error={error} />}
@@ -200,11 +201,8 @@ function TranslatorForm({ initial, defaults, onSaved, onCancel }: {
 
   return (
     <form className="translator-form" onSubmit={(e) => { e.preventDefault(); save(true) }} aria-label={initial ? `Edit ${initial.name}` : 'Add a translator'}>
-      <div className="seg" role="radiogroup" aria-label="Kind of translator">
-        {KINDS.map((k) => (
-          <label key={k.kind}><input type="radio" name={`kind-${id}`} checked={d.kind === k.kind} onChange={() => pick(k.kind)} /><span>{k.icon}{k.label}</span></label>
-        ))}
-      </div>
+      <Segmented role="radiogroup" aria-label="Kind of translator" name={`kind-${id}`} value={d.kind}
+        options={KINDS.map((k) => ({ value: k.kind, label: <>{k.icon}{k.label}</> }))} onChange={pick} />
       <p className="meta">{{
         ollama: <>Runs models on your own machine (ollama.com). Pull one first: <code className="inline">ollama pull qwen2.5:7b</code>.</>,
         llamacpp: <>Serves one GGUF model: <code className="inline">llama-server -m model.gguf --port 8080</code>.</>,
@@ -214,28 +212,28 @@ function TranslatorForm({ initial, defaults, onSaved, onCancel }: {
 
       <div className="form-grid">
         {d.kind !== 'anthropic' && (
-          <label className="field wide"><span>Address</span>
-            <input className="input" type="url" required inputMode="url" spellCheck={false} value={d.url}
+          <Field className="wide"><span>Address</span>
+            <Input type="url" required inputMode="url" spellCheck={false} value={d.url}
               placeholder={d.kind === 'openai' ? 'https://api.openai.com/v1' : defaults[d.kind]} onChange={(e) => set({ url: e.target.value.trim() })} />
-          </label>
+          </Field>
         )}
         {!local && (
-          <label className="field wide"><span>API key{d.kind === 'openai' && <span className="meta"> if it asks for one</span>}</span>
-            <input className="input" type="password" autoComplete="off" spellCheck={false} value={d.key}
+          <Field className="wide"><span>API key{d.kind === 'openai' && <span className="meta"> if it asks for one</span>}</span>
+            <Input type="password" autoComplete="off" spellCheck={false} value={d.key}
               required={d.kind === 'anthropic' && !keyKept}
               placeholder={keyKept ? `Saved (${initial!.key_hint}). Leave empty to keep it` : d.kind === 'anthropic' ? 'sk-ant-…' : 'sk-…'}
               onChange={(e) => set({ key: e.target.value.trim() })} />
-          </label>
+          </Field>
         )}
-        <label className="field"><span>Model{local && <span className="meta"> optional</span>}</span>
-          <input className="input" list={`models-${id}`} spellCheck={false} value={d.model} required={d.kind === 'openai'}
+        <Field><span>Model{local && <span className="meta"> optional</span>}</span>
+          <Input list={`models-${id}`} spellCheck={false} value={d.model} required={d.kind === 'openai'}
             placeholder={d.kind === 'anthropic' ? 'claude-opus-5-5' : local ? 'The first one it lists' : 'e.g. gpt-5-mini'}
             onChange={(e) => set({ model: e.target.value })} />
           <datalist id={`models-${id}`}>{check?.models.map((m) => <option key={m} value={m} />)}</datalist>
-        </label>
-        <label className="field"><span>Name <span className="meta">optional</span></span>
-          <input className="input" value={d.name} placeholder={KIND_NAME[d.kind]} maxLength={60} onChange={(e) => set({ name: e.target.value })} />
-        </label>
+        </Field>
+        <Field><span>Name <span className="meta">optional</span></span>
+          <Input value={d.name} placeholder={KIND_NAME[d.kind]} maxLength={60} onChange={(e) => set({ name: e.target.value })} />
+        </Field>
       </div>
 
       {!local && <p className="meta"><b>Sentences leave this machine</b> when this translator is in use. The key is kept in kotoba’s data folder on this machine and is never shown again.</p>}
@@ -245,13 +243,13 @@ function TranslatorForm({ initial, defaults, onSaved, onCancel }: {
         </p>
       )}
       {action.error != null && <ErrorNotice error={action.error} />}
-      <div className="btn-row">
-        <button className="btn small primary" aria-busy={action.busy} disabled={action.busy}>Save and use</button>
-        <button type="button" className="btn small" disabled={action.busy} onClick={() => save(false)}>Save</button>
-        <button type="button" className="btn small ghost" aria-busy={testing} disabled={testing || action.busy} onClick={test}>{testing ? 'Testing…' : 'Test'}</button>
+      <ButtonRow>
+        <Button variant="primary" size="small" aria-busy={action.busy} disabled={action.busy}>Save and use</Button>
+        <Button type="button" size="small" disabled={action.busy} onClick={() => save(false)}>Save</Button>
+        <Button type="button" variant="ghost" size="small" aria-busy={testing} disabled={testing || action.busy} onClick={test}>{testing ? 'Testing…' : 'Test'}</Button>
         <span className="grow" />
-        <button type="button" className="btn small ghost" onClick={onCancel}>Cancel</button>
-      </div>
+        <Button type="button" variant="ghost" size="small" onClick={onCancel}>Cancel</Button>
+      </ButtonRow>
     </form>
   )
 }

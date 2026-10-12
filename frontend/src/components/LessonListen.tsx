@@ -5,6 +5,7 @@ import { api, type Lesson, type LessonFile, type Sentence, type Source } from '.
 import { Furigana } from './Furigana'
 import { ReadingAids, Translation, useAids } from './ReadingAids'
 import { ErrorNotice, shortcutBlocked, useAction, useAsync, usePref } from './ui'
+import { Button, ButtonLink, Select } from './ds'
 
 /** Something to listen to: a recording kept with the lesson (its transcript is the source
  *  made from it, once transcribed) or a linked source that has audio of its own. */
@@ -34,13 +35,13 @@ export function Listen({ l, tracks, onChange }: { l: Lesson; tracks: Track[]; on
         <AudioLines aria-hidden="true" />
         {tracks.length > 1 ? <>
           <label className="listen-pick"><span className="sr">Recording</span>
-            <select className="select" lang="ja" value={track.key} onChange={e => setKey(e.target.value)}>
+            <Select lang="ja" value={track.key} onChange={e => setKey(e.target.value)}>
               {tracks.map(t => <option key={t.key} value={t.key}>{t.name}</option>)}
-            </select></label>
+            </Select></label>
           <span className="meta num">{i + 1} of {tracks.length}</span>
         </> : <h2 className="listen-name" lang="ja">{track.name}</h2>}
-        {track.source != null && <Link className="btn small ghost listen-source" to={`/sources/${track.source}`} title="Open this recording’s source, its transcript and sentences">
-          <FileText aria-hidden="true" />Source</Link>}
+        {track.source != null && <ButtonLink variant="ghost" size="small" className="listen-source" to={`/sources/${track.source}`} title="Open this recording’s source, its transcript and sentences">
+          <FileText aria-hidden="true" />Source</ButtonLink>}
       </div>
       <Player key={track.key} l={l} track={track} onChange={onChange}
         onNextTrack={i + 1 < tracks.length ? () => setKey(tracks[i + 1].key) : undefined} />
@@ -176,16 +177,16 @@ function Player({ l, track, onChange, onNextTrack }: { l: Lesson; track: Track; 
       </div>
       <div className="listen-times num" aria-hidden="true"><span>{clockTime(time)}</span><span>{lines.length > 0 && at >= 0 ? `line ${at + 1} of ${lines.length}` : ''}</span><span>{clockTime(span)}</span></div>
       <div className="listen-transport">
-        <button className="btn icon ghost" disabled={!ready} onClick={prev} aria-label={lines.length ? 'Previous line' : 'Back 5 seconds'} title={lines.length ? 'Previous line (←)' : 'Back 5 seconds (←)'}><SkipBack aria-hidden="true" /></button>
-        <button className="btn icon primary listen-play" disabled={!ready} onClick={toggle} aria-label={playing ? 'Pause' : 'Play'} title={playing ? 'Pause (Space)' : 'Play (Space)'}>{playing ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}</button>
-        <button className="btn icon ghost" disabled={!ready} onClick={next} aria-label={lines.length ? 'Next line' : 'Forward 5 seconds'} title={lines.length ? 'Next line (→)' : 'Forward 5 seconds (→)'}><SkipForward aria-hidden="true" /></button>
+        <Button variant="ghost" icon disabled={!ready} onClick={prev} aria-label={lines.length ? 'Previous line' : 'Back 5 seconds'} title={lines.length ? 'Previous line (←)' : 'Back 5 seconds (←)'}><SkipBack aria-hidden="true" /></Button>
+        <Button variant="primary" icon className="listen-play" disabled={!ready} onClick={toggle} aria-label={playing ? 'Pause' : 'Play'} title={playing ? 'Pause (Space)' : 'Play (Space)'}>{playing ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}</Button>
+        <Button variant="ghost" icon disabled={!ready} onClick={next} aria-label={lines.length ? 'Next line' : 'Forward 5 seconds'} title={lines.length ? 'Next line (→)' : 'Forward 5 seconds (→)'}><SkipForward aria-hidden="true" /></Button>
         <span className="grow" />
-        <button className="btn small ghost listen-repeat" aria-pressed={repeat} disabled={!ready} onClick={toggleRepeat} title={lines.length ? 'Repeat the current line (R)' : 'Repeat the recording (R)'}>
-          <Repeat1 aria-hidden="true" />{lines.length ? 'Repeat line' : 'Repeat'}</button>
+        <Button variant="ghost" size="small" className="listen-repeat" aria-pressed={repeat} disabled={!ready} onClick={toggleRepeat} title={lines.length ? 'Repeat the current line (R)' : 'Repeat the recording (R)'}>
+          <Repeat1 aria-hidden="true" />{lines.length ? 'Repeat line' : 'Repeat'}</Button>
         <label className="listen-speed"><span className="sr">Speed</span>
-          <select className="select" value={speed} title="Speed" onChange={e => setSpeed(Number(e.target.value))}>
+          <Select value={speed} title="Speed" onChange={e => setSpeed(Number(e.target.value))}>
             {[0.5, 0.75, 0.9, 1, 1.25].map(r => <option key={r} value={r}>{r}×</option>)}
-          </select></label>
+          </Select></label>
       </div>
       {failed && <p className="meta" role="alert">This recording couldn’t be played here. <a href={track.url} target="_blank" rel="noreferrer">Open it in a new tab</a>, or check that it’s still in kotoba’s data folder.</p>}
     </div>
@@ -197,9 +198,9 @@ function Player({ l, track, onChange, onNextTrack }: { l: Lesson; track: Track; 
           {lines.map((x, i) => <Line key={x.id} x={x} i={i} state={i === at ? 'now' : i < at ? 'past' : ''}
             furigana={aids.furigana} roman={aids.roman} translation={aids.translation} onPlay={playLine} onTranslated={onTranslated} />)}
         </ol>
-        {at === lines.length - 1 && !playing && time > 0 && onNextTrack && <button className="btn small listen-next" onClick={onNextTrack}><SkipForward aria-hidden="true" />Next recording</button>}
+        {at === lines.length - 1 && !playing && time > 0 && onNextTrack && <Button size="small" className="listen-next" onClick={onNextTrack}><SkipForward aria-hidden="true" />Next recording</Button>}
       </> : <NoTranscript l={l} track={track} loading={script.loading && !!track.source && !waiting} error={script.error} empty={!!script.data} onChange={onChange} />}
-      {playing && !follow && at >= 0 && <button className="btn small primary listen-follow" onClick={() => setFollow(true)}><ListEnd aria-hidden="true" />Back to the current line</button>}
+      {playing && !follow && at >= 0 && <Button variant="primary" size="small" className="listen-follow" onClick={() => setFollow(true)}><ListEnd aria-hidden="true" />Back to the current line</Button>}
     </div>
     <p className="meta listen-keys">Space: play / pause · ← →: {lines.length ? 'previous / next line' : '5 seconds'} · R: repeat</p>
   </>
@@ -240,7 +241,7 @@ function NoTranscript({ l, track, loading, error, empty, onChange }: {
     <div className="listen-state">
       <p><b>Transcribing didn’t work</b><br /><span className="meta">{track.error || 'The speech engine stopped on this recording.'}</span></p>
       {action.error != null && <ErrorNotice error={action.error} />}
-      {track.file && <button className="btn small" disabled={action.busy} onClick={transcribe}>Try again</button>}
+      {track.file && <Button size="small" disabled={action.busy} onClick={transcribe}>Try again</Button>}
     </div>
   )
   if (empty || !track.file) return (
@@ -253,8 +254,8 @@ function NoTranscript({ l, track, loading, error, empty, onChange }: {
         : 'Install the speech engine in Add-ons to write out what’s said, line by line.'}</span></p>
       {action.error != null && <ErrorNotice error={action.error} />}
       {l.can_transcribe
-        ? <button className="btn primary" disabled={action.busy} aria-busy={action.busy} onClick={transcribe}>{action.busy ? 'Starting…' : 'Transcribe'}</button>
-        : <Link className="btn" to="/addons">Open Add-ons</Link>}
+        ? <Button variant="primary" disabled={action.busy} aria-busy={action.busy} onClick={transcribe}>{action.busy ? 'Starting…' : 'Transcribe'}</Button>
+        : <ButtonLink to="/addons">Open Add-ons</ButtonLink>}
     </div>
   )
 }

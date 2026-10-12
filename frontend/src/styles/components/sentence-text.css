@@ -1,0 +1,53 @@
+/* <SentenceText>, reading aids (furigana, romaji, translation) and scored units. */
+.sentence-text {
+  min-width: 0; max-width: 100%; margin: 0; padding-block: var(--s-1);
+  color: var(--ink); font-size: var(--t-m); line-height: 1.7;
+  overflow-wrap: anywhere; line-break: strict;
+}
+.sentence-text .roman {
+  display: block; margin-top: var(--s-1); font-size: var(--t-s);
+  color: var(--ink-3); line-height: 1.4;
+}
+/* reading aids: furigana, romaji, translation; pressed chips right under the text */
+.aids { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.aids-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-2); }
+.sentence-text .translation, .meaning .translation {
+  display: block; margin-top: var(--s-1); font-size: var(--t-s); line-height: 1.5;
+  color: var(--ink-2); overflow-wrap: break-word;
+}
+.translation.pending { color: var(--ink-3); }
+.translation.failed { color: var(--ink-2); }
+/* translate again: a quiet mark at the end of the line, full colour only when reached for */
+.translation .again, .explain-translation .again { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin: -4px 0; vertical-align: middle; color: var(--ink-3); text-decoration: none; }
+.translation .again svg, .explain-translation .again svg { width: 14px; height: 14px; }
+.translation .again:hover:not(:disabled), .translation .again:focus-visible, .explain-translation .again:hover:not(:disabled), .explain-translation .again:focus-visible { color: var(--ink); }
+.translation .again:disabled { cursor: progress; }
+.translation[aria-busy='true'] .again svg { animation: again-spin 1s linear infinite; }
+@keyframes again-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .translation[aria-busy='true'] .again svg { animation: none; }
+}
+@media (pointer: coarse) {
+  .translation .again, .explain-translation .again { width: 44px; height: 44px; margin: -14px -10px; }
+}
+.translation .again-error { color: var(--ink-2); }
+button.link {
+  padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer;
+  text-decoration: underline; text-underline-offset: .2em; text-decoration-thickness: 1px;
+}
+/* practice: the meaning stays folded under screentone until asked for */
+.meaning { justify-self: stretch; margin: 0; }
+button.meaning {
+  display: flex; align-items: center; min-height: var(--control-h); padding: 0 var(--s-3);
+  border: var(--frame-thin) solid var(--ink-3); border-radius: 3px; background: transparent;
+  font-size: var(--t-s); text-align: left; cursor: pointer; transition: color var(--t-fast) var(--ease);
+}
+button.meaning > span { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: var(--s-2); }
+button.meaning:hover { color: var(--ink); }
+.meaning.open .translation { margin: 0; font-size: var(--t-m); color: var(--ink); }
+ruby rt { font-size: .5em; color: var(--ink-2); font-weight: 400; letter-spacing: 0; }
+.unit.missed { color: var(--red-ink); text-decoration: underline solid; text-decoration-thickness: 2px; text-underline-offset: .3em; }
+.unit.partial { color: var(--red-ink); }
+.unit.unclear { text-decoration: underline dashed var(--ink-3); text-decoration-thickness: 1.5px; text-underline-offset: .28em; }
+.unit.ok { color: var(--ink); }
+.unit.pending { color: var(--ink-3); }

@@ -1,0 +1,100 @@
+/* Lists: day groups, entries, sentence rows, filters, the selection toolbar and dock. */
+.day { margin-top: var(--s-7); }
+.day:first-child { margin-top: 0; }
+.day-head {
+  display: flex; align-items: baseline; gap: var(--s-3); padding-bottom: var(--s-2); margin-bottom: var(--s-4);
+  border-bottom: var(--frame-thin) solid var(--ink);
+}
+.day-head .date { font-weight: 700; }
+.entry {
+  display: grid; grid-template-columns: auto 132px minmax(0, 1fr) auto; gap: var(--s-4); align-items: start;
+  padding: var(--s-4) 0; border-bottom: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
+}
+.entry.no-select { grid-template-columns: 132px minmax(0, 1fr) auto; }
+.entry:last-child { border-bottom: 0; }
+.entry[data-selected='true'] { background: color-mix(in srgb, var(--stock) 70%, var(--ink) 9%); box-shadow: -12px 0 0 color-mix(in srgb, var(--stock) 70%, var(--ink) 9%), 12px 0 0 color-mix(in srgb, var(--stock) 70%, var(--ink) 9%); }
+.entry.cursor { outline: 2px solid var(--ink); outline-offset: 4px; }
+.entry .body { display: grid; gap: var(--s-2); min-width: 0; }
+.entry .lines { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-2); }
+.entry .info { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); }
+.entry .side { display: flex; flex-direction: column; align-items: flex-end; gap: var(--s-2); }
+.entry .check { margin-top: var(--s-2); }
+.more-lines { font-size: var(--t-s); color: var(--ink-3); }
+@media (max-width: 760px) {
+  .entry, .entry.no-select { grid-template-columns: auto minmax(0, 1fr); gap: var(--s-3); }
+  .entry .panel.thumb { width: 96px; }
+  .entry .body { grid-column: 1 / -1; }
+  .entry .side { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; align-items: center; }
+  .entry.no-select .panel.thumb { grid-column: 1; }
+}
+/* sentence rows (library, deck, source) */
+.rows { display: grid; }
+.row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--s-3) var(--s-4); align-items: center;
+  padding: var(--s-3) 0; border-bottom: 1px solid var(--rule);
+}
+.row .lead { display: flex; align-items: center; gap: var(--s-2); }
+.row .tc { font: 400 var(--t-s)/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-3); min-width: 4.5em; }
+.row .acts { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: var(--s-2); }
+.row-simple { grid-template-columns: minmax(0, 1fr) auto; }
+/* scores go last in a slot of their own, so the buttons stay put whether a line has stamps or not */
+.row .acts .record { display: flex; justify-content: flex-end; width: 6.5rem; white-space: nowrap; }
+.row-select { grid-template-columns: auto minmax(0, 1fr) auto; }
+@media (max-width: 1100px) {
+  .row { grid-template-columns: minmax(0, 1fr); }
+  .row-select { grid-template-columns: auto minmax(0, 1fr); }
+  .row .acts { grid-column: 1 / -1; justify-content: flex-start; }
+  .row .acts .record { justify-content: flex-start; width: auto; margin-left: var(--s-2); }
+  .row .lead { grid-column: 1 / -1; }
+}
+@media (max-width: 760px) {
+  .entry.no-select { grid-template-columns: minmax(0, 1fr); }
+  .row-select .acts { padding-left: calc(18px + var(--s-4)); }
+}
+/* filter bar */
+.filters { display: grid; gap: var(--s-3); margin-bottom: var(--s-5); }
+.filters .group { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); }
+.filters .group > .meta { min-width: 5.5em; font-weight: 700; color: var(--ink-2); }
+/* selection toolbar: sticks to the top while you work through a long inbox */
+.toolbar {
+  position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3);
+  margin: 0 calc(-1 * var(--s-3)) var(--s-3); padding: var(--s-2) var(--s-3);
+  background: var(--stock); border-bottom: var(--frame-thin) solid var(--ink);
+}
+.toolbar .grow { flex: 1; }
+.toolbar.active { background: var(--ink); color: var(--on-ink); }
+.toolbar.active .btn { border-color: var(--on-ink); }
+.toolbar.active .btn.ghost { color: var(--on-ink); border-color: transparent; }
+.toolbar.active .btn.ghost:hover { background: var(--on-ink-wash); }
+.toolbar.active .input { border-color: var(--on-ink); }
+.toolbar.active .check { accent-color: var(--on-ink); }
+.entry h3, .sheet, .notice, .deck-picker, .edit-line > label { min-width: 0; overflow-wrap: anywhere; }
+.filter-details summary { cursor: pointer; font-size: var(--t-s); font-weight: 700; padding-block: var(--s-2); }
+.filter-details .btn-row { padding: var(--s-2) 0; }
+.filter-details .field { min-width: min(100%, 12rem); }
+@media (max-width: 760px) {
+  .day-head { flex-wrap: wrap; }
+  .row-select .acts { padding-left: calc(24px + var(--s-4)); }
+}
+.bulk-label-form { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: end; gap: var(--s-2); }
+.bulk-label-form .field { flex: 1 1 220px; }
+.bulk-label-form p, .bulk-label-form .notice { flex-basis: 100%; margin: 0; }
+.toolbar.active .bulk-label-form .meta { color: var(--on-ink); }
+.bulk-label-help { flex-basis: 100%; display: grid; gap: var(--s-2); }
+.toolbar.active .bulk-label-help .chip { color: var(--on-ink); border-color: var(--on-ink); }
+.day-head .grow { flex: 1; }
+/* library selection: docked over the bottom of the page so selecting never shifts the cards */
+.toolbar.selection-dock {
+  position: fixed; top: auto; left: calc(var(--spine-w) + var(--s-5)); right: var(--s-5); bottom: var(--s-5); z-index: 35;
+  margin: 0; padding: var(--s-2) var(--s-3); border: 0; box-shadow: var(--lift);
+  max-height: 70dvh; overflow-y: auto; animation: dock-in var(--t-state) var(--ease);
+}
+@keyframes dock-in { from { opacity: 0; translate: 0 8px; } }
+body:has(.selection-dock) .toast { bottom: calc(var(--s-5) + 72px); }
+@media (max-width: 760px) {
+  .toolbar.selection-dock { left: var(--s-3); right: var(--s-3); bottom: calc(84px + env(safe-area-inset-bottom)); }
+  body:has(.selection-dock) .toast { bottom: calc(76px + 128px + env(safe-area-inset-bottom)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toolbar.selection-dock { animation: none; }
+}

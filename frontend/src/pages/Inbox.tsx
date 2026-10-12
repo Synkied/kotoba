@@ -6,8 +6,9 @@ import { SentenceText } from '../components/SentenceText'
 import { Furigana } from '../components/Furigana'
 import { SourcePanel } from '../components/SourcePanel'
 import { DeckPicker } from '../components/DeckPicker'
-import { ErrorNotice, SearchBox, Skeleton, clock, dayLabel, useAsync, usePref, useToast, useAction, shortcutBlocked } from '../components/ui'
+import { ErrorNotice, SearchBox, Skeleton, clock, dayLabel, useAsync, usePref, useToast, useAction, shortcutBlocked, PageHome } from '../components/ui'
 import { useStats } from '../App'
+import { Button, ButtonLink, ButtonRow, Checkbox, Chip, EmptyState, Field, Input, Kbd, Notice, Plate, Textarea } from '../components/ds'
 
 const SHOWN_LINES = 4
 
@@ -91,45 +92,45 @@ export default function InboxPage() {
   return (
     <>
       <header className="page-head">
-        <h1>Inbox <span className="meta num">{data ? `${data.count} to sort` : ''}</span></h1>
+        <h1><PageHome to="/inbox">Inbox</PageHome> <span className="meta num">{data ? `${data.count} to sort` : ''}</span></h1>
         <span className="grow" />
         <div className="search"><SearchBox value={q} onChange={setQ} placeholder="Search the inbox (tokyo finds 東京)" /></div>
       </header>
 
       {action.error != null && <ErrorNotice error={action.error} />}
       <fieldset className="action-scope" disabled={action.busy} aria-busy={action.busy}>
-      {error ? <ErrorNotice error={error} action={<button className="btn small" onClick={reload}>Try again</button>} /> :
+      {error ? <ErrorNotice error={error} action={<Button size="small" onClick={reload}>Try again</Button>} /> :
         loading && !data ? <Skeleton /> :
         !items.length ? (
-          <div className="empty">
+          <EmptyState>
             <h2>{q ? 'Nothing matches' : 'Inbox zero'}</h2>
             <p>{q ? `No inbox items match “${q}”.` : 'Everything you collect lands here first: screen captures, recordings, subtitles and pasted text. Keep what you want to practise, archive the rest.'}</p>
-            {q && <button className="btn" onClick={() => setQ('')}>Clear search</button>}
-            {!q && <Link className="btn primary" to="/collect">Collect something</Link>}
-          </div>
+            {q && <Button onClick={() => setQ('')}>Clear search</Button>}
+            {!q && <ButtonLink variant="primary" to="/collect">Collect something</ButtonLink>}
+          </EmptyState>
         ) : (
           <>
             <div className={'toolbar' + (selected.size ? ' active' : '')} role="toolbar" aria-label="Selection">
-              <input type="checkbox" className="check" aria-label="Select all" checked={allChecked}
+              <Checkbox type="checkbox" aria-label="Select all" checked={allChecked}
                 ref={(el) => { if (el) el.indeterminate = selected.size > 0 && !allChecked }}
                 onChange={() => setSelected(allChecked ? new Set() : new Set(items.map((s) => s.id)))} />
               {selected.size ? (
                 <>
                   <span className="num" style={{ fontWeight: 700 }}>{selected.size} selected</span>
-                  <button className="btn small primary" style={{ background: 'var(--on-ink)', color: 'var(--ink)' }} onClick={() => move(ids, 'kept')}><Check aria-hidden="true" />Keep</button>
-                  <button className="btn small ghost" onClick={() => move(ids, 'archived')}><Archive aria-hidden="true" />Archive</button>
+                  <Button variant="primary" size="small" style={{ background: 'var(--on-ink)', color: 'var(--ink)' }} onClick={() => move(ids, 'kept')}><Check aria-hidden="true" />Keep</Button>
+                  <Button variant="ghost" size="small" onClick={() => move(ids, 'archived')}><Archive aria-hidden="true" />Archive</Button>
                   <DeckPicker small sentenceIds={() => items.filter((s) => selected.has(s.id)).flatMap((s) => s.sentences.map((x) => x.id))} />
                   <LabelAdder ids={ids} onDone={reload} />
                   <span className="grow" />
-                  <button className="btn small ghost" onClick={() => remove(ids)}><Trash2 aria-hidden="true" />Delete</button>
+                  <Button variant="ghost" size="small" onClick={() => remove(ids)}><Trash2 aria-hidden="true" />Delete</Button>
                 </>
               ) : (
                 <span className="hints" style={{ display: 'flex' }}>
-                  <span><kbd className="kbd">j</kbd><kbd className="kbd">k</kbd> move</span>
-                  <span><kbd className="kbd">x</kbd> select</span>
-                  <span><kbd className="kbd">Enter</kbd> keep</span>
-                  <span><kbd className="kbd">a</kbd> archive</span>
-                  <span><kbd className="kbd">e</kbd> edit</span>
+                  <span><Kbd>j</Kbd><Kbd>k</Kbd> move</span>
+                  <span><Kbd>x</Kbd> select</span>
+                  <span><Kbd>Enter</Kbd> keep</span>
+                  <span><Kbd>a</Kbd> archive</span>
+                  <span><Kbd>e</Kbd> edit</span>
                 </span>
               )}
             </div>
@@ -152,7 +153,7 @@ export default function InboxPage() {
                 </section>
               )
             })}
-            {data && items.length < data.count && <button className="btn" disabled={loading} onClick={() => setLimit((n) => n + 200)}>{loading ? 'Loading…' : 'Load more sources'}</button>}
+            {data && items.length < data.count && <Button disabled={loading} onClick={() => setLimit((n) => n + 200)}>{loading ? 'Loading…' : 'Load more sources'}</Button>}
           </>
         )}
       </fieldset>
@@ -167,9 +168,9 @@ function LabelAdder({ ids, onDone }: { ids: number[]; onDone: () => void }) {
     <form onSubmit={async (e) => { e.preventDefault(); if (!v.trim()) return; await action.run(async () => { await api.bulk({ ids, add_label: v.trim() }); setV(''); onDone() }) }}
       style={{ display: 'flex', gap: 4 }}>
       <label><span className="sr">Add a label</span>
-        <input className="input" style={{ height: 'var(--control-h-s)', minHeight: 0, width: '10rem' }} placeholder="Add label…" value={v} onChange={(e) => setV(e.target.value)} />
+        <Input style={{ height: 'var(--control-h-s)', minHeight: 0, width: '10rem' }} placeholder="Add label…" value={v} onChange={(e) => setV(e.target.value)} />
       </label>
-      <button className="btn small" disabled={!v.trim() || action.busy}>Add</button>
+      <Button size="small" disabled={!v.trim() || action.busy}>Add</Button>
       {action.error != null && <ErrorNotice error={action.error} />}
     </form>
   )
@@ -191,7 +192,7 @@ function InboxEntry({ s, selected, cursor, furigana, editing, onEdit, onToggle, 
   }
   return (
     <article className={'entry' + (cursor ? ' cursor' : '')} data-selected={selected} onClick={onFocus} aria-label={label}>
-      <input type="checkbox" className="check" checked={selected} onChange={onToggle} aria-label={`Select “${label}”`} />
+      <Checkbox type="checkbox" checked={selected} onChange={onToggle} aria-label={`Select “${label}”`} />
       <Link to={`/sources/${s.id}`} aria-label={`Open ${label}`}>
         <SourcePanel kind={s.kind} image={s.image} start={first?.start} end={s.sentences.at(-1)?.end} alt={s.text.slice(0, 80)} />
       </Link>
@@ -199,16 +200,16 @@ function InboxEntry({ s, selected, cursor, furigana, editing, onEdit, onToggle, 
         {s.title && <h3>{s.title}</h3>}
         {editing ? (
           <div style={{ display: 'grid', gap: 8 }}>
-            <label className="field"><span>Text, one sentence per line</span>
-              <textarea className="textarea" lang="ja" value={draft} autoFocus onChange={(e) => setDraft(e.target.value)}
+            <Field><span>Text, one sentence per line</span>
+              <Textarea lang="ja" value={draft} autoFocus onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Escape' && !saving) { setDraft(s.text); onEdit(false) }; if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) save() }} />
-            </label>
+            </Field>
             {saveError != null && <ErrorNotice error={saveError} />}
-            <div className="btn-row">
-              <button className="btn small primary" onClick={save} aria-busy={saving} disabled={saving}>Save</button>
-              <button className="btn small ghost" disabled={saving} onClick={() => { setDraft(s.text); setSaveError(null); onEdit(false) }}>Cancel</button>
-              <span className="meta">Fix OCR mistakes or split lines. <kbd className="kbd">Ctrl</kbd>+<kbd className="kbd">Enter</kbd> saves.</span>
-            </div>
+            <ButtonRow>
+              <Button variant="primary" size="small" onClick={save} aria-busy={saving} disabled={saving}>Save</Button>
+              <Button variant="ghost" size="small" disabled={saving} onClick={() => { setDraft(s.text); setSaveError(null); onEdit(false) }}>Cancel</Button>
+              <span className="meta">Fix OCR mistakes or split lines. <Kbd>Ctrl</Kbd>+<Kbd>Enter</Kbd> saves.</span>
+            </ButtonRow>
           </div>
         ) : s.job ? (
           <JobState s={s} />
@@ -221,32 +222,32 @@ function InboxEntry({ s, selected, cursor, furigana, editing, onEdit, onToggle, 
           </div>
         ) : <p className="meta">No text yet. Add it with Edit.</p>}
         <div className="info">
-          {s.category && <span className="plate">{s.category}</span>}
-          {s.labels.map((l) => <span key={l} className="chip">{l}</span>)}
+          {s.category && <Plate>{s.category}</Plate>}
+          {s.labels.map((l) => <Chip key={l}>{l}</Chip>)}
           <span className="meta num">{clock(s.created_at)}</span>
           {s.sentences.length > 1 && <span className="meta num">{s.sentences.length} sentences</span>}
         </div>
       </div>
       <div className="side">
-        <button className="btn small primary" onClick={onKeep}><Check aria-hidden="true" />Keep</button>
-        <div className="btn-row">
-          <button className="btn small icon ghost" onClick={() => onEdit(true)} aria-label="Edit text" title="Edit text (e)"><Pencil aria-hidden="true" /></button>
-          <button className="btn small icon ghost" onClick={onArchive} aria-label="Archive" title="Archive (a)"><Archive aria-hidden="true" /></button>
-        </div>
+        <Button variant="primary" size="small" onClick={onKeep}><Check aria-hidden="true" />Keep</Button>
+        <ButtonRow>
+          <Button variant="ghost" size="small" icon onClick={() => onEdit(true)} aria-label="Edit text" title="Edit text (e)"><Pencil aria-hidden="true" /></Button>
+          <Button variant="ghost" size="small" icon onClick={onArchive} aria-label="Archive" title="Archive (a)"><Archive aria-hidden="true" /></Button>
+        </ButtonRow>
       </div>
     </article>
   )
 }
 
 function JobState({ s }: { s: Source }) {
-  if (s.job === 'failed') return <div className="notice error" role="alert"><AlertTriangle aria-hidden="true" /><span>Transcription failed: {s.job_error} <Link to={`/recordings/${s.id}`}>Open recording to try again</Link></span></div>
+  if (s.job === 'failed') return <Notice tone="error" role="alert"><AlertTriangle aria-hidden="true" /><span>Transcription failed: {s.job_error} <Link to={`/sources/${s.id}/cleanup`}>Open recording to try again</Link></span></Notice>
   return (
-    <div className="notice">
+    <Notice>
       <Loader aria-hidden="true" />
       <span>
         <b>{s.job === 'running' ? 'Transcribing now' : 'Waiting to be transcribed.'}</b>{' '}
         {s.job === 'waiting' && <>kotoba transcribes uploads automatically when Whisper is available. <Link to="/addons">Check transcription setup</Link>.</>}
       </span>
-    </div>
+    </Notice>
   )
 }

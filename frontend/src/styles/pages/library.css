@@ -1,0 +1,88 @@
+/* Library page. */
+/* Lessons: material to study, on its own mint stock. The worksheet reads large on the
+   left; notes and the sources practised from it sit beside it. */
+.lessons-search { max-width: 28rem; margin-bottom: var(--s-5); }
+.new-lesson { margin-bottom: var(--s-6); max-width: 46rem; }
+.new-lesson .drop { min-height: 120px; }
+.lesson-files-pending { list-style: none; margin: 0; padding: 0; }
+.lesson-files-pending li { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-2) 0; border-bottom: 1px solid var(--rule); }
+.lesson-files-pending li > span:first-child { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.lesson-card .source-card-body { padding-right: 0; }
+.lesson-card[data-done] h3 { font-weight: 400; }
+.lesson-card .btn[aria-pressed='true'] { background: var(--ink); color: var(--on-ink); }
+/* folders: a path back up, folder cards on the shelf, and drag-and-drop targets */
+.lessons-page { position: relative; min-height: 60vh; }
+.lesson-path { margin-bottom: var(--s-3); }
+.lesson-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); margin-bottom: var(--s-5); }
+.lesson-path ol { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1); list-style: none; margin: 0; padding: 0; min-width: 0; }
+.lesson-path li { display: inline-flex; align-items: center; gap: var(--s-1); min-width: 0; }
+.lesson-path li > svg { width: 14px; height: 14px; color: var(--ink-3); flex: none; }
+.lesson-path button.link { font: inherit; font-weight: 700; text-decoration: none; padding: 2px var(--s-1); overflow-wrap: anywhere; text-align: left; }
+.lesson-path button.link:not([aria-current]) { font-weight: 400; text-decoration: underline; text-underline-offset: 3px; }
+.lesson-tools .btn[aria-pressed='true'] { background: var(--ink); color: var(--on-ink); }
+/* a folder or a step of the path taking a drop reverses to ink, like the file drop zone;
+   a lesson taking one shows where the dragged lesson lands: a rule in the gutter before it */
+.lesson-path button[data-drop], .folder-card[data-drop] { background: var(--ink); color: var(--on-ink); }
+.folder-card[data-drop] .meta { color: inherit; }
+.lesson-card[data-drop]::before { content: ''; position: absolute; top: 0; bottom: 0; left: calc(var(--gutter) / -2 - 1.5px); width: 3px; background: var(--ink); pointer-events: none; }
+.source-card[data-dragging] { opacity: .45; }
+.source-card[draggable='true'] { cursor: grab; }
+.source-card[draggable='true']:active { cursor: grabbing; }
+.folder-card { grid-template-rows: auto; border-width: var(--frame-bold); }
+.folder-card .source-card-body { padding-right: var(--s-6); }
+.folder-card h3 .inline-icon { width: 16px; height: 16px; vertical-align: -2px; }
+.folder-card:has(.lesson-arrange) { grid-template-rows: 1fr auto; }
+/* pinning a folder or a file: a quiet pin until it's pinned, then a filled one */
+.btn.card-pin { color: var(--ink-3); }
+.btn.card-pin[aria-pressed='true'] { color: var(--ink); }
+.btn.card-pin[aria-pressed='true'] svg { fill: currentColor; }
+.folder-card .card-pin { position: absolute; top: var(--s-2); right: var(--s-2); z-index: 1; }
+.folder-card[data-drop] .card-pin { color: inherit; }
+.material-row .card-pin { flex: none; }
+.pinned-shelf > ul + ul { margin-top: var(--s-3); }
+.lesson-arrange .chip-select { max-width: 100%; }
+.lesson-arrange label { min-width: 0; display: flex; justify-content: flex-end; }
+/* files kept as they are: drive rows, not cards, so a folder of forty tracks stays scannable */
+.material-list { list-style: none; margin: 0; padding: 0; background: var(--paper); border: var(--frame-thin) solid var(--ink); }
+.material-row { position: relative; display: flex; align-items: center; gap: var(--s-3); padding: var(--s-2) var(--s-3); min-height: 48px; }
+.material-row + .material-row { border-top: 1px solid var(--rule); }
+.material-row[data-selected] { box-shadow: inset 0 0 0 1.5px var(--ink); }
+.material-row[data-dragging] { opacity: .45; }
+.material-row[draggable='true'] { cursor: grab; }
+.material-row[data-drop]::before { content: ''; position: absolute; left: 0; right: 0; top: -2px; height: 3px; background: var(--ink); pointer-events: none; }
+.material-icon { width: 18px; height: 18px; flex: none; }
+.material-main { display: grid; min-width: 0; flex: 1; gap: 2px; }
+.material-name { font-weight: 700; overflow-wrap: anywhere; color: inherit; text-decoration: none; }
+a.material-name:hover { text-decoration: underline; text-underline-offset: 3px; }
+.material-arrange { display: flex; align-items: center; gap: var(--s-1); flex: none; }
+.material-arrange .chip-select { max-width: 14rem; }
+.material-all { display: inline-flex; align-items: center; gap: var(--s-2); cursor: pointer; }
+.lesson-pick { border: 0; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
+.lesson-pick legend { font-weight: 700; padding: 0; margin-bottom: var(--s-1); }
+.lesson-pick legend .meta { font-weight: 400; margin-left: var(--s-2); }
+.lesson-pick .material-list { max-height: 18rem; overflow-y: auto; }
+.lesson-pick label.material-main { cursor: pointer; }
+.lesson-drag-hint { min-height: 1.5em; margin: calc(-1 * var(--s-3)) 0 var(--s-3); }
+.lesson-folder-empty { margin-top: var(--s-5); }
+.selection-move .chip-select { background: transparent; color: var(--on-ink); border-color: var(--on-ink); }
+.selection-move option { color: var(--ink); background: var(--paper); }
+@media (max-width: 760px) {
+  .material-arrange .chip-select { max-width: 8rem; }
+  .material-row { flex-wrap: wrap; }
+  .material-arrange { margin-left: auto; }
+}
+.lesson-folder { margin: 0 0 var(--s-4); display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); }
+.lesson-folder .chip-select { max-width: min(28rem, 70vw); }
+.lessons-drop-hint {
+  position: absolute; inset: 0; z-index: 5; display: grid; place-content: center; justify-items: center; gap: var(--s-2); text-align: center;
+  background: color-mix(in srgb, var(--paper) 88%, transparent); border: var(--frame-bold) dashed var(--ink); pointer-events: none;
+}
+.lessons-drop-hint svg { width: 32px; height: 32px; }
+.lessons-drop-hint span { color: var(--ink-2); font-size: var(--t-s); }
+@media (pointer: coarse) {
+  .lesson-tools .btn, .lesson-arrange .btn, .lesson-arrange .chip-select, .material-arrange .btn, .material-arrange .chip-select { min-height: 44px; }
+  .lesson-path button.link { min-height: 44px; }
+  .material-row .check { width: 24px; height: 24px; }
+}
+.page-head .btn[aria-pressed='true'] { background: var(--ink); color: var(--on-ink); }
+.inline-icon { width: 14px; height: 14px; margin-right: var(--s-1); vertical-align: -2px; }

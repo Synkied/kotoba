@@ -1,0 +1,69 @@
+/* Source page. */
+/* source detail */
+.source-layout { display: grid; grid-template-columns: minmax(300px, 4fr) minmax(0, 7fr); gap: var(--gutter) var(--s-6); align-items: start; }
+/* the player column stays put while the script scrolls; it scrolls itself rather than lose its foot */
+/* scrolls vertically only: children shrink to the column, and 4px of inline padding keeps focus rings unclipped */
+.source-aside { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-4); position: sticky; top: var(--s-4); max-height: calc(100dvh - 2 * var(--s-4)); overflow: hidden auto; overscroll-behavior: contain; padding-inline: 4px; margin-inline: -4px; }
+.source-aside > *, .source-aside fieldset { min-width: 0; }
+.source-layout .panel.big { aspect-ratio: 4 / 3; }
+@media (max-width: 900px) {
+  /* stacked: the player docks at the top of the screen and the script reads beneath it */
+  .source-layout { grid-template-columns: minmax(0, 1fr); }
+  .source-aside { display: contents; }
+  .source-aside > * { min-width: 0; }
+  .source-aside .source-audio { position: sticky; top: 0; z-index: 6; background: var(--stock); padding-block: var(--s-2); border-bottom: var(--frame-thin) solid var(--ink); gap: var(--s-2); }
+  .source-aside .source-audio .sentence-section-head { display: none; }
+  .source-aside .source-audio .sentence-wave { height: 56px; }
+  .source-aside .source-audio .sentence-audio-hint { display: none; }
+  .source-aside .source-audio .sentence-audio-controls { gap: var(--s-2); }
+  .source-aside .source-audio .sentence-audio-controls .btn:not(.sentence-play):not(.icon) { padding-inline: var(--s-2); }
+}
+.edit-line { display: flex; flex-wrap: wrap; gap: var(--s-2); width: 100%; }
+.edit-line .input { flex: 1; }
+.edit-line > .notice { flex-basis: 100%; }
+.source-aside > audio { min-width: 0; }
+.sentence-layout { margin-top: var(--s-5); }
+.source-content { min-width: 0; display: grid; gap: var(--s-4); }
+.source-aside > audio { width: 100%; min-width: 0; }
+/* Source playback: the sentence being spoken is marked with an ink rule and paper,
+   and its timecode is reversed, like the character under the playhead. */
+.source-aside .source-audio { padding-top: 0; border-top: 0; }
+.source-aside .source-audio .sentence-wave { height: 120px; }
+.row .tc { border: 0; background: none; padding: 0; text-align: left; cursor: pointer; }
+.row .tc:hover { color: var(--ink); text-decoration: underline; }
+.row.now { background: var(--paper); box-shadow: inset 4px 0 0 var(--ink); transition: background-color var(--t-state) var(--ease); }
+.row.now .tc { background: var(--ink); color: var(--paper); padding: 2px var(--s-1); }
+@media (prefers-reduced-motion: reduce) {
+  .row.now { transition: none; }
+}
+.source-content .row { padding-inline: var(--s-3); }
+/* what has been said steps back to the second ink, so the eye finds the reading front */
+.source-content .row.past .sentence-text { color: var(--ink-3); }
+.source-content .row .sentence-text { transition: color var(--t-state) var(--ease); }
+@media (hover: hover) and (pointer: fine) {
+  /* while listening the per-line tools stay out of the script's way; stamps stay, they're the record */
+  .source-content .row .acts > :not(.record) { opacity: 0; transition: opacity var(--t-fast) var(--ease); }
+  .source-content .row:hover .acts > *, .source-content .row:focus-within .acts > * { opacity: 1; }
+}
+.follow-voice { position: fixed; z-index: 7; right: var(--s-6); bottom: var(--s-6); box-shadow: var(--lift); }
+@media (max-width: 900px) {
+  .follow-voice { right: auto; left: 50%; transform: translateX(-50%); bottom: var(--s-4); }
+}
+@media (max-width: 760px) {
+  .follow-voice { bottom: calc(84px + env(safe-area-inset-bottom)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .source-content .row .sentence-text, .source-content .row .acts > * { transition: none; }
+}
+@media (min-width: 901px) {
+  .source-layout { flex: 1; min-height: 0; align-items: stretch; }
+  .source-aside { position: static; max-height: none; align-content: start; }
+  .source-content { display: flex; flex-direction: column; min-height: 0; }
+  .source-content > .rows { flex: 1; min-height: 0; align-content: start; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+}
+.lesson-title { font: inherit; height: auto; padding: 0; text-align: left; white-space: normal; }
+/* a source studied in lessons leads back to them */
+.source-lessons { display: grid; gap: var(--s-1); }
+.source-lessons a { display: inline-flex; align-items: baseline; gap: var(--s-1); color: var(--ink); font-weight: 700; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.source-lessons svg { width: 14px; height: 14px; flex: none; align-self: center; }
+.source-lessons .source-lesson-done { color: var(--ink-3); }

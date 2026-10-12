@@ -1,11 +1,12 @@
-import { ClipboardPaste, Upload, ScanText } from 'lucide-react'
+import { ClipboardPaste, Puzzle, Upload, ScanText } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { CopyButton } from './Library'
 import { useStats } from '../App'
-import { useToast } from '../components/ui'
+import { useToast, PageHome } from '../components/ui'
 import { NewLesson } from './Lessons'
+import { Button, ButtonLink, Field, Input, Kbd, Notice, Sheet, Textarea } from '../components/ds'
 
 export default function CollectPage() {
   const nav = useNavigate()
@@ -61,20 +62,21 @@ export default function CollectPage() {
 
   return (
     <>
-      <header className="page-head"><h1>Collect</h1></header>
-      {err && <div className="notice error" role="alert" style={{ marginBottom: 'var(--s-4)' }}>{err}</div>}
+      <header className="page-head"><h1><PageHome to="/collect">Collect</PageHome></h1><span className="grow" />
+        <ButtonLink variant="ghost" size="small" to="/addons"><Puzzle aria-hidden="true" />Add-ons</ButtonLink></header>
+      {err && <Notice tone="error" role="alert" style={{ marginBottom: 'var(--s-4)' }}>{err}</Notice>}
       <div className="collect">
         {lessonFiles && <div ref={lessonPanel}><NewLesson key={lessonFiles.key} initialFiles={lessonFiles.files} onCancel={() => setLessonFiles(null)} /></div>}
-        <form className="sheet" onSubmit={paste}>
+        <Sheet as="form" onSubmit={paste}>
           <h2><ClipboardPaste aria-hidden="true" />Paste text</h2>
           <p>Lyrics, a dialogue, a page of your textbook. Each line or sentence becomes a sentence you can practise.</p>
-          <label className="field"><span>Title (optional)</span><input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Minna no Nihongo, lesson 19 dialogue" /></label>
-          <label className="field"><span>Japanese text</span>
-            <textarea className="textarea" lang="ja" value={text} onChange={(e) => setText(e.target.value)} placeholder={'どちらが先ですか。\nケーキを食べてから、コーヒーを飲みます。'} /></label>
-          <div><button className="btn primary" disabled={!text.trim() || busy !== null} aria-busy={busy === 'text'}>{busy === 'text' ? 'Adding…' : 'Add to inbox'}</button></div>
-        </form>
+          <Field><span>Title (optional)</span><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Minna no Nihongo, lesson 19 dialogue" /></Field>
+          <Field><span>Japanese text</span>
+            <Textarea lang="ja" value={text} onChange={(e) => setText(e.target.value)} placeholder={'どちらが先ですか。\nケーキを食べてから、コーヒーを飲みます。'} /></Field>
+          <div><Button variant="primary" disabled={!text.trim() || busy !== null} aria-busy={busy === 'text'}>{busy === 'text' ? 'Adding…' : 'Add to inbox'}</Button></div>
+        </Sheet>
 
-        <section className="sheet">
+        <Sheet>
           <h2><Upload aria-hidden="true" />Upload files</h2>
           <p>Audio or video is transcribed by Whisper in kotoba into timed sentences you can shadow. Drop a subtitle file (.srt, .vtt, .ass) with its video to skip transcription. Images go in as captures.</p>
           <p>A PDF is study material: it starts a new lesson, together with any recordings dropped with it.</p>
@@ -86,17 +88,17 @@ export default function CollectPage() {
             <span className="meta" style={{ color: 'inherit' }}>or click to choose</span>
             <input ref={file} type="file" disabled={busy !== null} multiple accept="application/pdf,.pdf,audio/*,video/*,image/*,.srt,.vtt,.ass,.ssa" onChange={(e) => e.target.files && upload(e.target.files)} />
           </label>
-        </section>
+        </Sheet>
 
-        <section className="sheet">
+        <Sheet>
           <h2><ScanText aria-hidden="true" />Screen captures</h2>
-          <p>With the screen-ocr add-on, press <kbd className="kbd">Ctrl</kbd>+<kbd className="kbd">Alt</kbd>+<kbd className="kbd">O</kbd> and drag over any text on screen: a game, a video, a manga page. The capture lands in your inbox with its screenshot.</p>
+          <p>With the screen-ocr add-on, press <Kbd>Ctrl</Kbd>+<Kbd>Alt</Kbd>+<Kbd>O</Kbd> and drag over any text on screen: a game, a video, a manga page. The capture lands in your inbox with its screenshot.</p>
           <p>Point screen-ocr at this hub:</p>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <code className="code">screen-ocr --server {server}</code>
             <CopyButton text={`screen-ocr --server ${server}`} />
           </div>
-        </section>
+        </Sheet>
       </div>
     </>
   )

@@ -1,0 +1,24 @@
+/* <SentenceAudio>: waveform, seek bar and transport read as one player. */
+.sentence-audio { display: grid; gap: var(--s-3); padding-top: var(--s-4); border-top: 1px solid var(--ink-3); min-width: 0; }
+.sentence-wave { display: block; width: 100%; height: 160px; cursor: crosshair; touch-action: pan-y; }
+.sentence-selection { display: flex; flex-wrap: wrap; gap: var(--s-3); align-items: center; border: 1px solid var(--ink-3); padding: var(--s-3); min-width: 0; }
+.sentence-selection legend { font-size: var(--t-s); padding-inline: var(--s-2); }
+.sentence-selection label { flex: 1 1 180px; display: grid; grid-template-columns: 1fr auto; gap: var(--s-2); font-size: var(--t-s); min-width: 0; }
+.sentence-selection input { grid-column: 1 / -1; width: 100%; min-width: 0; min-height: 44px; accent-color: var(--ink); }
+.sentence-seek input, .sentence-audio audio { width: 100%; min-width: 0; }
+.sentence-seek input { accent-color: var(--ink); }
+/* waveform, seek bar and transport read as one player: no section gaps inside it */
+.player-deck { display: grid; gap: var(--s-1); min-width: 0; }
+.player-deck .sentence-seek { display: block; line-height: 0; }
+.player-deck .sentence-seek input { margin: 0; }
+.sentence-audio-controls { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-2); align-items: center; }
+.sentence-audio-controls .grow { flex: 1; }
+.player-time { font: 400 var(--t-s)/1 var(--mono); color: var(--ink-2); white-space: nowrap; padding-inline: var(--s-1); }
+.sentence-audio > audio { display: none; }
+.sentence-speed { display: flex; align-items: center; gap: var(--s-2); font-size: var(--t-s); }
+.sentence-speed .select { width: auto; }
+.sentence-selection-more > summary { cursor: pointer; width: fit-content; font-size: var(--t-s); min-height: 32px; display: flex; align-items: center; }
+.sentence-selection-more[open] > summary { margin-bottom: var(--s-2); }
+@media (pointer: coarse) {
+  .sentence-selection-more > summary { min-height: 44px; }
+}

@@ -3,6 +3,7 @@ import { Play, Pause, RotateCcw, X } from 'lucide-react'
 import { api, type Sentence, type Source } from '../lib/api'
 import { fmtTime } from './SourcePanel'
 import { ErrorNotice } from './ui'
+import { Button, Checkbox, Select } from './ds'
 
 export function SentenceAudio({ sentence: s, source }: { sentence: Sentence; source: Source }) {
   return <WaveformPlayer source={source} start={s.start} end={s.end} noun="sentence" />
@@ -214,14 +215,14 @@ export function WaveformPlayer({ source, start, end, noun, onTime, handle, contr
     }} aria-valuetext={`${fmtTime(Math.max(0, time - clipStart))} of ${fmtTime(clipDuration)}`} /></label>
     {/* the transport sits right under the seek bar, as one player */}
     <div className="sentence-audio-controls">
-      <button className="btn icon primary sentence-play" disabled={!ready || clipDuration <= 0} onClick={toggle} aria-label={playing ? 'Pause' : selection ? 'Play selection' : `Play ${noun}`} title={playing ? 'Pause (Space)' : selection ? 'Play selection (Space)' : `Play ${noun} (Space)`}>{playing ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}</button>
+      <Button variant="primary" icon className="sentence-play" disabled={!ready || clipDuration <= 0} onClick={toggle} aria-label={playing ? 'Pause' : selection ? 'Play selection' : `Play ${noun}`} title={playing ? 'Pause (Space)' : selection ? 'Play selection (Space)' : `Play ${noun} (Space)`}>{playing ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}</Button>
       {controls}
-      <button className="btn icon ghost" disabled={!ready || clipDuration <= 0} onClick={() => seek(rangeStart)} aria-label="Restart" title="Restart"><RotateCcw aria-hidden="true" /></button>
+      <Button variant="ghost" icon disabled={!ready || clipDuration <= 0} onClick={() => seek(rangeStart)} aria-label="Restart" title="Restart"><RotateCcw aria-hidden="true" /></Button>
       <span className="player-time num" aria-hidden="true">{fmtTime(Math.max(0, Math.min(clipDuration, time - clipStart)))} / {fmtTime(clipDuration)}</span>
       <span className="grow" />
-      {selection && <button className="btn small ghost" onClick={() => { audio.current?.pause(); setSelection(null) }}><X aria-hidden="true" />Clear selection</button>}
-      <label className="sentence-toggle"><input className="check" type="checkbox" checked={loop} onChange={e => setLoop(e.target.checked)} /> Repeat</label>
-      <label className="sentence-speed"><span className="sr">Speed</span><select className="select" value={speed} title="Speed" onChange={e => { setSpeed(e.target.value); if (audio.current) audio.current.playbackRate = Number(e.target.value) }}>{['0.5', '0.75', '1', '1.25'].map(v => <option key={v} value={v}>{v}×</option>)}</select></label>
+      {selection && <Button variant="ghost" size="small" onClick={() => { audio.current?.pause(); setSelection(null) }}><X aria-hidden="true" />Clear selection</Button>}
+      <label className="sentence-toggle"><Checkbox type="checkbox" checked={loop} onChange={e => setLoop(e.target.checked)} /> Repeat</label>
+      <label className="sentence-speed"><span className="sr">Speed</span><Select value={speed} title="Speed" onChange={e => { setSpeed(e.target.value); if (audio.current) audio.current.playbackRate = Number(e.target.value) }}>{['0.5', '0.75', '1', '1.25'].map(v => <option key={v} value={v}>{v}×</option>)}</Select></label>
     </div>
     </div>
     <audio ref={audio} src={source.media!} preload="metadata" onLoadedMetadata={e => { setDuration(e.currentTarget.duration); e.currentTarget.currentTime = clipStart; e.currentTarget.playbackRate = Number(speed); setReady(true) }} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onError={() => { setReady(false); setPlaying(false); setError(new Error('Audio could not be loaded. Reload the page to try again.')) }} onEnded={() => { setPlaying(false); if (loop && audio.current) { seek(rangeStart); void audio.current.play().catch(setError) } }} />

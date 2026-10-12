@@ -1,0 +1,21 @@
+/* <Balloon>: the electronic-sound balloon. The outline is the sentence state. */
+.balloon {
+  /* Reserve the SVG's outward corners, burst spikes and stroke in normal flow. */
+  --balloon-left-space: var(--s-5);
+  position: relative; isolation: isolate; display: inline-block; min-width: 0;
+  max-width: calc(100% - var(--balloon-left-space) - var(--s-5));
+  margin: var(--s-5) var(--s-5) var(--s-5) var(--balloon-left-space);
+  padding: .7em 1.5em .75em; color: var(--ink); line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.balloon.has-tail { --balloon-left-space: var(--s-7); }
+.balloon > svg.outline { position: absolute; inset: 0; z-index: -1; overflow: visible; pointer-events: none; }
+.balloon > svg.outline path { fill: var(--paper); stroke: var(--ink); stroke-width: var(--frame-thin); stroke-linejoin: miter; stroke-miterlimit: 8; }
+.balloon.dashed > svg.outline path { stroke-dasharray: 5 4; }
+.balloon.burst > svg.outline path { stroke-width: 2.25px; }
+.balloon.burst.live > svg.outline path { stroke: var(--red); }
+.balloon.dim { color: var(--ink-3); }
+.balloon.dim > svg.outline path { fill: transparent; stroke: var(--ink-3); }
+.balloon.big { font-size: var(--t-l); line-height: 1.75; padding: .8em 1.4em .85em; font-weight: 400; }
+.balloon.big ruby rt { font-size: .42em; }
+.balloon .roman { display: block; font-size: var(--t-s); color: var(--ink-3); line-height: 1.4; margin-top: 2px; }

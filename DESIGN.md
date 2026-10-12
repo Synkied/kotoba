@@ -1,14 +1,42 @@
 # kotoba design system
 
-A weekly manga magazine of your own sentences. Tokens live in `frontend/src/styles/tokens.css`; components in `frontend/src/styles/app.css` and `frontend/src/components/`.
+A weekly manga magazine of your own sentences. The rules below say what the world is; this first section says where it lives, so changing the design is one edit and reusing an element is one import.
+
+## How the system is built
+
+Open **`/design`** in the app (by URL; it is not in the navigation). It shows every token and component live, on any stock you pick, in the current theme. Check it after changing anything below.
+
+**Tokens:** `frontend/src/styles/tokens.css`. Every colour, size, space step, frame, radius, duration and easing is defined here and nowhere else. Each colour has a light value in `:root` and a dark value in the single `prefers-color-scheme: dark` block. To recolour the app, edit this file.
+- Colour: `--stock-*`, `--ink` `--ink-2` `--ink-3`, `--paper` `--paper-hover`, `--on-ink`, `--rule` (hairline between rows) and `--rule-strong` (a rule under a head), `--red` `--red-ink` `--red-wash` `--red-press` `--on-red`, `--stamp-*`, `--ok` and `--warn` (status dots; `--*-on-spine` on the black plate), `--spine*`, `--on-ink-wash`.
+- Texture: `--tone-dot` and `--tone` (the screentone background).
+- Type: `--font`, `--mono`, `--t-s` `--t-m` `--t-l`, plus `--t-tag` (11px), which is only for uppercase reversal tags, keys and the phone tab bar, never for reading text.
+- Space and size: `--s-1` to `--s-8`, `--gutter`, `--frame-thin` `--frame-bold`, `--radius-control`, `--control-h` `--control-h-s`, `--spine-w`.
+- Motion: `--ease`, `--t-fast`, `--t-state`, `--lift`.
+
+**Styles:** `frontend/src/styles/index.css` imports in cascade order, and the order matters:
+1. `kana.css`, `tokens.css`, `base.css` (element defaults), `shell.css` (spine, page header, tab bar)
+2. `components/*.css`: one file per shared component (controls, panel, balloon, sentence-text, sentence-audio, stamp, lists, feedback, word-lookup)
+3. `pages/*.css`: one file per route; its selectors stay inside that page's own classes
+4. `touch.css`: last on purpose. On phones and coarse pointers every control grows to 44px and has to win over page-level sizing.
+
+New CSS goes in the file of the component or page it styles. If a page needs a colour or size the tokens don't have, add a token; don't write a literal.
+
+**Components:** `frontend/src/components/ds` (`import { Button } from '../components/ds'`). Each primitive renders the native element with the system's classes, passes every other prop through, and adds no behaviour:
+- `Button` (`variant` primary | ghost | red, `size="small"`, `icon`), `ButtonLink` (a router link), `ButtonRow`, and `buttonClass()` for an `<a>`, `<summary>` or `<label>` that should look like a button. A Button has no default `type`; inside a form it submits.
+- `Chip` (a label), `ChipButton` (a filter; pass `aria-pressed`), `Plate` (`tone` red | hollow), `Kbd`
+- `Field`, `Input`, `Textarea`, `Select`, `Checkbox`, `Segmented` (native radios)
+- `Panel`, `Sheet`, `Notice` (`tone="error"`), `EmptyState`; `as` changes the element where the markup needs it
+- Domain components stay in `frontend/src/components/`: `Balloon`, `SentenceText`, `Furigana` and `Units`, `Stamp` and `Stamps`, `SourcePanel`, `SentenceAudio`, `WordLookup`, `ReadingAids`, plus `ui.tsx` (`SearchBox`, `Skeleton`, `ErrorNotice`, toasts).
+
+Known deviations, kept as they are: the big stamp's internal sizes (`stamp.css`), the phone balloon at 1.375rem (`practice.css`), and the cutting room's transcript at 1.0625rem (`cleanup.css`) break the three-size rule. Bring them onto the scale, or into a token, the next time those screens are designed.
 
 ## World
 - **Stocks.** Each section is printed on its own tinted newsprint. The page ground (`--stock`) changes per section and does the wayfinding:
-  inbox `#f4dfd5` salmon · sources `#f0e7c6` straw · decks `#dce8d2` celadon · practice `#fbfaf6` white · review `#e5dff1` lavender · library (folders, files and lessons) `#d5e9e3` mint · collect `#e8e4db` natural.
+  inbox `#f4dfd5` salmon · sources `#f0e7c6` straw (with its Recordings, Sentences and Queue tabs) · words `#efd9e2` rose · decks `#dce8d2` celadon · practice `#fbfaf6` white · review `#e5dff1` lavender · library (folders, files and lessons) `#d5e9e3` mint · collect `#e8e4db` natural.
   Dark mode turns these into deep inks (`#2a1e1a` …) on "beta" black pages.
 - **Ink.** `--ink #1a1714`, `--ink-2 #463f37`, `--ink-3 #5f574d` (≥5.4:1 on every stock). Balloons, inputs and sheets use `--paper #fffdf8`. A card under the pointer uses `--paper-hover`: the same paper in light, one step up (`#302d29`) in dark.
 - **One red.** `--red #cc1f1a` (text: `--red-ink #b0130e`) is only for recording, misses, due counts and score stamps. Never decorative.
-- **Spine.** The nav is a black plate (`--spine #171411`). The active section steps out onto its own stock.
+- **Spine.** The nav is a black plate (`--spine #171411`). The active section steps out onto its own stock. Under the brand sits the search field (`--spine-2` well, Ctrl/⌘ K hint), which opens `/search`; on phones Search is the last tab instead. Add-ons sits in the spine's foot and, for phones, in the Collect header.
 - **Screentone** (`.tone`, 4px dot grid) is the only texture. Use it only to push unfocused content back.
 
 ## Type
@@ -45,7 +73,7 @@ Balloons reserve 24px around their layout box for the outward outline and record
 
 The recording editor (from jp-shadow-cut) lives on its own stock, a cold blue-grey newsprint (`--stock-recordings`).
 
-The Transcriptions page shares this stock and uses ruled lists for ongoing and waiting work, with the shared loader, progress when available, and automatic refresh.
+Recordings, Sentences and the transcription Queue are tabs of Sources (`/sources/recordings`, `/sources/sentences`, `/sources/queue`) on the straw stock; only the editor (`/sources/:id/cleanup`) steps onto the cutting room's stock. The tabs are links in the `.tabs` style, the current one in ink, and the Queue tab counts what's waiting. The queue uses ruled lists for ongoing and waiting work, with the shared loader, progress when available, and automatic refresh.
 - **One continuous editing workspace.** On desktop, the transcript or script and cuts sit side by side with independent scrolling, above a permanently docked waveform and playback controls. At ≤900px, Transcript / Script / Cuts switch a single reading pane while the waveform stays visible.
 - **Keep audition controls with the waveform.** Previous / next cut, preview result and keep / cut actions remain beside the selected range. Short phones use labelled icon buttons in one row. Analysis settings occupy the bounded reading workspace; filters and secondary actions open on demand.
 - **Cut types are screentone, not hues.** Each type gets its own ink pattern, on the waveform and as a 14px swatch, so seven types stay readable without breaking the one-red rule:
