@@ -1,6 +1,6 @@
-import { Inbox, Library as LibraryIcon, Layers, RotateCcw, Plus, Puzzle, Mic, ScrollText, ListOrdered } from 'lucide-react'
+import { Inbox, Library as LibraryIcon, Layers, RotateCcw, Plus, Puzzle, ScrollText, Languages, Search as SearchIcon } from 'lucide-react'
 import { createContext, useContext, useEffect, useState } from 'react'
-import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { api, type Stats } from './lib/api'
 import { useTrail } from './lib/trail'
 import { ToastHost } from './components/ui'
@@ -21,21 +21,34 @@ import LibraryPage from './pages/Lessons'
 import LessonPage from './pages/Lesson'
 import TranscriptionsPage from './pages/Transcriptions'
 import SentencesPage from './pages/Sentences'
+import WordsPage, { NextSentencesPage } from './pages/Words'
+import WordPage from './pages/Word'
+import SearchPage, { GlobalSearch } from './pages/Search'
+import DesignPage from './pages/Design'
+import { EmptyState, buttonClass } from './components/ds'
 
 type Section = { to: string; name: string; short?: string; stock: string; icon: typeof Inbox; count?: (s: Stats) => number; hot?: boolean }
 const SECTIONS: Section[] = [
   { to: '/inbox', name: 'Inbox', stock: 'inbox', icon: Inbox, count: (s) => s.inbox },
-  { to: '/sources', name: 'Sources', stock: 'sources', icon: ScrollText },
-  { to: '/decks', name: 'Decks', stock: 'decks', icon: Layers },
   { to: '/library', name: 'Library', stock: 'library', icon: LibraryIcon, count: (s) => s.lessons },
+  { to: '/words', name: 'Words', stock: 'words', icon: Languages },
+  { to: '/decks', name: 'Decks', stock: 'decks', icon: Layers },
   { to: '/review', name: 'Review', stock: 'review', icon: RotateCcw, count: (s) => s.due, hot: true },
-  { to: '/recordings', name: 'Recordings', short: 'Audio', stock: 'recordings', icon: Mic },
-  { to: '/transcriptions', name: 'Transcriptions', short: 'Queue', stock: 'transcriptions', icon: ListOrdered },
+  { to: '/sources', name: 'Sources', stock: 'sources', icon: ScrollText },
   { to: '/collect', name: 'Collect', stock: 'collect', icon: Plus },
 ]
 
 const StatsCtx = createContext<{ stats: Stats | null; refresh: () => void }>({ stats: null, refresh: () => {} })
 export const useStats = () => useContext(StatsCtx)
+
+/** Recordings and the transcription queue moved into Sources: old links still land. */
+function Moved({ to }: { to: string }) {
+  const loc = useLocation()
+  return <Navigate to={to + loc.search} replace />
+}
+function ToCleanup() {
+  return <Navigate to={`/sources/${useParams().id}/cleanup`} replace />
+}
 
 /** Lessons moved into the library: old links keep their folder or archive view. */
 function ToLibrary() {
@@ -46,6 +59,7 @@ function ToLibrary() {
 function stockFor(path: string) {
   if (path.startsWith('/practice')) return 'practice'
   if (path.startsWith('/sentences')) return 'sources'
+  if (/^\/sources\/\d+\/cleanup/.test(path)) return 'recordings'  // the cutting room keeps its own stock
   if (path.startsWith('/lessons')) return 'library'
   if (path.startsWith('/addons')) return 'collect'
   return SECTIONS.find((s) => path.startsWith(s.to))?.stock ?? 'collect'
@@ -64,7 +78,7 @@ function Shell() {
   useEffect(refresh, [loc.pathname])
   const stock = stockFor(loc.pathname)
   useEffect(() => {
-    document.title = `kotoba · ${stock === 'practice' ? 'Practice' : loc.pathname.startsWith('/addons') ? 'Add-ons' : stock.charAt(0).toUpperCase() + stock.slice(1)}`
+    document.title = `kotoba · ${stock === 'practice' ? 'Practice' : loc.pathname.startsWith('/addons') ? 'Add-ons' : loc.pathname.startsWith('/search') ? 'Search' : loc.pathname.startsWith('/design') ? 'Design system' : stock.charAt(0).toUpperCase() + stock.slice(1)}`
     document.getElementById('main')?.focus({ preventScroll: true })
     window.scrollTo(0, 0)
   }, [loc.pathname, stock])
@@ -79,6 +93,7 @@ function Shell() {
             <span className="mark" lang="ja" aria-hidden="true">言葉</span>
             <span className="word">kotoba<small>your sentences</small></span>
           </NavLink>
+          <GlobalSearch />
           <nav aria-label="Sections">
             {SECTIONS.map((s) => {
               const n = stats && s.count ? s.count(stats) : 0
@@ -97,11 +112,18 @@ function Shell() {
           </div>
         </aside>
         <main id="main" tabIndex={-1} className="page" style={{ ['--stock' as string]: `var(--stock-${stock})` }}>
-          <LinkToSetup />
           <Routes>
             <Route path="/" element={<Navigate to="/inbox" replace />} />
             <Route path="/inbox" element={<InboxPage />} />
             <Route path="/sources" element={<SourcesPage />} />
+            <Route path="/sources/recordings" element={<RecordingsPage />} />
+            <Route path="/sources/sentences" element={<SentencesPage />} />
+            <Route path="/sources/queue" element={<TranscriptionsPage />} />
+            <Route path="/sources/:id/cleanup" element={<CleanupPage />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/words" element={<WordsPage />} />
+            <Route path="/words/next" element={<NextSentencesPage />} />
+            <Route path="/words/:id" element={<WordPage />} />
             <Route path="/sentences/:id" element={<SentencePage />} />
             <Route path="/sources/:id" element={<SourcePage />} />
             <Route path="/decks" element={<DecksPage />} />
@@ -113,12 +135,13 @@ function Shell() {
             <Route path="/practice" element={<PracticePage />} />
             <Route path="/review" element={<ReviewPage />} />
             <Route path="/collect" element={<CollectPage />} />
-            <Route path="/recordings" element={<RecordingsPage />} />
-            <Route path="/recordings/:id" element={<CleanupPage />} />
-            <Route path="/transcriptions" element={<TranscriptionsPage />} />
-            <Route path="/transcriptions/all" element={<SentencesPage />} />
+            <Route path="/recordings" element={<Moved to="/sources/recordings" />} />
+            <Route path="/recordings/:id" element={<ToCleanup />} />
+            <Route path="/transcriptions" element={<Moved to="/sources/queue" />} />
+            <Route path="/transcriptions/all" element={<Moved to="/sources/sentences" />} />
             <Route path="/addons" element={<AddonsPage />} />
-            <Route path="*" element={<div className="empty"><h2>Nothing on this page</h2><NavLink className="btn" to="/inbox">Go to the inbox</NavLink></div>} />
+            <Route path="/design" element={<DesignPage />} />
+            <Route path="*" element={<EmptyState><h2>Nothing on this page</h2><NavLink className={buttonClass({})} to="/inbox">Go to the inbox</NavLink></EmptyState>} />
           </Routes>
         </main>
         <nav className="tabbar" aria-label="Sections">
@@ -132,6 +155,9 @@ function Shell() {
               </Link>
             )
           })}
+          <Link to="/search" aria-current={loc.pathname === '/search' ? 'page' : undefined} style={{ ['--sw' as string]: 'var(--stock-collect)' }}>
+            <SearchIcon aria-hidden="true" />Search
+          </Link>
         </nav>
       </div>
       <SelectionLookup />
@@ -139,9 +165,6 @@ function Shell() {
   )
 }
 
-function LinkToSetup() {
-  return <NavLink className="mobile-setup btn small ghost" to="/addons"><Puzzle aria-hidden="true" />Add-ons</NavLink>
-}
 
 export default function App() {
   return (

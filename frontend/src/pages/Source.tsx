@@ -2,6 +2,7 @@ import { BookOpen, ChevronLeft, Play, Volume2, Pencil, Check, Archive, Inbox as 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, type Sentence, type Source } from '../lib/api'
+import { useIndexWait } from '../lib/wordIndex'
 import { stopAudio } from '../lib/audio'
 import { WaveformPlayer, type PlayerHandle } from '../components/SentenceAudio'
 import { SentenceText } from '../components/SentenceText'
@@ -14,6 +15,7 @@ import { ErrorNotice, Skeleton, clock, dayLabel, useAsync, useToast, useAction }
 import { ReadingAids, TranslateAll, Translation, useAids } from '../components/ReadingAids'
 import { CopyButton } from './Library'
 import { useBackTo } from '../lib/trail'
+import { Button, ButtonLink, Chip, Input, Plate } from '../components/ds'
 
 export default function SourcePage() {
   const id = Number(useParams().id)
@@ -23,7 +25,7 @@ export default function SourcePage() {
 function SourcePageDetail({ id }: { id: number }) {
   const { data: s, error, set, reload } = useAsync(() => api.source(id), [id])
   // this source's own practice, clean-up and sentence pages lead back here, so Back skips past them
-  const backTo = useBackTo(`source:${id}`, (p) => p.startsWith('/practice') || p.startsWith('/sentences/') || p === `/recordings/${id}` || p === `/sources/${id}`)
+  const backTo = useBackTo(`source:${id}`, (p) => p.startsWith('/practice') || p.startsWith('/sentences/') || p === `/sources/${id}/cleanup` || p === `/sources/${id}`)
   const aids = useAids()
   const player = useRef<PlayerHandle>(null)
   // the playhead, once playback has started: it lights up the sentence being spoken
@@ -44,7 +46,7 @@ function SourcePageDetail({ id }: { id: number }) {
   const toast = useToast()
   const action = useAction()
   useEffect(() => () => stopAudio(), [id])
-  if (error) return <ErrorNotice error={error} action={<button className="btn" onClick={reload}>Try again</button>} />
+  if (error) return <ErrorNotice error={error} action={<Button onClick={reload}>Try again</Button>} />
   if (!s) return <Skeleton rows={3} />
 
   const timed = s.media ? s.sentences.filter((x) => x.start != null && x.end != null) : []
@@ -68,15 +70,15 @@ function SourcePageDetail({ id }: { id: number }) {
       {action.error != null && <ErrorNotice error={action.error} />}
       <fieldset className="action-scope" disabled={action.busy} aria-busy={action.busy}>
       <header className="page-head">
-        <Link className="btn icon ghost" to={backTo ?? (s.status === 'inbox' ? '/inbox' : '/sources')} aria-label="Back"><ChevronLeft aria-hidden="true" /></Link>
+        <ButtonLink variant="ghost" icon to={backTo ?? (s.status === 'inbox' ? '/inbox' : '/sources')} aria-label="Back"><ChevronLeft aria-hidden="true" /></ButtonLink>
         <h1>{s.title || (s.kind === 'capture' ? 'Capture' : 'Source')} <span className="meta num">{{ capture: 'Capture', audio: 'Audio', video: 'Video', subtitle: 'Subtitles', text: 'Text' }[s.kind]} · {s.sentences.length} sentences</span></h1>
         <span className="grow" />
-        {s.status !== 'kept' && <button className="btn" onClick={() => status('kept')}><Check aria-hidden="true" />Keep</button>}
-        {s.status === 'kept' && <button className="btn ghost" onClick={() => status('inbox')}><InboxIcon aria-hidden="true" />Back to inbox</button>}
-        {s.status !== 'archived' && <button className="btn ghost" onClick={() => status('archived')}><Archive aria-hidden="true" />Archive</button>}
-        {s.media && (s.kind === 'audio' || s.kind === 'video') && <Link className="btn" to={`/recordings/${s.id}`}><Scissors aria-hidden="true" />Clean up</Link>}
+        {s.status !== 'kept' && <Button onClick={() => status('kept')}><Check aria-hidden="true" />Keep</Button>}
+        {s.status === 'kept' && <Button variant="ghost" onClick={() => status('inbox')}><InboxIcon aria-hidden="true" />Back to inbox</Button>}
+        {s.status !== 'archived' && <Button variant="ghost" onClick={() => status('archived')}><Archive aria-hidden="true" />Archive</Button>}
+        {s.media && (s.kind === 'audio' || s.kind === 'video') && <ButtonLink to={`/sources/${s.id}/cleanup`}><Scissors aria-hidden="true" />Clean up</ButtonLink>}
         {s.sentences.length > 0 && <DeckPicker sentenceIds={() => s.sentences.map((x) => x.id)} />}
-        {s.sentences.length > 0 && <Link className="btn primary" to={`/practice?source=${s.id}`}><Play aria-hidden="true" />Practise all</Link>}
+        {s.sentences.length > 0 && <ButtonLink variant="primary" to={`/practice?source=${s.id}`}><Play aria-hidden="true" />Practise all</ButtonLink>}
       </header>
 
       <div className="source-layout">
@@ -86,8 +88,8 @@ function SourcePageDetail({ id }: { id: number }) {
           {s.media && <WaveformPlayer source={s} start={null} end={null} noun="source" onTime={onTime} handle={player}
             hint="Click a line's time to play from there."
             controls={timed.length > 0 && <>
-              <button className="btn icon" aria-label="Previous line" title="Previous line" disabled={!prevLine && at < 0} onClick={() => playFrom(prevLine ?? timed[0])}><SkipBack aria-hidden="true" /></button>
-              <button className="btn icon" aria-label="Next line" title="Next line" disabled={!nextLine} onClick={() => nextLine && playFrom(nextLine)}><SkipForward aria-hidden="true" /></button>
+              <Button icon aria-label="Previous line" title="Previous line" disabled={!prevLine && at < 0} onClick={() => playFrom(prevLine ?? timed[0])}><SkipBack aria-hidden="true" /></Button>
+              <Button icon aria-label="Next line" title="Next line" disabled={!nextLine} onClick={() => nextLine && playFrom(nextLine)}><SkipForward aria-hidden="true" /></Button>
             </>} />}
           <dl className="meta" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 16px', margin: 0 }}>
             <dt>Collected</dt><dd style={{ margin: 0 }}>{date}, {clock(s.created_at)}</dd>
@@ -97,18 +99,19 @@ function SourcePageDetail({ id }: { id: number }) {
               {s.lessons.map(l => <Link key={l.id} to={`/lessons/${l.id}`}><BookOpen aria-hidden="true" />{l.title}{l.done && <span className="sr"> (done)</span>}{l.done && <Check aria-hidden="true" className="source-lesson-done" />}</Link>)}
             </dd></>}
           </dl>
+          {s.sentences.length > 0 && <Coverage id={s.id} />}
           <div style={{ display: 'grid', gap: 8 }}>
             {labels === null ? (
               <div className="chips" style={{ alignItems: 'center' }}>
-                {s.category && <span className="plate">{s.category}</span>}
-                {s.labels.map((l) => <span key={l} className="chip">{l}</span>)}
-                <button className="btn small ghost" onClick={() => setLabels(s.labels.join(', '))}><Pencil aria-hidden="true" />{s.labels.length ? 'Edit labels' : 'Add labels'}</button>
+                {s.category && <Plate>{s.category}</Plate>}
+                {s.labels.map((l) => <Chip key={l}>{l}</Chip>)}
+                <Button variant="ghost" size="small" onClick={() => setLabels(s.labels.join(', '))}><Pencil aria-hidden="true" />{s.labels.length ? 'Edit labels' : 'Add labels'}</Button>
               </div>
             ) : (
               <form className="edit-line" onSubmit={async (e) => { e.preventDefault(); await action.run(async () => { const next = parseLabels(labels); if (next.length > MAX_LABELS) throw new Error('Use up to three labels. Remove a label and try again.'); set(await api.updateSource(s.id, { labels: next })); setLabels(null) }) }}>
                 <label style={{ flex: 1 }}><span className="sr">Labels, comma separated (up to 3)</span>
-                  <input className="input" autoFocus value={labels} placeholder="minna no nihongo, lesson 18" onChange={(e) => setLabels(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && setLabels(null)} /></label>
-                <button className="btn small primary">Save</button>
+                  <Input autoFocus value={labels} placeholder="minna no nihongo, lesson 18" onChange={(e) => setLabels(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && setLabels(null)} /></label>
+                <Button variant="primary" size="small">Save</Button>
               </form>
             )}
           </div>
@@ -116,7 +119,7 @@ function SourcePageDetail({ id }: { id: number }) {
 
         <div className="source-content">
         {head?.playing && !follow && current != null && (
-          <button className="btn primary follow-voice" onClick={() => setFollow(true)}><ListEnd aria-hidden="true" />Back to the current line</button>
+          <Button variant="primary" className="follow-voice" onClick={() => setFollow(true)}><ListEnd aria-hidden="true" />Back to the current line</Button>
         )}
         {s.sentences.length > 0 && <div className="aids-bar">
           <ReadingAids aids={aids} roman={s.sentences.some((x) => x.roman)} />
@@ -163,16 +166,16 @@ function SentenceRow({ x, furigana, roman, translation, audio, current, past, pl
     <li ref={row} className={'row ' + (audio ? 'row-lead' : 'row-simple') + (current ? ' now' : '') + (past ? ' past' : '')} aria-current={current ? 'true' : undefined}>
       {audio && (
         <div className="lead">
-          <button className="btn small icon" onClick={onPlay} aria-label={playing ? 'Pause' : `Play this line only (${fmtTime(x.start)})`} title={playing ? 'Pause' : 'Play this line only'} aria-pressed={playing}><Volume2 aria-hidden="true" /></button>
+          <Button size="small" icon onClick={onPlay} aria-label={playing ? 'Pause' : `Play this line only (${fmtTime(x.start)})`} title={playing ? 'Pause' : 'Play this line only'} aria-pressed={playing}><Volume2 aria-hidden="true" /></Button>
           <button type="button" className="tc num" onClick={onPlayFrom} aria-label={`Play from ${fmtTime(x.start)}`} title="Play from here">{fmtTime(x.start)}</button>
         </div>
       )}
       {draft !== null ? (
         <form className="edit-line" onSubmit={async (e) => { e.preventDefault(); if (draft.trim()) await action.run(async () => { onSaved(await api.updateSentence(x.id, { text: draft })); setDraft(null) }) }}>
           <label style={{ flex: 1 }}><span className="sr">Sentence text</span>
-            <input className="input" lang="ja" autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && setDraft(null)} /></label>
-          <button className="btn small primary" disabled={action.busy || !draft.trim()}>Save</button>
-          <button type="button" className="btn small ghost" disabled={action.busy} onClick={() => setDraft(null)}>Cancel</button>
+            <Input lang="ja" autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && setDraft(null)} /></label>
+          <Button variant="primary" size="small" disabled={action.busy || !draft.trim()}>Save</Button>
+          <Button type="button" variant="ghost" size="small" disabled={action.busy} onClick={() => setDraft(null)}>Cancel</Button>
           {action.error != null && <ErrorNotice error={action.error} />}
         </form>
       ) : (
@@ -183,12 +186,32 @@ function SentenceRow({ x, furigana, roman, translation, audio, current, past, pl
         </SentenceText>
       )}
       <div className="acts">
-        <Link className="btn small ghost" to={`/practice?sentence=${x.id}&from=source`} title="Practise this sentence only"><Play aria-hidden="true" />Practise</Link>
-        <Link className="btn small ghost" to={`/sentences/${x.id}`}>Details</Link>
+        <ButtonLink variant="ghost" size="small" to={`/practice?sentence=${x.id}&from=source`} title="Practise this sentence only"><Play aria-hidden="true" />Practise</ButtonLink>
+        <ButtonLink variant="ghost" size="small" to={`/sentences/${x.id}`}>Details</ButtonLink>
         <CopyButton text={x.text} />
-        <button className="btn small icon ghost" aria-label="Fix the text" title="Fix the text" onClick={() => setDraft(x.text)}><Pencil aria-hidden="true" /></button>
+        <Button variant="ghost" size="small" icon aria-label="Fix the text" title="Fix the text" onClick={() => setDraft(x.text)}><Pencil aria-hidden="true" /></Button>
         <span className="record"><Stamps stamps={x.stamps} max={3} /></span>
       </div>
     </li>
   )
+}
+
+/** How much of the source's vocabulary you have, and the new words that come up most in it. */
+function Coverage({ id }: { id: number }) {
+  const { data: c, reload } = useAsync(() => api.sourceWords(id), [id])
+  useIndexWait(c && c.waiting ? { ...c, pending: Math.max(1, c.pending) } : c, reload)
+  if (!c || (!c.words && !c.waiting)) return null
+  const have = c.known + c.practised
+  const pct = (n: number) => `${c.words ? (n / c.words) * 100 : 0}%`
+  return <section className="source-coverage" aria-label="Its words">
+    <p className="meta" style={{ margin: 0 }}>
+      {c.waiting ? 'Finding its words…' : <><Link to="/words"><b className="num">{c.words} words</b></Link>
+        <span className="num"> · you have {have} ({Math.round(have / Math.max(1, c.words) * 100)}%)</span></>}
+    </p>
+    {!c.waiting && <span className="bar" role="img" aria-label={`${c.known} known, ${c.practised} practised, ${c.new} new`}>
+      <i className="known" style={{ width: pct(c.known) }} /><i className="practised" style={{ width: pct(c.practised) }} />
+    </span>}
+    {c.top_new.length > 0 && <p className="meta" style={{ margin: 0 }}>New here: {c.top_new.map((w, i) => <span key={w.id}>{i > 0 && '、'}
+      <Link to={`/words/${w.id}`} lang="ja">{w.lemma}</Link></span>)}</p>}
+  </section>
 }

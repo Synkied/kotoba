@@ -1,0 +1,20 @@
+/* Search: everything that matches, grouped. */
+.page-head .search.search-wide { flex: 1 1 28rem; }
+.search-results { display: grid; gap: var(--s-6); }
+.search-results.pending { opacity: .6; transition: opacity var(--t-fast) var(--ease); }
+.search-group .day-head { margin-bottom: var(--s-2); }
+.search-group .day-head h2 { margin: 0; font-size: var(--t-m); }
+.search-words { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: var(--s-2); }
+.search-word {
+  display: grid; gap: 2px; height: 100%; padding: var(--s-3); border: var(--frame-thin) solid var(--ink); background: var(--paper);
+  color: var(--ink); text-decoration: none;
+}
+.search-word:hover { background: var(--paper-hover); box-shadow: var(--lift); }
+.search-word:hover b { text-decoration: underline; }
+.search-word b { font-size: var(--t-l); line-height: 1.25; }
+.search-word-meaning { font-size: var(--t-s); overflow-wrap: anywhere; }
+.search-word .meta { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-2); align-items: center; }
+.search-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.search-list li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-3); padding: var(--s-3) 0; border-bottom: 1px solid var(--rule); }
+.search-list li > svg { width: 16px; height: 16px; }
+.search-list a { font-weight: 700; overflow-wrap: anywhere; }

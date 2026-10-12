@@ -107,6 +107,29 @@ export function playClip(url: string, start: number, end: number, onTime?: (t: n
   })
 }
 
+/** Play a whole file: a take, kept or just recorded. Resolves when it ends or is stopped. */
+export function playUrl(url: string): Promise<void> {
+  stopAudio()
+  const el = (player = new Audio(url))
+  stopAt = null
+  return new Promise((resolve, reject) => {
+    el.onended = el.onpause = () => resolve()
+    el.onerror = () => reject(new Error('This take could not be played.'))
+    el.play().catch(reject)
+  })
+}
+
+/** A take as the recorder hands it over (16 kHz mono int16), wrapped as a WAV to play back. */
+export function wav(pcm: Int16Array): Blob {
+  const head = new DataView(new ArrayBuffer(44))
+  const text = (at: number, s: string) => { for (let i = 0; i < s.length; i++) head.setUint8(at + i, s.charCodeAt(i)) }
+  text(0, 'RIFF'); head.setUint32(4, 36 + pcm.byteLength, true); text(8, 'WAVE')
+  text(12, 'fmt '); head.setUint32(16, 16, true); head.setUint16(20, 1, true); head.setUint16(22, 1, true)
+  head.setUint32(24, 16000, true); head.setUint32(28, 32000, true); head.setUint16(32, 2, true); head.setUint16(34, 16, true)
+  text(36, 'data'); head.setUint32(40, pcm.byteLength, true)
+  return new Blob([head.buffer, pcm.buffer as ArrayBuffer], { type: 'audio/wav' })
+}
+
 let kokoroReady = false
 let voiceLoading = false
 const voiceListeners = new Set<() => void>()

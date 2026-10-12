@@ -1,4 +1,5 @@
-export type Stamp = { id: number; created_at: string; overall: number; accuracy: number; clarity: number; fluency: number; model: string }
+/** one scored try; audio is the take itself, when it was kept */
+export type Stamp = { id: number; created_at: string; overall: number; accuracy: number; clarity: number; fluency: number; model: string; audio: string | null }
 export type Sentence = {
   id: number; source: number; source_kind: SourceKind; source_title: string; position: number
   text: string; roman: string; furigana: [string, string][]; start: number | null; end: number | null
@@ -88,6 +89,38 @@ export type Word = {
 /** What a selected stretch means in its sentence, from the translator in use. */
 export type Explanation = { translation: string; notes: string[]; to: string; name: string; translator: string; cloud: boolean }
 export type Page<T> = { count: number; results: T[] }
+
+/** How far you've got with a word: you marked it known, you've said a sentence with it well, or neither. */
+export type WordStatus = 'new' | 'practised' | 'known'
+/** A word in your sentences, as the dictionary lists it (読む for 読んでいました). tries/misses: its latest scored attempts. */
+export type WordRow = {
+  id: number; lemma: string; reading: string; romaji: string; entry: number | null; status: WordStatus; known_at: string | null
+  sentences: number | null; sources: number | null; tries: number; misses: number; trouble: boolean
+}
+/** pending: sentences the word index still has to read */
+export type WordIndex = { pending: number; dictionary: DictionaryStatus['state'] }
+export type WordSentence = Sentence & { spans: [number, number][] }
+export type WordDetail = WordRow & WordIndex & {
+  forms: string[]; kanji: { char: string; words: number }[]; entries: DictEntry[]
+  /** how it went, newest first */
+  results: boolean[]; sentence_list: WordSentence[]; more: number
+}
+export type SentenceWords = WordIndex & {
+  words: (WordRow & { start: number; end: number; surface: string })[]
+  related: { sentence: Sentence; shared: { id: number; lemma: string; reading: string }[] }[]
+  indexed: boolean
+}
+export type Coverage = WordIndex & { words: number; known: number; practised: number; new: number; top_new: WordRow[]; waiting: number }
+export type SearchResults = {
+  q: string
+  words: (WordRow & { meaning: string })[]
+  sentences: Sentence[]
+  sources: { id: number; kind: SourceKind; status: Source['status']; title: string; sentences: number; created_at: string }[]
+  lessons: { id: number; title: string; done: boolean }[]
+  decks: { id: number; name: string; size: number }[]
+  counts: { words: number; sentences: number; sources: number; lessons: number; decks: number }
+}
+export type NextSentence = { sentence: Sentence; word: WordRow; sentences: number; spans: [number, number][] }
 
 /** source/job: the library source transcribed from this recording, and how that's going */
 /** A shelf for lessons; parent null is the top. The page builds the tree from the flat list. */
@@ -181,10 +214,19 @@ export const api = {
   stats: () => req<Stats>('stats'),
   /** the word at `at`, or with `end` the selected stretch text[at:end] */
   lookup: (text: string, at: number, pairs: [string, string][], signal?: AbortSignal, end?: number) =>
-    req<{ word: Word | null; dictionary: DictionaryStatus }>('lookup' + qs({ text, at, end, ...(pairs.length ? { pairs: JSON.stringify(pairs) } : {}) }), { signal }),
+    req<{ word: Word | null; library: { id: number; sentences: number; status: WordStatus } | null; dictionary: DictionaryStatus }>('lookup' + qs({ text, at, end, ...(pairs.length ? { pairs: JSON.stringify(pairs) } : {}) }), { signal }),
   explain: (text: string, context: string, force = false, signal?: AbortSignal) =>
     req<Explanation>('explain', { ...json('POST', { text, context, force }), signal }),
   facets: () => req<Facets>('facets'),
+  search: (q: string, signal?: AbortSignal) => req<SearchResults>('search' + qs({ q }), { signal }),
+  words: (p: { q?: string; status?: string; sort?: string; limit?: number; offset?: number }) =>
+    req<Page<WordRow> & WordIndex>('words' + qs(p)),
+  word: (id: number) => req<WordDetail>(`words/${id}`),
+  markWord: (id: number, known: boolean) => req<WordDetail>(`words/${id}`, json('PATCH', { known })),
+  fetchDictionary: () => req<DictionaryStatus>('dictionary', json('POST', {})),
+  nextSentences: () => req<WordIndex & { results: NextSentence[] }>('words/next'),
+  sentenceWords: (id: number) => req<SentenceWords>(`sentences/${id}/words`),
+  sourceWords: (id: number) => req<Coverage>(`sources/${id}/words`),
   sources: (p: { status?: string; q?: string; kind?: string; category?: string; label?: string; limit?: number; offset?: number }) =>
     req<Page<Source>>('sources' + qs({ limit: 50, ...p })),
   source: (id: number) => req<Source>(`sources/${id}`),
@@ -217,8 +259,11 @@ export const api = {
   removeFromDeck: (id: number, sentences: number[]) => req<void>(`decks/${id}/remove`, json('POST', { sentences })),
   orderDeck: (id: number, sentences: number[]) => req<void>(`decks/${id}/order`, json('POST', { sentences })),
   review: () => req<{ due: Sentence[]; new: Sentence[]; next_due: string | null }>('review'),
-  attempt: (data: Omit<Stamp, 'id' | 'created_at'> & { sentence: number; said?: string; units?: Unit[] }) =>
-    req<{ sentence: Sentence }>('attempts', json('POST', data)),
+  attempt: (data: Omit<Stamp, 'id' | 'created_at' | 'audio'> & { sentence: number; said?: string; units?: Unit[] }) =>
+    req<{ attempt: Stamp; sentence: Sentence }>('attempts', json('POST', data)),
+  keepTake: (attempt: number, pcm: Int16Array) =>
+    req<Stamp>(`attempts/${attempt}/audio`, { method: 'PUT', body: pcm.buffer as ArrayBuffer, headers: { 'Content-Type': 'application/octet-stream' } }),
+  dropTake: (attempt: number) => req<void>(`attempts/${attempt}/audio`, { method: 'DELETE' }),
   collectText: (text: string, title = '', labels: string[] = []) => req<Source>('collect/text', json('POST', { text, title, labels })),
   collectFile: (file: File, media?: File | null) => {
     const f = new FormData(); f.append('file', file); if (media) f.append('media', media)

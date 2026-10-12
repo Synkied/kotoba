@@ -79,6 +79,27 @@ jmdict-simplified: the first lookup downloads it once (about 12 MB) into the dat
 or run `make dictionary` beforehand. `KOTOBA_DICT_LANG=fre` (or ger, spa, rus, …) picks
 another gloss language; English has by far the most entries.
 
+**Words** (`/words`) links your sentences through the words they share. Every sentence you
+keep is cut into the words the dictionary lists (読んでいました is filed under 読む, 図書館 stays
+one word), in the background, so collecting never waits for it. Each word's page has its
+meanings, every sentence it's in across all your sources (each one playable in its own native
+audio), the forms it takes, its kanji (each leads to the other words with it), and how saying it
+has gone: a word you missed or slurred twice or more in your latest attempts is flagged as one you
+**keep missing**. Mark the words you already know; a word in a sentence you've said well counts as
+**practised**. **Next sentences** lists the ones you're a single new word away from, the most
+common new word first. A sentence's page lists its words and the sentences elsewhere that share
+its rarer ones, a source's page shows how much of its vocabulary you have, and a tapped word links
+to its page. Without the dictionary, words are found more roughly and get the dictionary's
+spelling once it's in (Get the dictionary on the Words page).
+
+**Search** (the box at the top of the sidebar, Ctrl/⌘ K, or the Search tab on a phone) looks
+through everything at once: words by spelling, reading, romaji or English meaning (`library`
+finds 図書館), sentences by text, reading or translation, and sources, lessons and decks by name.
+
+**Sources** has four tabs: the sources themselves, **Recordings** (your own takes and any audio
+or video, each opening the clean-up editor), every **Sentence** in one list, and the
+transcription **Queue**. The old `/recordings` and `/transcriptions` links still work.
+
 Select any stretch of a sentence (a few words, a clause, the whole line) and an **Explain**
 button comes up beside it. It opens the stretch with its reading in kana and romaji, its meanings
 when the dictionary lists it, and what your translator (see Translations below) says it means in

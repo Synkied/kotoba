@@ -2,11 +2,12 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { MessageSquareText, RefreshCw, Square, Volume2, X } from 'lucide-react'
-import { api, type DictionaryStatus, type Explanation as Explained, type Word } from '../lib/api'
+import { api, type DictEntry, type DictionaryStatus, type Explanation as Explained, type Word, type WordStatus } from '../lib/api'
 import { speak, stopAudio } from '../lib/audio'
 import { Furigana } from './Furigana'
 import { useLanguage } from './ReadingAids'
 import { usePref } from './ui'
+import { Button } from './ds'
 
 /** Text nodes of the sentence itself, leaving out the furigana in <rt> and <rp>. */
 function textNodes(root: Node): Text[] {
@@ -165,11 +166,11 @@ export function SelectionLookup() {
   const gap = 8, w = 120
   return <>
     {offer && !open && createPortal(
-      <button type="button" className="btn small select-explain" lang="en"
+      <Button type="button" size="small" className="select-explain" lang="en"
         style={{ left: Math.min(Math.max(16, offer.rect.right - w / 2), window.innerWidth - w - 16), top: Math.min(offer.rect.bottom + gap, window.innerHeight - 56) }}
         onPointerDown={(e) => e.preventDefault()} onClick={explain} title="Its reading, meaning and what it means here">
         <MessageSquareText aria-hidden="true" />Explain
-      </button>, document.body)}
+      </Button>, document.body)}
     {open && <WordPopover key={`${open.at}-${open.end}`} {...open} onClose={() => setOpen(null)} />}
   </>
 }
@@ -178,6 +179,7 @@ function WordPopover({ text, pairs, at, end, root, x, y, onClose }: Open & { onC
   const box = useRef<HTMLDivElement>(null)
   const [word, setWord] = useState<Word | null | undefined>(undefined)
   const [dict, setDict] = useState<DictionaryStatus | null>(null)
+  const [library, setLibrary] = useState<{ id: number; sentences: number; status: WordStatus } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pos, setPos] = useState<{ left: number; top: number } | 'sheet' | null>(null)
   const [playing, setPlaying] = useState<string | null>(null)
@@ -188,7 +190,7 @@ function WordPopover({ text, pairs, at, end, root, x, y, onClose }: Open & { onC
     const ctl = new AbortController()
     let timer = 0
     const load = () => api.lookup(text, at, pairs, ctl.signal, end).then((r) => {
-      setWord(r.word); setDict(r.dictionary); setError(null)
+      setWord(r.word); setDict(r.dictionary); setLibrary(r.library); setError(null)
       if (r.dictionary.state === 'downloading') timer = window.setTimeout(load, 2500)
     }, (e) => { if (!ctl.signal.aborted) setError(e instanceof Error ? e.message : String(e)) })
     load()
@@ -241,16 +243,16 @@ function WordPopover({ text, pairs, at, end, root, x, y, onClose }: Open & { onC
     try { await speak(what, voice) } catch (e) { setError(e instanceof Error ? e.message : String(e)) } finally { setPlaying((p) => (p === what ? null : p)) }
   }
   const listenButton = (say: string, label: string) => (
-    <button type="button" className="btn small icon" onClick={() => listen(say)} aria-pressed={playing === say}
+    <Button type="button" size="small" icon onClick={() => listen(say)} aria-pressed={playing === say}
       aria-label={playing === say ? 'Stop' : label} title={playing === say ? 'Stop' : label}>
       {playing === say ? <Square aria-hidden="true" /> : <Volume2 aria-hidden="true" />}
-    </button>
+    </Button>
   )
 
   return createPortal(
     <div ref={box} className="word-pop" role="dialog" aria-label={word ? `${word.surface}: meaning and readings` : 'Word lookup'}
       tabIndex={-1} lang="en" style={pos === 'sheet' ? undefined : pos ?? { visibility: 'hidden' }} onClick={(e) => e.stopPropagation()}>
-      <button type="button" className="btn small icon ghost word-pop-close" onClick={close} aria-label="Close"><X aria-hidden="true" /></button>
+      <Button type="button" variant="ghost" size="small" icon className="word-pop-close" onClick={close} aria-label="Close"><X aria-hidden="true" /></Button>
       {error ? <p className="meta">{error}</p> : word === undefined ? <p className="meta">Looking it up…</p> : word === null ? <p className="meta">{end != null ? 'Nothing to explain here.' : 'No word here.'}</p> : <>
         {/* the word stays in view; only its meanings scroll */}
         <div className="word-pop-top">
@@ -266,15 +268,13 @@ function WordPopover({ text, pairs, at, end, root, x, y, onClose }: Open & { onC
         </div>
         <div className="word-pop-body">
         {end != null && <Explanation text={word.surface} context={text} auto />}
-        {end != null && !word.entries.length ? null : word.entries.length ? word.entries.map((e, n) => <section key={e.id} className="word-entry">
-          {n > 0 && <h3 lang="ja">{e.kanji[0]?.text ?? e.kana[0]?.text}{e.kanji.length > 0 && <span className="meta"> {e.kana[0]?.text}</span>}</h3>}
-          <ol>{e.senses.map((s, i) => <li key={i}>
-            {/* the part of speech once, until it changes */}
-            {(s.misc.length > 0 || (s.pos.length > 0 && s.pos.join() !== e.senses[i - 1]?.pos.join())) &&
-              <span className="word-pos">{[...(s.pos.join() !== e.senses[i - 1]?.pos.join() ? s.pos : []), ...s.misc].join(' · ')}</span>}
-            <span>{s.gloss.join('; ')}</span>{s.info.length > 0 && <span className="meta"> ({s.info.join('; ')})</span>}
-          </li>)}</ol>
-        </section>) : <p className="meta">{
+        {library && <p className="word-library">
+          <Link to={`/words/${library.id}`} onClick={close}>
+            {library.sentences === 1 ? 'In 1 of your sentences' : `In ${library.sentences} of your sentences`}
+            {library.status !== 'new' && ` · ${library.status}`}
+          </Link>
+        </p>}
+        {end != null && !word.entries.length ? null : word.entries.length ? <Entries entries={word.entries} /> : <p className="meta">{
           dict?.state === 'downloading' ? 'Downloading the dictionary (once, about 12 MB)…' :
             dict?.state === 'error' ? dict.error : 'Not in the dictionary.'
         }</p>}
@@ -282,6 +282,19 @@ function WordPopover({ text, pairs, at, end, root, x, y, onClose }: Open & { onC
         </div>
       </>}
     </div>, document.body)
+}
+
+/** A word's dictionary entries: numbered senses, the part of speech shown once until it changes.
+ *  Entries after the first are headed with how they're written. */
+export function Entries({ entries }: { entries: DictEntry[] }) {
+  return <>{entries.map((e, n) => <section key={e.id} className="word-entry">
+    {n > 0 && <h3 lang="ja">{e.kanji[0]?.text ?? e.kana[0]?.text}{e.kanji.length > 0 && <span className="meta"> {e.kana[0]?.text}</span>}</h3>}
+    <ol>{e.senses.map((s, i) => <li key={i}>
+      {(s.misc.length > 0 || (s.pos.length > 0 && s.pos.join() !== e.senses[i - 1]?.pos.join())) &&
+        <span className="word-pos">{[...(s.pos.join() !== e.senses[i - 1]?.pos.join() ? s.pos : []), ...s.misc].join(' · ')}</span>}
+      <span>{s.gloss.join('; ')}</span>{s.info.length > 0 && <span className="meta"> ({s.info.join('; ')})</span>}
+    </li>)}</ol>
+  </section>)}</>
 }
 
 /** What the translator in use says the stretch means in its sentence. Asking costs machine
@@ -303,10 +316,10 @@ function Explanation({ text, context, auto = false }: { text: string; context: s
   const who = lang?.translator ?? 'the translator'
   const busy = asked > 0 && !error && (!res || force)
   if (!asked) return (
-    <p className="word-explain"><button type="button" className="btn small ghost" onClick={() => setAsked(1)}
+    <p className="word-explain"><Button type="button" variant="ghost" size="small" onClick={() => setAsked(1)}
       title={lang?.cloud ? `Asks ${who}, an online service: uses API credits` : `Asks ${who} on this computer or your network`}>
       <MessageSquareText aria-hidden="true" />Explain in this sentence
-    </button></p>
+    </Button></p>
   )
   return (
     <section className="word-explain" aria-live="polite" aria-busy={busy}>
