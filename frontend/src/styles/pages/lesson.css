@@ -1,26 +1,28 @@
 /* Lesson page. */
 /* Lesson: a study desk. The worksheet takes the page; the side column holds the
    listening panel (a small player, the transcript following the voice under it)
-   and folding drawers for notes, sources and files. */
-.lesson-desk { display: grid; grid-template-columns: minmax(0, 7fr) minmax(22rem, 5fr); gap: var(--gutter) var(--s-5); align-items: start; }
+   over the notebook (notes, sources and files as tabs). Rules between them move. */
+.lesson-desk { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gutter); align-items: start; }
 .lesson-side { display: flex; flex-direction: column; gap: var(--gutter); min-width: 0; }
-.lesson-sheet { display: flex; flex-direction: column; border: var(--frame-bold) solid var(--ink); background: var(--paper); min-width: 0; }
+.lesson-sheet { display: flex; flex-direction: column; border: var(--frame) solid var(--rule-strong); background: var(--paper); min-width: 0; }
 .lesson-sheet iframe { display: block; width: 100%; height: min(82vh, 60rem); border: 0; background: var(--paper); }
 .lesson-sheet .tabs { flex-wrap: wrap; }
 .lesson-file-name { font-size: var(--t-m); font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
-.lesson-empty { border: var(--frame-bold) dashed var(--ink-3); }
+/* nothing to study yet: the dashed sheet fills its place on the desk, its words gathered in the middle */
+.lesson-empty { max-width: none; align-content: center; padding: var(--s-7) clamp(var(--s-4), 4vw, var(--s-7)); border: var(--frame) dashed var(--ink-3); }
+.lesson-empty p { max-width: 34rem; }
 .lesson-empty .lesson-add-files { margin-top: var(--s-2); }
 /* the listening panel */
-.listen { display: flex; flex-direction: column; min-height: 0; border: var(--frame-bold) solid var(--ink); background: var(--paper); }
-.listen-head { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-2) var(--s-3); border-bottom: var(--frame-thin) solid var(--ink); min-height: 48px; }
-.listen-head > svg { width: 18px; height: 18px; flex: none; }
+.listen { display: flex; flex-direction: column; min-height: 0; border: var(--frame) solid var(--rule-strong); background: var(--paper); }
+.listen-head { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-1) var(--s-3); border-bottom: var(--frame) solid var(--rule-strong); min-height: 40px; }
+.listen-head > svg { width: 16px; height: 16px; flex: none; }
 .listen-name { font-size: var(--t-m); min-width: 0; overflow-wrap: anywhere; }
 .listen-pick { flex: 1; min-width: 0; }
 .listen-pick .select { width: 100%; font-weight: 700; }
 .listen-head .meta { white-space: nowrap; }
 .listen-source { margin-left: auto; flex: none; }
-.listen-video { display: block; width: 100%; max-height: 16rem; background: #000; border-bottom: var(--frame-thin) solid var(--ink); }
-.listen-deck { display: grid; gap: var(--s-1); padding: var(--s-3) var(--s-3) var(--s-2); border-bottom: var(--frame-thin) solid var(--ink); }
+.listen-video { display: block; width: 100%; max-height: 12rem; background: #000; border-bottom: var(--frame) solid var(--rule-strong); }
+.listen-deck { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-1); padding: var(--s-2) var(--s-3) var(--s-1); border-bottom: var(--frame) solid var(--rule-strong); }
 /* the rail: the recording's lines laid end to end, so you see where you are in the dialogue */
 .listen-rail { position: relative; height: 22px; }
 .listen-rail::before { content: ''; position: absolute; inset: 10px 0; background: color-mix(in srgb, var(--ink) 18%, transparent); }
@@ -28,93 +30,153 @@
 .listen-rail i { position: absolute; top: 6px; height: 10px; min-width: 2px; background: color-mix(in srgb, var(--ink) 22%, var(--paper)); transition: background-color var(--t-state) var(--ease); }
 .listen-rail i[data-state='past'] { background: color-mix(in srgb, var(--ink) 55%, var(--paper)); }
 .listen-rail i[data-state='now'] { background: var(--ink); top: 4px; height: 14px; }
-.listen-rail i[data-loop] { outline: var(--frame-thin) solid var(--ink); outline-offset: 2px; }
+.listen-rail i[data-loop] { outline: var(--frame) solid var(--rule-strong); outline-offset: 2px; }
 .listen-rail .listen-fill { left: 0; top: 10px; height: 2px; background: var(--ink); }
 .listen-playhead { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--ink); pointer-events: none; }
 .listen-playhead::before { content: ''; position: absolute; top: -5px; left: -4px; border: 5px solid transparent; border-top-color: var(--ink); border-bottom: 0; }
 .listen-rail input { position: absolute; inset: -6px 0; width: 100%; height: calc(100% + 12px); margin: 0; opacity: 0; cursor: pointer; }
 .listen-rail input:disabled { cursor: default; }
 .listen-rail:has(input:focus-visible) { outline: 2px solid var(--ink); outline-offset: 4px; }
-.listen-times { display: flex; justify-content: space-between; gap: var(--s-2); font: 400 var(--t-s)/1.2 var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-3); }
-.listen-transport { display: flex; align-items: center; gap: var(--s-1); margin-top: var(--s-1); }
+/* the clock rides the transport, after the buttons it answers to */
+.listen-times { margin-left: var(--s-2); font: 400 var(--t-s)/1.2 var(--font); font-variant-numeric: tabular-nums; color: var(--ink-3); white-space: nowrap; }
+.listen-transport { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1); }
 .listen-transport .grow { flex: 1; }
-.listen-play { width: 44px; height: 44px; }
-.listen-play svg { width: 20px; height: 20px; }
+.listen-transport .btn svg { width: 16px; height: 16px; }
 .listen-repeat[aria-pressed='true'] { background: var(--ink); color: var(--on-ink); }
-.listen-speed .select { width: auto; }
+.listen-speed .select { width: auto; min-height: var(--control-h-s); padding-block: 2px; font-size: var(--t-s); }
 /* the transcript, following the voice */
 .listen-script { position: relative; flex: 1; min-height: 14rem; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .listen-aids { position: sticky; top: 0; z-index: 1; padding: var(--s-2) var(--s-3); background: var(--paper); border-bottom: 1px solid var(--rule); }
 .listen-lines { list-style: none; margin: 0; padding: var(--s-1) 0 var(--s-6); }
-.listen-lines li { display: grid; grid-template-columns: 3.5em minmax(0, 1fr); gap: var(--s-2); align-items: baseline; padding: var(--s-2) var(--s-3); transition: background-color var(--t-state) var(--ease), box-shadow var(--t-state) var(--ease); }
-.listen-lines .tc { font: 400 var(--t-s)/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-3); background: none; border: 0; padding: 2px var(--s-1); margin-left: calc(-1 * var(--s-1)); cursor: pointer; justify-self: start; }
+.listen-lines li { display: grid; grid-template-columns: 3.5em minmax(0, 1fr) auto; gap: var(--s-2); align-items: baseline; padding: var(--s-2) var(--s-3); transition: background-color var(--t-state) var(--ease), box-shadow var(--t-state) var(--ease); }
+.listen-lines .tc { font: 400 var(--t-s)/1 var(--font); font-variant-numeric: tabular-nums; color: var(--ink-3); background: none; border: 0; padding: 2px var(--s-1); margin-left: calc(-1 * var(--s-1)); cursor: pointer; justify-self: start; }
 .listen-lines .tc:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 .listen-text { line-height: 1.7; overflow-wrap: anywhere; transition: color var(--t-state) var(--ease); }
 .listen-text .roman { display: block; font-size: var(--t-s); color: var(--ink-3); line-height: 1.4; }
 .listen-lines li[data-state='past'] .listen-text { color: var(--ink-3); }
-.listen-lines li[data-state='now'] { background: color-mix(in srgb, var(--stock) 55%, var(--paper)); box-shadow: inset 4px 0 0 var(--ink); }
-.listen-lines li[data-state='now'] .tc { background: var(--ink); color: var(--on-ink); }
+.listen-lines li[data-state='now'] { background: var(--wash); box-shadow: inset 3px 0 0 var(--accent); }
+.listen-lines li[data-state='now'] .tc { color: var(--accent-ink); font-weight: 700; }
+/* quote a line in the notes: shown with the line under the pointer, or always on touch */
+.listen-quote { display: grid; place-items: center; width: 32px; height: 28px; margin: -4px 0; padding: 0; border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; color: var(--ink-2); cursor: pointer; align-self: center; transition: background-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease); }
+.listen-quote svg { width: 16px; height: 16px; }
+.listen-quote:hover { background: var(--ink); color: var(--on-ink); }
+.listen-quote:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+@media (pointer: fine) {
+  .listen-quote { opacity: 0; }
+  .listen-lines li:hover .listen-quote, .listen-lines li[data-state='now'] .listen-quote, .listen-quote:focus-visible { opacity: 1; }
+}
 .listen-next { margin: 0 var(--s-3) var(--s-4); }
 .listen-follow { position: sticky; bottom: var(--s-3); display: flex; width: max-content; margin: 0 auto var(--s-3); box-shadow: var(--lift); }
 .listen-state { display: grid; justify-items: start; gap: var(--s-3); padding: var(--s-5) var(--s-4); max-width: 34rem; }
 .listen-state p { margin: 0; }
 .listen-state .spin { width: 20px; height: 20px; animation: loading-spin 1s linear infinite; }
-.listen-keys { margin: 0; padding: var(--s-2) var(--s-3); border-top: 1px solid var(--rule); }
+.listen-keys { margin: 0; padding: var(--s-1) var(--s-3); border-top: 1px solid var(--rule); }
 @media (pointer: coarse) {
   .listen-keys { display: none; }
 }
-/* drawers: notes, sources and files fold away */
-.drawer { border: var(--frame-thin) solid var(--ink); background: color-mix(in srgb, var(--paper) 55%, var(--stock)); }
-.drawer > summary { display: flex; align-items: center; gap: var(--s-2); min-height: 44px; padding: var(--s-1) var(--s-3); cursor: pointer; list-style: none; }
-.drawer > summary::-webkit-details-marker { display: none; }
-.drawer > summary:hover { background: color-mix(in srgb, var(--paper) 70%, var(--stock)); }
-.drawer > summary:focus-visible { outline: 2px solid var(--ink); outline-offset: -4px; }
-.drawer > summary h2 { font-size: var(--t-m); flex: none; }
-.drawer-mark { width: 16px; height: 16px; flex: none; transition: transform var(--t-state) var(--ease); }
-.drawer[open] > summary { border-bottom: 1px solid var(--rule); }
-.drawer[open] .drawer-mark { transform: rotate(90deg); }
-.drawer-meta { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
-.drawer[open] .drawer-meta.preview { visibility: hidden; }
-.drawer-body { display: grid; gap: var(--s-3); padding: var(--s-3); background: var(--paper); }
+/* the notebook: tabs on its head like index tabs, each page scrolling on its own */
+.notebook { display: flex; flex-direction: column; min-width: 0; min-height: 0; border: var(--frame) solid var(--rule-strong); background: var(--paper); }
+.notebook-tabs { display: flex; flex: none; gap: 0; border-bottom: var(--frame) solid var(--rule-strong); background: var(--wash); overflow-x: auto; scrollbar-width: none; }
+.notebook-tabs [role='tab'] { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 var(--s-4); border: 0; border-right: 1px solid var(--rule-strong); background: transparent; color: var(--ink-2); font-weight: 700; font-size: var(--t-m); white-space: nowrap; cursor: pointer; transition: background-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease); }
+.notebook-tabs [role='tab'] svg { width: 16px; height: 16px; }
+.notebook-tabs [role='tab'] .n { min-width: 1.5em; padding: 0 5px; font: 400 var(--t-s)/1.5 var(--font); text-align: center; border: 1px solid currentColor; }
+.notebook-tabs [role='tab']:hover { color: var(--ink); background: var(--paper); }
+.notebook-tabs [role='tab'][aria-selected='true'] { background: var(--paper); color: var(--ink); font-weight: 700; box-shadow: inset 0 -2px 0 var(--ink); }
+.notebook-tabs [role='tab']:focus-visible { outline: 2px solid var(--ink); outline-offset: -5px; box-shadow: inset 0 0 0 3px var(--paper); }
+.notebook-page { display: flex; flex-direction: column; gap: var(--s-3); padding: var(--s-3) var(--s-4) var(--s-4); }
+.notebook-page[hidden] { display: none; }
+/* the rules between the parts of the desk: a grip at rest, the whole rule in ink while you hold it */
+.splitter { display: none; position: relative; z-index: 1; touch-action: none; user-select: none; }
+.splitter i { position: absolute; inset: 0; margin: auto; background: var(--ink-3); transition: background-color var(--t-fast) var(--ease); }
+.splitter[data-axis='x'] { cursor: col-resize; }
+.splitter[data-axis='x'] i { width: 3px; height: 40px; }
+.splitter[data-axis='y'] { cursor: row-resize; }
+.splitter[data-axis='y'] i { width: 40px; height: 3px; }
+.splitter::before { content: ''; position: absolute; inset: 0; margin: auto; background: var(--ink); opacity: 0; transition: opacity var(--t-fast) var(--ease); }
+.splitter[data-axis='x']::before { width: 1.5px; }
+.splitter[data-axis='y']::before { height: 1.5px; }
+.splitter:hover i, .splitter:focus-visible i, .splitter[data-dragging] i { background: var(--ink); }
+.splitter:hover::before, .splitter:focus-visible::before, .splitter[data-dragging]::before { opacity: 1; }
+.splitter:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+/* while a rule moves, the worksheet's own frame mustn't take the pointer */
+.lesson-desk:has(.splitter[data-dragging]) iframe { pointer-events: none; }
+.lesson-desk:has(.splitter[data-dragging]) { user-select: none; }
 .lesson-file-list { list-style: none; margin: 0; padding: 0; display: grid; }
 .lesson-file-list li { padding: var(--s-1) 0; border-bottom: 1px solid var(--rule); }
 .lesson-file-row { display: flex; align-items: center; gap: var(--s-2); }
 .lesson-file-row .lesson-file-name { flex: 1; font-weight: 400; }
 .lesson-file-icon { width: 16px; height: 16px; flex: none; color: var(--ink-2); }
 .lesson-file-job { font-size: var(--t-s); color: var(--ink-2); white-space: nowrap; text-underline-offset: 3px; }
-.lesson-file-job.failed { color: var(--red-ink); }
-.lesson-image { display: block; max-width: 100%; margin: var(--s-1) 0 var(--s-2); border: var(--frame-thin) solid var(--ink); background: var(--paper); }
+.lesson-file-job.failed { color: var(--accent-ink); }
+.lesson-image { display: block; max-width: 100%; margin: var(--s-1) 0 var(--s-2); border: var(--frame) solid var(--rule-strong); background: var(--paper); }
 .lesson-add-files { justify-self: start; position: relative; }
 .lesson-add-files:focus-within { outline: 2px solid var(--ink); outline-offset: 3px; }
-.lesson-notes .textarea { width: 100%; min-height: 9rem; resize: vertical; }
-.lesson-notes .btn-row { margin-top: var(--s-2); }
+.lesson-notes { display: flex; flex-direction: column; flex: 1 0 auto; gap: var(--s-3); }
+.lesson-notes > p { margin: 0; }
+.lesson-notes-empty { max-width: 34rem; }
+/* a note read in place: its own page, ruled off from the next */
+.lesson-note { display: grid; gap: var(--s-2); min-width: 0; padding-bottom: var(--s-3); border-bottom: 1px solid var(--rule); }
+.lesson-note > header { display: flex; align-items: center; gap: var(--s-1); min-width: 0; }
+.lesson-note > header h3 { flex: 1; min-width: 0; font-size: var(--t-m); overflow-wrap: anywhere; }
+.lesson-note-read { cursor: text; }
+.lesson-note .note-markdown { line-height: 1.7; overflow-wrap: anywhere; }
+.lesson-note .note-markdown blockquote { padding: var(--s-1) var(--s-3); }
+.lesson-note .note-markdown > * + * { margin-top: var(--s-2); }
+.lesson-note .note-markdown :is(h1, h2, h3) { font-size: var(--t-m); margin-top: var(--s-4); margin-bottom: 0; }
+.lesson-note .note-markdown h1 { border-bottom-width: var(--frame); padding-bottom: var(--s-1); }
+.lesson-note .note-markdown > :first-child { margin-top: 0; }
+.lesson-note-blank { width: 100%; padding: var(--s-2) var(--s-3); text-align: left; background: transparent; border: 1px dashed var(--rule-strong); cursor: pointer; }
+.lesson-note-blank:hover:not(:disabled) { border-color: var(--ink); color: var(--ink); }
+/* a note being written: a ruled page that takes what's left of the notebook */
+.lesson-note[data-editing] { display: flex; flex-direction: column; flex: 1 0 auto; gap: var(--s-2); padding-bottom: 0; border-bottom: 0; }
+.lesson-note[data-editing] .mention-field { flex: 1 0 auto; }
+.lesson-note-title { width: 100%; font-weight: 700; border-width: 0 0 var(--frame); border-radius: 0; padding-left: 0; padding-right: 0; background: transparent; }
+.lesson-note-title:focus { outline: 0; border-bottom-color: var(--ink); box-shadow: 0 1.5px 0 var(--ink); }
+/* the writing lines sit under each line of text and scroll with it */
+.lesson-note-text {
+  --ruled: calc(var(--t-m) * 1.75);
+  flex: none; width: 100%; min-height: calc(var(--ruled) * 8 + 2 * var(--s-2)); resize: none; overflow: hidden; padding: var(--s-2) var(--s-3);
+  font: 400 var(--t-m)/var(--ruled) var(--font); tab-size: 2; caret-color: var(--ink);
+  background: linear-gradient(to bottom, transparent calc(var(--ruled) - 1px), var(--rule) 0) 0 var(--s-2) / 100% var(--ruled) local, var(--paper);
+}
+.lesson-note-text::selection { background: var(--kraft); color: var(--kraft-ink); }
+.lesson-note-text:focus { outline: 0; box-shadow: inset 0 0 0 1px var(--ink); }
+.lesson-note-foot { position: sticky; bottom: calc(-1 * var(--s-4)); display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-2); padding: var(--s-2) 0 var(--s-3); margin-bottom: calc(-1 * var(--s-3)); background: var(--paper); border-top: 1px solid var(--rule); }
+.lesson-note-foot [role='status'] { display: inline-flex; align-items: center; gap: var(--s-1); white-space: nowrap; }
+.lesson-note-foot [role='status'] svg { width: 14px; height: 14px; }
+.lesson-note-foot .grow { flex: 1; }
+@media (pointer: coarse) { .lesson-note-hint { display: none; } }
 .lesson-link { justify-self: start; }
 .lesson-source-list { list-style: none; margin: 0; padding: 0; }
 .lesson-source-list:empty { display: none; }
 .lesson-source-list li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-2); padding: var(--s-2) 0; border-bottom: 1px solid var(--rule); }
 .lesson-source-list li > :first-child { min-width: 0; overflow-wrap: anywhere; font-weight: 700; }
 .lesson-source-list .grow { flex: 1; }
-.lesson-source-picker { display: grid; gap: var(--s-3); padding: var(--s-3); border: var(--frame-thin) solid var(--ink); }
+.lesson-source-picker { display: grid; gap: var(--s-3); padding: var(--s-3); border: var(--frame) solid var(--rule-strong); }
 .lesson-source-picker > .btn { justify-self: start; }
 @media (min-width: 1001px) {
-  .lesson-desk { flex: 1; min-height: 0; align-items: stretch; }
+  /* wide: everything in one viewport, each part scrolling on its own, the rules sharing the room */
+  .lesson-desk { flex: 1; min-height: 0; align-items: stretch; gap: 0; grid-template-columns: minmax(20rem, var(--sheet, 58fr)) var(--s-5) minmax(20rem, var(--side, 42fr)); }
+  .lesson-desk > .listen { min-height: 0; }
+  .splitter { display: block; }
   .lesson-sheet { min-height: 0; }
   .lesson-sheet iframe { flex: 1; height: auto; min-height: 0; }
-  .lesson-side { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
-  .lesson-side > .listen { flex: 1 0 24rem; }
-  .lesson-desk.no-sheet > .listen { min-height: 0; }
-  .lesson-desk.no-sheet { grid-template-columns: minmax(0, 7fr) minmax(20rem, 4fr); }
+  .lesson-side { display: grid; grid-template-rows: minmax(0, 1fr); gap: 0; min-height: 0; }
+  .lesson-side.split { grid-template-rows: minmax(9rem, var(--listen, 52fr)) var(--gutter) minmax(9rem, var(--notebook, 48fr)); }
+  .lesson-side > .listen { min-height: 0; }
+  .lesson-side .listen-script { min-height: 0; }
+  .notebook-page { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 }
 @media (max-width: 1000px) {
-  /* narrow: one column, the listening panel first (phones show PDFs poorly inline) */
-  .lesson-desk { grid-template-columns: minmax(0, 1fr); }
+  /* narrow: one column, the listening panel first, your notes under it, the worksheet last (phones show PDFs poorly inline) */
   .lesson-side { display: contents; }
-  .lesson-desk .listen { order: -1; }
+  .lesson-desk .listen { order: -2; }
+  .lesson-desk .notebook { order: -1; }
   .listen-script { max-height: 55vh; }
   .lesson-sheet iframe { height: 70vh; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .listen-rail i, .listen-lines li, .listen-text, .drawer-mark { transition: none; }
+  .listen-rail i, .listen-lines li, .listen-text, .listen-quote, .notebook-tabs [role='tab'], .splitter i, .splitter::before { transition: none; }
 }
 @media (pointer: coarse) {
   .lesson-card .btn, .lesson-desk .btn, .listen-speed .select, .listen-pick .select { min-height: 44px; }

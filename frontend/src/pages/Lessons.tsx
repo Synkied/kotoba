@@ -1,11 +1,12 @@
-import { Archive, ArrowDown, ArrowUp, AudioLines, BookPlus, Check, ChevronRight, FileText, Film, Folder, FolderInput, FolderPlus, GripVertical, Image, Link2, Pencil, Pin, Plus, RotateCcw, Trash2, Upload, X } from 'lucide-react'
+import { Archive, ArrowDown, ArrowUp, AudioLines, BookPlus, Check, ChevronRight, FileText, Film, Folder, FolderInput, FolderPlus, GripVertical, Image, Link2, NotebookPen, Pencil, Pin, Plus, RotateCcw, Trash2, Upload, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { api, type FileKind, type Lesson, type LessonFolder, type Material } from '../lib/api'
+import { api, type FileKind, type Lesson, type LessonFolder, type Material, type Note } from '../lib/api'
 import { fileSize, folderLabel, folderOptions, folderPath, fromDropped, fromPicked, lessonsIn, materialsIn, planImport, runImport, subfolders, tidyImport, within, type DiskFolder, type ImportMode } from '../lib/lessonTree'
 import { useStats } from '../App'
 import { ErrorNotice, SearchBox, Skeleton, dayLabel, useAction, useAsync, useToast } from '../components/ui'
 import { Button, ButtonRow, Checkbox, EmptyState, Field, Input, Select, Sheet } from '../components/ds'
+import { plainText } from '../components/NoteMarkdown'
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
 
@@ -19,6 +20,7 @@ export function lessonContents(l: Lesson) {
     count('image') && plural(count('image'), 'image'),
     count('text') && plural(count('text'), 'text file'),
     l.sources.length && plural(l.sources.length, 'source'),
+    l.linked_notes.length && plural(l.linked_notes.length, 'note'),
   ].filter(Boolean)
   return parts.length ? parts.join(' · ') : 'Nothing attached yet'
 }
@@ -51,6 +53,7 @@ const kindName: Record<FileKind, string> = { pdf: 'PDF', audio: 'Recording', vid
 const pending = (m: Material) => m.job === 'waiting' || m.job === 'running'
 
 export default function LessonsPage() {
+  const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const archive = params.get('view') === 'archive'
   const [q, setQ] = useState('')
@@ -61,8 +64,10 @@ export default function LessonsPage() {
   const { data, error, loading, reload, set } = useAsync(() => api.lessons(archive ? { state: 'done', q } : {}), [archive, q])
   const tree = useAsync(() => api.lessonFolders(), [])
   const files = useAsync(() => api.materials(), [])
+  const noteList = useAsync(() => api.notes(), [])
   const folders = useMemo(() => tree.data ?? [], [tree.data])
   const materials = useMemo(() => files.data ?? [], [files.data])
+  const notes = noteList.data ?? []
   // ?folder=id opens a folder; one that's gone (deleted elsewhere) falls back to the top
   const asked = Number(params.get('folder')) || null
   const open = asked !== null && folders.some(f => f.id === asked) ? asked : null
@@ -92,8 +97,13 @@ export default function LessonsPage() {
     return out
   }, [archive, data])
   const show = (view: 'archive' | null) => { setQ(''); setParams(view ? { view } : {}, { replace: true }) }
-  const reloadAll = () => { reload(); tree.reload(); files.reload() }
+  const reloadAll = () => { reload(); tree.reload(); files.reload(); noteList.reload() }
   const here = folderPath(folders, open).at(-1)
+  const newNote = useAction()
+  const addNote = () => newNote.run(async () => {
+    const note = await api.createNote({ title: 'Untitled', body: '', folder: archive ? null : open })
+    navigate(`/notes?note=${note.id}`)
+  })
 
   // files dropped or chosen go straight into the open folder, as they are
   const upload = useAction()
@@ -121,7 +131,7 @@ export default function LessonsPage() {
     const dropped = await fromDropped(e.dataTransfer.items)
     if (dropped) take(dropped)
   }
-  const empty = !lessons.length && !folders.length && !materials.length
+  const empty = !lessons.length && !folders.length && !materials.length && !notes.length
 
   return (
     <div className={'lessons-page' + (over ? ' over' : '')}
@@ -141,6 +151,7 @@ export default function LessonsPage() {
           <input ref={filePicker} type="file" multiple hidden accept="application/pdf,.pdf,audio/*,video/*,image/*,.txt,.md" onChange={e => { if (e.target.files?.length) addFiles([...e.target.files]); e.target.value = '' }} />
           <Button onClick={() => picker.current?.click()} title="Bring in a folder from your computer, with its folders and files"><FolderInput aria-hidden="true" />Import folder</Button>
           <input ref={picker} type="file" hidden {...{ webkitdirectory: '' }} onChange={e => { if (e.target.files?.length) take(fromPicked(e.target.files)); e.target.value = '' }} />
+          <Button disabled={newNote.busy} onClick={addNote}><NotebookPen aria-hidden="true" />{newNote.busy ? 'Creating…' : 'New note'}</Button>
         </>}
         {!creating && <Button variant="primary" onClick={() => setCreating({ files: [], materials: [] })}><Plus aria-hidden="true" />New lesson</Button>}
       </header>
@@ -150,12 +161,12 @@ export default function LessonsPage() {
         onDone={(top) => { setIncoming(null); reloadAll(); refresh(); if (top) setParams({ folder: String(top) }, { replace: true }) }} />}
       {creating && <NewLesson key={creating.materials.join() + creating.files.length} initialFiles={creating.files} initialMaterials={creating.materials}
         folder={archive ? null : open} folders={folders} materials={materials} onCancel={() => setCreating(null)} />}
-      {(actions.error ?? upload.error) != null && <ErrorNotice error={actions.error ?? upload.error} />}
+      {(actions.error ?? upload.error ?? newNote.error) != null && <ErrorNotice error={actions.error ?? upload.error ?? newNote.error} />}
       {archive && <div className="lessons-search"><SearchBox value={q} onChange={setQ} placeholder="Search done lessons by title, notes, folder or file" /></div>}
 
       {error ? <ErrorNotice error={error} action={<Button size="small" onClick={reload}>Try again</Button>} /> :
-        tree.error ?? files.error ? <ErrorNotice error={tree.error ?? files.error} action={<Button size="small" onClick={reloadAll}>Try again</Button>} /> :
-        (loading && !data) || !tree.data || !files.data ? <Skeleton /> :
+        tree.error ?? files.error ?? noteList.error ? <ErrorNotice error={tree.error ?? files.error ?? noteList.error} action={<Button size="small" onClick={reloadAll}>Try again</Button>} /> :
+        (loading && !data) || !tree.data || !files.data || !noteList.data ? <Skeleton /> :
         archive ? (
           !lessons.length ? (
             <EmptyState>
@@ -174,15 +185,16 @@ export default function LessonsPage() {
         ) : empty ? (
           !creating && <EmptyState>
             <h2>Your library is empty</h2>
-            <p>Keep your material here the way you sort it: folders as deep as you like, holding files as they are (the textbook PDF, its tracks, scans) and lessons. A lesson is what you study in one sitting: pick the files that go in it, add notes and the sources you practise from it. Already have it all sorted on your computer? Import the folder, or drop it here.</p>
+            <p>Keep your material here the way you sort it: folders as deep as you like, holding files, lessons, and Markdown notes. Already have it all sorted on your computer? Import the folder, or drop it here.</p>
             <ButtonRow>
               <Button variant="primary" onClick={() => picker.current?.click()}><FolderInput aria-hidden="true" />Import folder</Button>
               <Button onClick={() => filePicker.current?.click()}><Upload aria-hidden="true" />Add files</Button>
               <Button onClick={() => setCreating({ files: [], materials: [] })}><Plus aria-hidden="true" />New lesson</Button>
+              <Button onClick={addNote}><NotebookPen aria-hidden="true" />New note</Button>
               {stats?.lessons === 0 && <Button onClick={() => show('archive')}><Archive aria-hidden="true" />Open the archive</Button>}
             </ButtonRow>
           </EmptyState>
-        ) : <Shelf lessons={lessons} folders={folders} materials={materials} open={open} actions={actions} onChanged={reloadAll}
+        ) : <Shelf lessons={lessons} folders={folders} materials={materials} notes={notes} open={open} actions={actions} onChanged={reloadAll}
               onMaterials={changed => files.set(prev => (prev ?? []).map(m => changed.find(c => c.id === m.id) ?? m))}
               onNewLesson={ids => setCreating({ files: [], materials: ids })}
               go={(id) => setParams(id === null ? {} : { folder: String(id) }, { replace: false })} />}
@@ -195,8 +207,8 @@ export default function LessonsPage() {
  *  lessons and its files. Drag one onto another of its kind to put it before; onto a folder
  *  or a step of the path to move it there; a file onto a lesson to add it to the lesson.
  *  Arrange does the same with buttons. */
-function Shelf({ lessons, folders, materials, open, actions, onChanged, onMaterials, onNewLesson, go }: {
-  lessons: Lesson[]; folders: LessonFolder[]; materials: Material[]; open: number | null; actions: ReturnType<typeof useLessonActions>
+function Shelf({ lessons, folders, materials, notes, open, actions, onChanged, onMaterials, onNewLesson, go }: {
+  lessons: Lesson[]; folders: LessonFolder[]; materials: Material[]; notes: Note[]; open: number | null; actions: ReturnType<typeof useLessonActions>
   onChanged: () => void; onMaterials: (changed: Material[]) => void; onNewLesson: (materials: number[]) => void; go: (id: number | null) => void
 }) {
   const edit = useAction()
@@ -216,11 +228,12 @@ function Shelf({ lessons, folders, materials, open, actions, onChanged, onMateri
   const shelves = subfolders(folders, open).filter(f => !top || !f.pinned)
   const listed = lessonsIn(lessons, open).filter(l => !top || !l.pinned)
   const kept = materialsIn(materials, open).filter(m => !top || !m.pinned)
+  const listedNotes = notes.filter(n => n.folder === open).sort((a, b) => a.position - b.position || a.id - b.id)
   const selected = kept.filter(m => picked.has(m.id))
   const counts = (f: LessonFolder) => {
     const inside = within(folders, f.id)
     const isIn = (x: { folder: number | null }) => x.folder !== null && inside.has(x.folder)
-    return { lessons: lessons.filter(isIn).length, files: materials.filter(isIn).length, folders: subfolders(folders, f.id).length }
+    return { lessons: lessons.filter(isIn).length, files: materials.filter(isIn).length, notes: notes.filter(isIn).length, folders: subfolders(folders, f.id).length }
   }
   // the selection belongs to the open folder
   const [seen, setSeen] = useState(open)
@@ -228,6 +241,7 @@ function Shelf({ lessons, folders, materials, open, actions, onChanged, onMateri
 
   const change = (fn: () => Promise<unknown>) => edit.run(async () => { await fn(); onChanged() })
   const moveLesson = (l: Lesson, to: number | null) => to !== l.folder && change(() => api.updateLesson(l.id, { folder: to }))
+  const moveNote = (n: Note, to: number | null) => to !== n.folder && change(() => api.updateNote(n.id, { folder: to }))
   const moveFolder = (f: LessonFolder, to: number | null) => to !== f.parent && (to === null || !within(folders, f.id).has(to)) && change(() => api.updateLessonFolder(f.id, { parent: to }))
   const moveFiles = (ids: number[], to: number | null) => change(async () => {
     for (const id of ids) await api.updateMaterial(id, { folder: to })
@@ -287,7 +301,8 @@ function Shelf({ lessons, folders, materials, open, actions, onChanged, onMateri
     const n = counts(f)
     const parent = path.at(-2)?.name ?? 'the top level'
     const held = [n.folders && `${n.folders === 1 ? 'one folder' : `${n.folders} folders`}`, n.lessons && `${n.lessons === 1 ? 'one lesson' : `${n.lessons} lessons`}`,
-      n.files && `${n.files === 1 ? 'one file' : `${n.files} files`}`].filter(Boolean).join(', ')
+      n.files && `${n.files === 1 ? 'one file' : `${n.files} files`}`,
+      n.notes && `${n.notes === 1 ? 'one note' : `${n.notes} notes`}`].filter(Boolean).join(', ')
     if (!window.confirm(`Delete the folder “${f.name}”?${held ? ` What it holds (${held}) moves up to ${parent}. Nothing else is deleted.` : ''}`)) return
     edit.run(async () => { await api.deleteLessonFolder(f.id); go(f.parent); onChanged(); toast({ text: `Deleted the folder “${f.name}”` }) })
   }
@@ -376,7 +391,7 @@ function Shelf({ lessons, folders, materials, open, actions, onChanged, onMateri
       </section>
     )}
 
-    {(listed.length > 0 || (!here && !shelves.length && !kept.length)) && <section className="day" aria-labelledby="todo-head">
+    {(listed.length > 0 || (!here && !shelves.length && !kept.length && !listedNotes.length)) && <section className="day" aria-labelledby="todo-head">
       <div className="day-head"><span className="date" id="todo-head">{here ? 'Lessons' : 'To study'}</span><span className="meta num">{listed.length || ''}</span></div>
       {listed.length ? <ul className="source-cards">{listed.map((l, i) => (
         <LessonCard key={l.id} l={l} actions={actions}
@@ -387,6 +402,13 @@ function Shelf({ lessons, folders, materials, open, actions, onChanged, onMateri
       ))}</ul>
         : <p className="meta">All caught up. New material goes here; finished lessons are in the archive.</p>}
     </section>}
+
+    {listedNotes.length > 0 && (
+      <section className="day" aria-labelledby="notes-head">
+        <div className="day-head"><span className="date" id="notes-head">Notes</span><span className="meta num">{listedNotes.length}</span></div>
+        <ul className="material-list">{listedNotes.map(note => <NoteRow key={note.id} note={note} options={options} busy={busy} onMove={to => moveNote(note, to)} />)}</ul>
+      </section>
+    )}
 
     {kept.length > 0 && (
       <section className="day" aria-labelledby="files-head">
@@ -406,10 +428,10 @@ function Shelf({ lessons, folders, materials, open, actions, onChanged, onMateri
       </section>
     )}
 
-    {!shelves.length && !listed.length && !kept.length && here && (
+    {!shelves.length && !listed.length && !listedNotes.length && !kept.length && here && (
       <EmptyState className="lesson-folder-empty">
         <h2>“{here.name}” is empty</h2>
-        <p>Add files to keep them here as they are, make a lesson, or drag a lesson, a file or a folder onto its name in the path above. A folder from your computer dropped here comes in with its folders.</p>
+        <p>Add files, make a lesson or a note, or drag a lesson, a file or a folder onto its name in the path above.</p>
       </EmptyState>
     )}
 
@@ -450,7 +472,7 @@ function PinButton({ name, pinned, busy, onPin }: { name: string; pinned: boolea
 
 /** A folder on the shelf: open it, drop things on it, pin it. */
 function FolderCard({ f, n, where, busy, onPin, drag, arrange }: {
-  f: LessonFolder; n: { folders: number; lessons: number; files: number }
+  f: LessonFolder; n: { folders: number; lessons: number; files: number; notes: number }
   /** the folder it's in, when the list doesn't already say */
   where?: string
   busy: boolean; onPin: () => void; drag: DragProps; arrange?: ReactNode
@@ -459,13 +481,32 @@ function FolderCard({ f, n, where, busy, onPin, drag, arrange }: {
     <li className="source-card folder-card" {...drag}>
       <div className="source-card-body">
         <h3><Link to={`/library?folder=${f.id}`} className="source-card-link"><Folder aria-hidden="true" className="inline-icon" />{f.name}</Link></h3>
-        <p className="meta num">{[n.folders && `${n.folders} folder${n.folders === 1 ? '' : 's'}`, n.lessons && `${n.lessons} to study`, n.files && `${n.files} file${n.files === 1 ? '' : 's'}`].filter(Boolean).join(' · ') || 'Empty'}</p>
+        <p className="meta num">{[n.folders && `${n.folders} folder${n.folders === 1 ? '' : 's'}`, n.lessons && `${n.lessons} to study`, n.files && `${n.files} file${n.files === 1 ? '' : 's'}`, n.notes && `${n.notes} note${n.notes === 1 ? '' : 's'}`].filter(Boolean).join(' · ') || 'Empty'}</p>
         {where && <p className="meta source-card-meta"><Folder aria-hidden="true" />{where}</p>}
       </div>
       <PinButton name={f.name} pinned={f.pinned} busy={busy} onPin={onPin} />
       {arrange}
     </li>
   )
+}
+
+function NoteRow({ note, options, busy, onMove }: {
+  note: Note; options: { id: number; label: string }[]; busy: boolean; onMove: (to: number | null) => void
+}) {
+  const excerpt = plainText(note.body).split('\n').find(Boolean) || 'Empty note'
+  return <li className="material-row library-note-row">
+    <NotebookPen aria-hidden="true" className="material-icon" />
+    <div className="material-main">
+      <Link className="material-name" to={`/notes?note=${note.id}`}>{note.title}</Link>
+      <span className="meta">{excerpt}{note.sources.length > 0 && ` · ${note.sources.length} linked source${note.sources.length === 1 ? '' : 's'}`}</span>
+    </div>
+    <label className="library-note-move"><span className="sr">Folder for {note.title}</span>
+      <Select className="chip-select" disabled={busy} value={note.folder ?? ''} onChange={e => onMove(e.target.value ? Number(e.target.value) : null)}>
+        <option value="">Top level</option>
+        {options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+      </Select>
+    </label>
+  </li>
 }
 
 /** A file kept as it is: open it, see which lessons use it and where its transcript stands.
@@ -578,7 +619,7 @@ function LessonCard({ l, actions, where, arrange, drag }: {
   drag?: React.HTMLAttributes<HTMLLIElement> & { 'data-drop'?: boolean; 'data-dragging'?: boolean }
 }) {
   const Icon = l.files.some(f => f.kind === 'pdf') ? FileText : l.files.some(f => f.kind === 'audio') ? AudioLines : l.files.some(f => f.kind === 'image') ? Image : Link2
-  const note = l.notes.split('\n').find(line => line.trim())
+  const note = l.linked_notes.map(n => plainText(n.excerpt)).find(Boolean)
   const when = l.done_at ? `Done ${new Date(l.done_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}` : `Added ${new Date(l.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`
   return (
     <li className="source-card lesson-card" data-done={l.done_at ? true : undefined} {...drag}>

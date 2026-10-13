@@ -37,6 +37,7 @@ kotoba (言葉) is the hub that turns everything a learner collects in Japanese 
 
 - Absorbs screen_ocr's history page: search (including romaji readings: `tokyo` finds 東京), categories, labels (max 3), furigana, bulk edits, de-duplication (×N), copy.
 - Recordings: jp-shadow-cut's cleanup editor, rebuilt in the hub. Cut retakes, fillers, repeats and pauses from your own takes, render a clean take, and turn what's kept into practice sentences.
+- Markdown notes live in Library folders beside files and lessons. A note can link several collected sources with compact references while keeping its own freeform text. Typing @ in a note finds a source and leaves a `[@title](/sources/id)` reference, which also links that source to the note. A lesson's notes are these same Markdown notes, read and written in place on the lesson page.
 - Data model: Source → Sentence (text, reading, source span) → Deck; Attempt (scores) per sentence.
 - No network calls to third-party services, no telemetry, no CDN assets; fonts are system or self-hosted.
 - Light and dark follow the system setting.

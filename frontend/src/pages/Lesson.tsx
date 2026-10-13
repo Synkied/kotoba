@@ -1,13 +1,14 @@
-import { AudioLines, Check, ChevronLeft, ChevronRight, ExternalLink, FileText, Folder, Image, Pencil, Pin, Play, Plus, RotateCcw, Trash2, Upload, X } from 'lucide-react'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { AudioLines, Check, ChevronLeft, ExternalLink, FileText, Folder, Image, NotebookPen, Pencil, Pin, Play, Plus, RotateCcw, Trash2, Upload, X } from 'lucide-react'
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { api, type Lesson, type LessonFile } from '../lib/api'
+import { api, type Lesson, type LessonFile, type Note } from '../lib/api'
 import { useStats } from '../App'
 import { ErrorNotice, Skeleton, useAction, useAsync, usePref, useToast } from '../components/ui'
 import { lessonContents, useLessonActions } from './Lessons'
-import { Listen, lessonTracks } from '../components/LessonListen'
+import { Listen, altKey, clockTime, lessonTracks, type ListenControl, type Moment } from '../components/LessonListen'
 import { fileSize, folderOptions, materialsIn } from '../lib/lessonTree'
-import { Button, ButtonLink, ButtonRow, Checkbox, EmptyState, Field, Input, Plate, Select, Textarea, buttonClass } from '../components/ds'
+import { Button, ButtonLink, ButtonRow, Checkbox, EmptyState, Field, Input, Plate, Select, buttonClass } from '../components/ds'
+import { MentionTextarea, NoteMarkdown, caretPoint, quoteToken, type Mentionable } from '../components/NoteMarkdown'
 
 export default function LessonPage() {
   const id = Number(useParams().id)
@@ -23,6 +24,14 @@ function LessonDetail({ id }: { id: number }) {
   const toast = useToast()
   const { refresh } = useStats()
   const [name, setName] = useState<string | null>(null)
+  // the desk's proportions, as you left them: the worksheet's share of the width, the player's of the side
+  const [sheetShare, setSheetShare] = usePref('lesson-sheet-share', 50)
+  const [listenShare, setListenShare] = usePref('lesson-listen-share', 60)
+  const [tab, setTab] = usePref<NotebookTab>('lesson-tab', 'notes')
+  const control = useRef<ListenControl | null>(null)
+  const notebook = useRef<NotesControl | null>(null)
+  const onQuote = useCallback((m: Moment) => { setTab('notes'); notebook.current?.quote(m) }, [setTab])
+  const onTime = useCallback((track: string, t: number) => control.current?.playAt(track, t), [])
   // a transcript on its way: look again now and then until it's there
   const transcribing = !!l && [...l.files, ...l.sources].some(x => x.job === 'waiting' || x.job === 'running')
   useEffect(() => {
@@ -78,21 +87,23 @@ function LessonDetail({ id }: { id: number }) {
       {folders.data && (folders.data.length > 0 || l.folder !== null) && <LessonFolderField l={l} options={folderOptions(folders.data)} busy={busy}
         onMove={to => edit.run(async () => set(await api.updateLesson(l.id, { folder: to })))} />}
 
-      <div className={'lesson-desk' + (pdfs.length ? '' : ' no-sheet')}>
+      <div className="lesson-desk" style={{ '--sheet': `${sheetShare}fr`, '--side': `${100 - sheetShare}fr`, '--listen': `${listenShare}fr`, '--notebook': `${100 - listenShare}fr` } as CSSProperties}>
         {pdfs.length > 0 ? <Sheet pdfs={pdfs} />
-          : tracks.length > 0 ? <Listen l={l} tracks={tracks} onChange={set} />
+          : tracks.length > 0 ? <Listen l={l} tracks={tracks} onChange={set} controlRef={control} onQuote={onQuote} />
           : <EmptyState className="lesson-empty"><h2>Nothing to study yet</h2><p>Add the worksheet, the textbook pages or the recordings. A PDF opens here; recordings play beside it with their transcript.</p><AddFiles l={l} onChange={set} primary /></EmptyState>}
-        <div className="lesson-side">
-          {pdfs.length > 0 && tracks.length > 0 && <Listen l={l} tracks={tracks} onChange={set} />}
-          <Drawer id="notes" title="Notes" meta={l.notes.split('\n').find(x => x.trim())} defaultOpen>
-            <Notes l={l} onChange={set} />
-          </Drawer>
-          <Drawer id="sources" title="Sources" meta={l.sources.length ? String(l.sources.length) : undefined}>
-            <Sources l={l} onChange={set} />
-          </Drawer>
-          <Drawer id="files" title="Files" meta={l.files.length ? String(l.files.length) : undefined}>
-            <Files l={l} onChange={set} />
-          </Drawer>
+        <Splitter label="Resize the worksheet and the side column" axis="x" value={sheetShare} initial={50} min={30} max={75} onChange={setSheetShare} />
+        <div className={'lesson-side' + (pdfs.length > 0 && tracks.length > 0 ? ' split' : '')}>
+          {pdfs.length > 0 && tracks.length > 0 && <>
+            <Listen l={l} tracks={tracks} onChange={set} controlRef={control} onQuote={onQuote} />
+            <Splitter label="Resize the transcript and the notebook" axis="y" value={listenShare} initial={60} min={20} max={80} onChange={setListenShare} />
+          </>}
+          <Notebook tab={tab} onTab={setTab} counts={{ notes: l.linked_notes.length, sources: l.sources.length, files: l.files.length }}>
+            {{
+              notes: <Notes l={l} onChange={set} controlRef={notebook} onTime={tracks.length ? onTime : undefined} named={tracks.length > 1} />,
+              sources: <Sources l={l} onChange={set} />,
+              files: <Files l={l} onChange={set} />,
+            }}
+          </Notebook>
         </div>
       </div>
     </>
@@ -113,14 +124,72 @@ function LessonFolderField({ l, options, busy, onMove }: { l: Lesson; options: {
   )
 }
 
-/** A section of the side column that folds away; each remembers whether it was open. */
-function Drawer({ id, title, meta, defaultOpen = false, children }: { id: string; title: string; meta?: string; defaultOpen?: boolean; children: ReactNode }) {
-  const [open, setOpen] = usePref(`lesson-drawer-${id}`, defaultOpen)
+/** A rule between two parts of the desk, dragged (or moved with the arrow keys) to share the room between them.
+ *  `value` is the first part's share, in percent of the two together; a double click puts it back. */
+function Splitter({ label, axis, value, initial, min, max, onChange }: {
+  label: string; axis: 'x' | 'y'; value: number; initial: number; min: number; max: number; onChange: (v: number) => void
+}) {
+  const [dragging, setDragging] = useState(false)
+  const put = (v: number) => onChange(Math.round(Math.min(max, Math.max(min, v))))
+  // the share is measured between the far edges of the two parts on either side of the rule
+  const share = (el: HTMLElement, at: number) => {
+    const a = el.previousElementSibling!.getBoundingClientRect(), b = el.nextElementSibling!.getBoundingClientRect()
+    const [from, to] = axis === 'x' ? [a.left, b.right] : [a.top, b.bottom]
+    const rule = axis === 'x' ? el.offsetWidth : el.offsetHeight
+    return (at - from - rule / 2) / (to - from - rule) * 100
+  }
   return (
-    <details className="drawer" open={open} onToggle={e => setOpen(e.currentTarget.open)}>
-      <summary><ChevronRight aria-hidden="true" className="drawer-mark" /><h2>{title}</h2>{meta && <span className={'meta drawer-meta' + (/^\d+$/.test(meta) ? ' num' : ' preview')}>{meta}</span>}</summary>
-      <div className="drawer-body">{children}</div>
-    </details>
+    <div className="splitter" data-axis={axis} data-dragging={dragging || undefined} role="separator" tabIndex={0}
+      aria-label={label} aria-orientation={axis === 'x' ? 'vertical' : 'horizontal'} aria-valuenow={value} aria-valuemin={min} aria-valuemax={max}
+      title="Drag to resize · double-click to reset"
+      onPointerDown={e => { if (e.button !== 0) return; e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); setDragging(true) }}
+      onPointerMove={e => dragging && put(share(e.currentTarget, axis === 'x' ? e.clientX : e.clientY))}
+      onPointerUp={() => setDragging(false)} onPointerCancel={() => setDragging(false)}
+      onDoubleClick={() => put(initial)}
+      onKeyDown={e => {
+        const step = e.shiftKey ? 10 : 2
+        const by = { ArrowLeft: -step, ArrowUp: -step, ArrowRight: step, ArrowDown: step }[e.key]
+        if (by !== undefined && (axis === 'x') === (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); put(value + by) }
+        else if (e.key === 'Home') { e.preventDefault(); put(min) }
+        else if (e.key === 'End') { e.preventDefault(); put(max) }
+        else if (e.key === 'Enter') { e.preventDefault(); put(initial) }
+      }}>
+      <i aria-hidden="true" />
+    </div>
+  )
+}
+
+type NotebookTab = 'notes' | 'sources' | 'files'
+const notebookTabs: [NotebookTab, string][] = [['notes', 'Notes'], ['sources', 'Sources'], ['files', 'Files']]
+
+/** The notebook under the player: the notes you write while you listen, with the lesson's sources and files a tab away.
+ *  Every tab stays mounted, so a note half written keeps its place while you look something up. */
+function Notebook({ tab, onTab, counts, children }: { tab: NotebookTab; onTab: (t: NotebookTab) => void; counts: Record<NotebookTab, number>; children: Record<NotebookTab, React.ReactNode> }) {
+  const id = useId()
+  const tabs = useRef<(HTMLButtonElement | null)[]>([])
+  const move = (e: React.KeyboardEvent, i: number) => {
+    const to = { ArrowLeft: i - 1, ArrowRight: i + 1, Home: 0, End: notebookTabs.length - 1 }[e.key]
+    if (to === undefined) return
+    e.preventDefault()
+    const k = (to + notebookTabs.length) % notebookTabs.length
+    onTab(notebookTabs[k][0]); tabs.current[k]?.focus()
+  }
+  return (
+    <section className="notebook" aria-label="Notebook">
+      <div className="notebook-tabs" role="tablist" aria-label="Notebook">
+        {notebookTabs.map(([k, name], i) => (
+          <button key={k} ref={el => { tabs.current[i] = el }} type="button" role="tab" id={`${id}-${k}`} aria-controls={`${id}-${k}-panel`}
+            aria-selected={tab === k} tabIndex={tab === k ? 0 : -1} onClick={() => onTab(k)} onKeyDown={e => move(e, i)}>
+            {k === 'notes' && <NotebookPen aria-hidden="true" />}{name}{counts[k] > 0 && <span className="n num">{counts[k]}</span>}
+          </button>
+        ))}
+      </div>
+      {notebookTabs.map(([k]) => (
+        <div key={k} className="notebook-page" role="tabpanel" id={`${id}-${k}-panel`} aria-labelledby={`${id}-${k}`} hidden={tab !== k} data-tab={k}>
+          {children[k]}
+        </div>
+      ))}
+    </section>
   )
 }
 
@@ -224,19 +293,183 @@ function FromFolder({ l, onChange }: { l: Lesson; onChange: (l: Lesson) => void 
   )
 }
 
-function Notes({ l, onChange }: { l: Lesson; onChange: (l: Lesson) => void }) {
-  const [draft, setDraft] = useState(l.notes)
+type NotesControl = { quote: (m: Moment) => void }
+
+/** The Markdown notes written for this lesson, read as pages and written in place; @ points at a source,
+ *  and a line quoted from the transcript keeps its time code, to play it again from the note. */
+function Notes({ l, onChange, controlRef, onTime, named }: {
+  l: Lesson; onChange: (l: Lesson | ((prev: Lesson) => Lesson)) => void
+  controlRef: RefObject<NotesControl | null>; onTime?: (track: string, t: number) => void; named: boolean
+}) {
+  const notes = useAsync(() => api.notes({ lesson: l.id }), [l.id])
+  const [editing, setEditing] = useState<number | null>(null)
+  // a quote waiting for its note to open, or the open note's own way in
+  const [inserting, setInserting] = useState<string | null>(null)
+  const editor = useRef<((text: string) => void) | null>(null)
   const action = useAction()
-  const dirty = draft !== l.notes
-  const save = () => action.run(async () => { onChange(await api.updateLesson(l.id, { notes: draft })) })
+  const setNotes = notes.set
+  const summary = (n: Note) => ({ id: n.id, title: n.title, excerpt: n.body.split('\n').map(x => x.trim()).find(Boolean) ?? '' })
+  const saved = useCallback((n: Note) => {
+    setNotes(prev => prev.map(x => x.id === n.id ? n : x))
+    onChange(prev => ({ ...prev, linked_notes: prev.linked_notes.map(x => x.id === n.id ? summary(n) : x) }))
+  }, [setNotes, onChange])
+  const write = (body = '') => action.run(async () => {
+    const n = await api.createNote({ title: l.title, body, folder: l.folder, lesson: l.id })
+    setNotes(prev => [...(prev ?? []), n])
+    onChange(prev => ({ ...prev, linked_notes: [...prev.linked_notes, summary(n)] }))
+    setEditing(n.id)
+  })
+  const remove = (n: Note) => {
+    if (!window.confirm(`Delete “${n.title}”? This can’t be undone.`)) return
+    action.run(async () => {
+      await api.deleteNote(n.id)
+      setNotes(prev => prev.filter(x => x.id !== n.id))
+      onChange(prev => ({ ...prev, linked_notes: prev.linked_notes.filter(x => x.id !== n.id) }))
+      setEditing(null)
+    })
+  }
+  // a quoted line goes where you're writing; else into the last note, opened; else into a new one
+  useEffect(() => {
+    controlRef.current = {
+      quote: m => {
+        const text = quoteToken(m, clockTime(m.t), named)
+        if (editing !== null && editor.current) return editor.current(text)
+        const last = notes.data?.at(-1)
+        if (last) { setInserting(text); setEditing(last.id) }
+        else if (notes.data) write(text + '\n\n')
+      },
+    }
+    return () => { controlRef.current = null }
+  })
+  const open = (n: Note) => (e: React.MouseEvent) => {
+    // clicking the page you're reading starts writing it, unless you meant a link or were selecting words
+    if (editing !== null || (e.target as Element).closest('a, button, input') || !window.getSelection()?.isCollapsed) return
+    setEditing(n.id)
+  }
+  const near: Mentionable[] = l.sources.map(s => ({ id: s.id, title: s.title, kind: s.kind }))
+  if (notes.error != null) return <ErrorNotice error={notes.error} action={<Button size="small" onClick={notes.reload}>Try again</Button>} />
+  if (!notes.data) return <Skeleton rows={2} />
   return (
     <div className="lesson-notes">
-      <Textarea aria-label="Notes" value={draft} onChange={e => setDraft(e.target.value)}
-        onBlur={() => dirty && save()} placeholder="What to do, page numbers, what you found hard…" />
-      {action.error != null && <ErrorNotice error={action.error} action={<Button size="small" onClick={save}>Try again</Button>} />}
-      {dirty && <ButtonRow><Button size="small" disabled={action.busy} onClick={save}>{action.busy ? 'Saving…' : 'Save notes'}</Button>
-        <Button variant="ghost" size="small" disabled={action.busy} onClick={() => setDraft(l.notes)}>Discard</Button></ButtonRow>}
+      {!notes.data.length && <p className="meta lesson-notes-empty">Write down what you notice as you study: the grammar, the page numbers, what tripped you up. Type @ to point at one of the lesson’s sources{onTime ? <>, or quote the line being spoken with its button or {altKey} Q</> : ''}.</p>}
+      {notes.data.map(n => editing === n.id
+        ? <NoteEditor key={n.id} note={n} near={near} busy={action.busy} onSaved={saved} onClose={() => { setEditing(null); setInserting(null) }} onDelete={() => remove(n)}
+            insertRef={editor} first={inserting} player={!!onTime} />
+        : <article key={n.id} className="lesson-note">
+            <header>
+              <h3 lang="ja">{n.title}</h3>
+              <Button variant="ghost" size="small" icon disabled={editing !== null || action.busy} aria-label={`Edit ${n.title}`} title="Edit" onClick={() => setEditing(n.id)}><Pencil aria-hidden="true" /></Button>
+              <ButtonLink variant="ghost" size="small" icon to={`/notes?note=${n.id}`} aria-label={`Open ${n.title} in Notes`} title="Open in Notes"><NotebookPen aria-hidden="true" /></ButtonLink>
+            </header>
+            {n.body.trim()
+              ? <div className="lesson-note-read" onClick={open(n)}><NoteMarkdown body={n.body} onTime={onTime} /></div>
+              : <button type="button" className="lesson-note-blank meta" disabled={editing !== null} onClick={() => setEditing(n.id)}>Empty. Start writing</button>}
+          </article>)}
+      {action.error != null && <ErrorNotice error={action.error} />}
+      {editing === null && <Button size="small" className="lesson-link" disabled={action.busy} aria-busy={action.busy} onClick={() => write()}><Plus aria-hidden="true" />{action.busy ? 'Creating…' : notes.data.length ? 'Another note' : 'Write a note'}</Button>}
     </div>
+  )
+}
+
+/** One note, written in place: it saves itself as you type, and once more when you're done. */
+function NoteEditor({ note, near, busy, onSaved, onClose, onDelete, insertRef, first, player }: {
+  note: Note; near: Mentionable[]; busy: boolean; onSaved: (n: Note) => void; onClose: () => void; onDelete: () => void
+  /** filled with a way to put a quoted line at the caret; `first` is one to add at the end as it opens */
+  insertRef: RefObject<((text: string) => void) | null>; first: string | null; player: boolean
+}) {
+  const area = useRef<HTMLTextAreaElement>(null)
+  const [title, setTitle] = useState(note.title)
+  const [body, setBody] = useState(note.body)
+  const [state, setState] = useState<'saved' | 'saving' | 'failed'>('saved')
+  const [problem, setProblem] = useState('')
+  const pending = useRef<{ title: string; body: string } | null>(null)
+  const chain = useRef<Promise<boolean>>(Promise.resolve(true))
+  const timer = useRef<number | undefined>(undefined)
+  const save = useCallback(() => {
+    window.clearTimeout(timer.current)
+    const data = pending.current
+    if (!data) return chain.current
+    pending.current = null
+    setState('saving')
+    chain.current = chain.current.then(() => api.updateNote(note.id, { title: data.title.trim() || 'Untitled', body: data.body })).then(n => {
+      onSaved(n)
+      if (!pending.current) setState('saved')
+      return true
+    }, e => {
+      pending.current ??= data
+      setState('failed'); setProblem((e as Error).message)
+      return false
+    })
+    return chain.current
+  }, [note.id, onSaved])
+  useEffect(() => () => { void save() }, [save])
+  const edit = (next: { title?: string; body?: string }) => {
+    pending.current = { title: next.title ?? title, body: next.body ?? body }
+    if (next.title !== undefined) setTitle(next.title)
+    if (next.body !== undefined) setBody(next.body)
+    setState('saving')
+    window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => { void save() }, 700)
+  }
+  const done = async () => { if (await save()) onClose() }
+  // a quote takes a line of its own, with a blank line after it for what you make of it
+  const put = (text: string, at?: number) => {
+    const el = area.current
+    const was = pending.current?.body ?? body
+    const i = at ?? el?.selectionEnd ?? was.length
+    const before = was.slice(0, i), after = was.slice(i)
+    const lead = !before || before.endsWith('\n\n') ? '' : before.endsWith('\n') ? '\n' : '\n\n'
+    const block = lead + text + '\n\n'
+    edit({ body: before + block + after.replace(/^\n+/, '') })
+    const caret = before.length + block.length
+    window.requestAnimationFrame(() => {
+      if (!el) return
+      el.focus({ preventScroll: true }); el.setSelectionRange(caret, caret)
+      // bring the caret into sight, a little above the bottom, in whatever scrolls: the notebook, or the page
+      const y = el.getBoundingClientRect().top + caretPoint(el, caret).top
+      const box = el.closest<HTMLElement>('.notebook-page')
+      const scrolls = box && box.scrollHeight > box.clientHeight
+      const [top, bottom] = scrolls ? [box.getBoundingClientRect().top, box.getBoundingClientRect().bottom - 72] : [0, window.innerHeight - 96]
+      if (y > bottom || y < top + 24) (scrolls ? box : window).scrollBy({ top: y - (top + (bottom - top) * .6) })
+    })
+  }
+  // the page grows with what you write, so the notebook scrolls rather than a box inside it
+  useLayoutEffect(() => {
+    const el = area.current
+    if (!el) return
+    const fit = () => { el.style.height = 'auto'; el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px` }
+    fit()
+    // and again when the notebook gets wider or narrower, which rewraps the lines
+    let width = el.clientWidth
+    const watch = new ResizeObserver(() => { if (el.clientWidth !== width) { width = el.clientWidth; fit() } })
+    watch.observe(el)
+    return () => watch.disconnect()
+  }, [body])
+  useEffect(() => { insertRef.current = text => put(text) })
+  useEffect(() => () => { insertRef.current = null }, [insertRef])
+  const opened = useRef(false)
+  useEffect(() => {
+    if (opened.current) return
+    opened.current = true
+    if (first) put(first, note.body.length)
+  })
+  return (
+    <article className="lesson-note" data-editing>
+      <label><span className="sr">Note title</span>
+        <Input className="lesson-note-title" lang="ja" maxLength={200} value={title} onChange={e => edit({ title: e.target.value })} /></label>
+      <MentionTextarea ref={area} className="textarea lesson-note-text" aria-label={`Markdown for ${title || 'this note'}`} spellCheck autoFocus lang="ja"
+        value={body} near={near} onValueChange={next => edit({ body: next })}
+        onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); void done() } }}
+        placeholder="## て-form&#10;- Page 12, exercise 3&#10;- Listen again to @…" />
+      {state === 'failed' && <ErrorNotice error={new Error(`Couldn’t save: ${problem}`)} action={<Button size="small" onClick={() => { void save() }}>Try again</Button>} />}
+      <div className="lesson-note-foot">
+        <span className="meta" role="status">{state === 'saving' ? 'Saving…' : state === 'failed' ? 'Not saved' : <><Check aria-hidden="true" />Saved</>}</span>
+        <span className="meta lesson-note-hint">Markdown · @ links a source{player && <> · {altKey} K play / pause · {altKey} J L lines · {altKey} Q quote</>}</span>
+        <span className="grow" />
+        <Button variant="ghost" size="small" icon disabled={busy} aria-label={`Delete ${title || 'this note'}`} title="Delete" onClick={onDelete}><Trash2 aria-hidden="true" /></Button>
+        <Button size="small" onClick={() => { void done() }}>Done writing</Button>
+      </div>
+    </article>
   )
 }
 

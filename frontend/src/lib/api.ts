@@ -89,6 +89,8 @@ export type Word = {
 /** What a selected stretch means in its sentence, from the translator in use. */
 export type Explanation = { translation: string; notes: string[]; to: string; name: string; translator: string; cloud: boolean }
 export type Page<T> = { count: number; results: T[] }
+export type NoteSource = { id: number; title: string; kind: SourceKind }
+export type Note = { id: number; title: string; body: string; folder: number | null; lesson: number | null; lesson_title: string | null; position: number; sources: NoteSource[]; created_at: string; updated_at: string }
 
 /** How far you've got with a word: you marked it known, you've said a sentence with it well, or neither. */
 export type WordStatus = 'new' | 'practised' | 'known'
@@ -137,6 +139,8 @@ export type LessonSource = { id: number; title: string; kind: SourceKind; status
 export type Lesson = {
   id: number; title: string; notes: string; folder: number | null; position: number; pinned: boolean; done_at: string | null; created_at: string
   files: LessonFile[]; sources: LessonSource[]; can_transcribe: boolean
+  /** the Markdown notes written for it, oldest first */
+  linked_notes: { id: number; title: string; excerpt: string }[]
 }
 
 export class ApiError extends Error {
@@ -177,6 +181,10 @@ export async function allSentences(params: { deck?: number; source?: number } = 
 }
 
 export const api = {
+  notes: (p: { lesson?: number } = {}) => req<Note[]>('notes' + qs(p)),
+  createNote: (data: Pick<Note, 'title' | 'body'> & { folder?: number | null; lesson?: number | null }) => req<Note>('notes', json('POST', data)),
+  updateNote: (id: number, data: Partial<Pick<Note, 'title' | 'body' | 'folder' | 'lesson'>> & { source_ids?: number[] }) => req<Note>(`notes/${id}`, json('PATCH', data)),
+  deleteNote: (id: number) => req<void>(`notes/${id}`, { method: 'DELETE' }),
   lessons: (p: { state?: 'done'; q?: string } = {}) => req<Lesson[]>('lessons' + qs(p)),
   lesson: (id: number) => req<Lesson>(`lessons/${id}`),
   createLesson: (title: string, files: File[], folder: number | null = null, materials: number[] = []) => {

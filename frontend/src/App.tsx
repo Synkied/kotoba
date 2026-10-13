@@ -1,5 +1,5 @@
-import { Inbox, Library as LibraryIcon, Layers, RotateCcw, Plus, Puzzle, ScrollText, Languages, Search as SearchIcon } from 'lucide-react'
-import { createContext, useContext, useEffect, useState } from 'react'
+import { Inbox, Library as LibraryIcon, Layers, RotateCcw, Plus, Puzzle, ScrollText, Languages, Search as SearchIcon, NotebookPen } from 'lucide-react'
+import { createContext, lazy, Suspense, useContext, useEffect, useState } from 'react'
 import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { api, type Stats } from './lib/api'
 import { useTrail } from './lib/trail'
@@ -27,16 +27,18 @@ import SearchPage, { GlobalSearch } from './pages/Search'
 import DesignPage from './pages/Design'
 import { EmptyState, buttonClass } from './components/ds'
 
-type Section = { to: string; name: string; short?: string; stock: string; icon: typeof Inbox; count?: (s: Stats) => number; hot?: boolean }
+type Section = { to: string; name: string; ja: string; short?: string; key: string; icon: typeof Inbox; count?: (s: Stats) => number; hot?: boolean }
 const SECTIONS: Section[] = [
-  { to: '/inbox', name: 'Inbox', stock: 'inbox', icon: Inbox, count: (s) => s.inbox },
-  { to: '/library', name: 'Library', stock: 'library', icon: LibraryIcon, count: (s) => s.lessons },
-  { to: '/words', name: 'Words', stock: 'words', icon: Languages },
-  { to: '/decks', name: 'Decks', stock: 'decks', icon: Layers },
-  { to: '/review', name: 'Review', stock: 'review', icon: RotateCcw, count: (s) => s.due, hot: true },
-  { to: '/sources', name: 'Sources', stock: 'sources', icon: ScrollText },
-  { to: '/collect', name: 'Collect', stock: 'collect', icon: Plus },
+  { to: '/inbox', name: 'Inbox', ja: '受信', key: 'inbox', icon: Inbox, count: (s) => s.inbox },
+  { to: '/library', name: 'Library', ja: '資料', key: 'library', icon: LibraryIcon, count: (s) => s.lessons },
+  { to: '/words', name: 'Words', ja: '単語', key: 'words', icon: Languages },
+  { to: '/decks', name: 'Decks', ja: 'デッキ', key: 'decks', icon: Layers },
+  { to: '/review', name: 'Review', ja: '復習', key: 'review', icon: RotateCcw, count: (s) => s.due, hot: true },
+  { to: '/sources', name: 'Sources', ja: '素材', key: 'sources', icon: ScrollText },
+  { to: '/notes', name: 'Notes', ja: 'ノート', key: 'notes', icon: NotebookPen },
+  { to: '/collect', name: 'Collect', ja: '収集', key: 'collect', icon: Plus },
 ]
+const NotesPage = lazy(() => import('./pages/Notes'))
 
 const StatsCtx = createContext<{ stats: Stats | null; refresh: () => void }>({ stats: null, refresh: () => {} })
 export const useStats = () => useContext(StatsCtx)
@@ -56,13 +58,13 @@ function ToLibrary() {
   return <Navigate to={'/library' + loc.search} replace />
 }
 
-function stockFor(path: string) {
+function sectionFor(path: string) {
   if (path.startsWith('/practice')) return 'practice'
   if (path.startsWith('/sentences')) return 'sources'
-  if (/^\/sources\/\d+\/cleanup/.test(path)) return 'recordings'  // the cutting room keeps its own stock
+  if (/^\/sources\/\d+\/cleanup/.test(path)) return 'recordings'
   if (path.startsWith('/lessons')) return 'library'
   if (path.startsWith('/addons')) return 'collect'
-  return SECTIONS.find((s) => path.startsWith(s.to))?.stock ?? 'collect'
+  return SECTIONS.find((s) => path.startsWith(s.to))?.key ?? 'collect'
 }
 
 function Shell() {
@@ -76,31 +78,30 @@ function Shell() {
     return () => window.clearInterval(t)
   }, [])
   useEffect(refresh, [loc.pathname])
-  const stock = stockFor(loc.pathname)
+  const section = sectionFor(loc.pathname)
   useEffect(() => {
-    document.title = `kotoba · ${stock === 'practice' ? 'Practice' : loc.pathname.startsWith('/addons') ? 'Add-ons' : loc.pathname.startsWith('/search') ? 'Search' : loc.pathname.startsWith('/design') ? 'Design system' : stock.charAt(0).toUpperCase() + stock.slice(1)}`
+    document.title = `kotoba · ${section === 'practice' ? 'Practice' : loc.pathname.startsWith('/addons') ? 'Add-ons' : loc.pathname.startsWith('/search') ? 'Search' : loc.pathname.startsWith('/design') ? 'Design system' : section.charAt(0).toUpperCase() + section.slice(1)}`
     document.getElementById('main')?.focus({ preventScroll: true })
     window.scrollTo(0, 0)
-  }, [loc.pathname, stock])
-  useEffect(() => { document.body.style.setProperty('--stock', `var(--stock-${stock})`) }, [stock])
+  }, [loc.pathname, section])
 
   return (
     <StatsCtx.Provider value={{ stats, refresh }}>
       <a className="skip" href="#main">Skip to content</a>
       <div className="shell">
-        <aside className="spine" aria-label="kotoba">
+        <aside className="rail" aria-label="kotoba">
           <NavLink to="/inbox" className="brand" aria-label="kotoba home">
-            <span className="mark" lang="ja" aria-hidden="true">言葉</span>
-            <span className="word">kotoba<small>your sentences</small></span>
+            <span lang="ja" aria-hidden="true">言葉</span>
+            <small aria-hidden="true">KOTOBA</small>
           </NavLink>
           <GlobalSearch />
           <nav aria-label="Sections">
             {SECTIONS.map((s) => {
               const n = stats && s.count ? s.count(stats) : 0
               return (
-                <Link key={s.to} to={s.to} aria-current={s.stock === stock && stock !== 'practice' ? 'page' : undefined} style={{ ['--sw' as string]: `var(--stock-${s.stock})` }}>
-                  <span className="swatch" aria-hidden="true" />
-                  {s.name}
+                <Link key={s.to} to={s.to} aria-current={s.key === section ? 'page' : undefined}>
+                  <span lang="ja" aria-hidden="true">{s.ja}</span>
+                  <small>{s.name}</small>
                   {n > 0 && <span className={'count' + (s.hot ? ' hot' : '')} aria-label={`${n} ${s.hot ? 'due' : 'waiting'}`}>{n}</span>}
                 </Link>
               )
@@ -108,10 +109,10 @@ function Shell() {
           </nav>
           <div className="foot">
             <NavLink to="/addons"><Puzzle size={14} aria-hidden="true" />Add-ons</NavLink>
-            {stats && <span className="meta" style={{ color: 'var(--spine-ink-2)' }}>{stats.sentences} sentences · {stats.attempts_today} tries today</span>}
+            {stats && <span className="meta">{stats.sentences} sentences · {stats.attempts_today} tries today</span>}
           </div>
         </aside>
-        <main id="main" tabIndex={-1} className="page" style={{ ['--stock' as string]: `var(--stock-${stock})` }}>
+        <main id="main" tabIndex={-1} className="page">
           <Routes>
             <Route path="/" element={<Navigate to="/inbox" replace />} />
             <Route path="/inbox" element={<InboxPage />} />
@@ -135,6 +136,7 @@ function Shell() {
             <Route path="/practice" element={<PracticePage />} />
             <Route path="/review" element={<ReviewPage />} />
             <Route path="/collect" element={<CollectPage />} />
+            <Route path="/notes" element={<Suspense fallback={<p className="meta">Opening notes…</p>}><NotesPage /></Suspense>} />
             <Route path="/recordings" element={<Moved to="/sources/recordings" />} />
             <Route path="/recordings/:id" element={<ToCleanup />} />
             <Route path="/transcriptions" element={<Moved to="/sources/queue" />} />
@@ -149,13 +151,13 @@ function Shell() {
             const n = stats && s.count ? s.count(stats) : 0
             const Icon = s.icon
             return (
-              <Link key={s.to} to={s.to} aria-current={s.stock === stock && stock !== 'practice' ? 'page' : undefined} style={{ ['--sw' as string]: `var(--stock-${s.stock})` }}>
+              <Link key={s.to} to={s.to} aria-current={s.key === section ? 'page' : undefined}>
                 <Icon aria-hidden="true" />{s.short ?? s.name}
                 {n > 0 && <span className={'count' + (s.hot ? ' hot' : '')} aria-label={`${n} ${s.hot ? 'due' : 'waiting'}`}>{n}</span>}
               </Link>
             )
           })}
-          <Link to="/search" aria-current={loc.pathname === '/search' ? 'page' : undefined} style={{ ['--sw' as string]: 'var(--stock-collect)' }}>
+          <Link to="/search" aria-current={loc.pathname === '/search' ? 'page' : undefined}>
             <SearchIcon aria-hidden="true" />Search
           </Link>
         </nav>

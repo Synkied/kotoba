@@ -13,7 +13,7 @@
 .player-deck .sentence-seek input { margin: 0; }
 .sentence-audio-controls { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-2); align-items: center; }
 .sentence-audio-controls .grow { flex: 1; }
-.player-time { font: 400 var(--t-s)/1 var(--mono); color: var(--ink-2); white-space: nowrap; padding-inline: var(--s-1); }
+.player-time { font: 400 var(--t-s)/1 var(--font); color: var(--ink-2); white-space: nowrap; padding-inline: var(--s-1); }
 .sentence-audio > audio { display: none; }
 .sentence-speed { display: flex; align-items: center; gap: var(--s-2); font-size: var(--t-s); }
 .sentence-speed .select { width: auto; }

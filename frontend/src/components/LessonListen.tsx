@@ -1,5 +1,5 @@
-import { AudioLines, FileText, ListEnd, LoaderCircle, Pause, Play, Repeat1, SkipBack, SkipForward } from 'lucide-react'
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AudioLines, FileText, ListEnd, LoaderCircle, Pause, Play, Quote, Repeat1, SkipBack, SkipForward } from 'lucide-react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type Lesson, type LessonFile, type Sentence, type Source } from '../lib/api'
 import { Furigana } from './Furigana'
@@ -22,13 +22,42 @@ export function lessonTracks(l: Lesson): Track[] {
 }
 
 const pending = (job: Track['job']) => job === 'waiting' || job === 'running'
-const clockTime = (t: number) => { const s = Math.max(0, Math.floor(t)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` }
+export const clockTime = (t: number) => { const s = Math.max(0, Math.floor(t)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` }
+
+/** A moment in a recording: the line spoken there, if the transcript has one. */
+export type Moment = { track: string; name: string; t: number; text: string }
+
+/** What the rest of the desk can ask of the player: the notes quote it and play from it. */
+export type ListenControl = { now: () => Moment | null; playAt: (track: string, t: number) => void }
+
+/** Option on a Mac, Alt elsewhere: the modifier that drives the player while you type. */
+export const altKey = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌥' : 'Alt'
 
 /** The lesson's recordings, one at a time: a small player, and the transcript under it following the voice. */
-export function Listen({ l, tracks, onChange }: { l: Lesson; tracks: Track[]; onChange: (l: Lesson) => void }) {
+export function Listen({ l, tracks, onChange, controlRef, onQuote }: {
+  l: Lesson; tracks: Track[]; onChange: (l: Lesson) => void
+  controlRef?: RefObject<ListenControl | null>
+  /** quote a line in the notes; without it the lines have no quote button */
+  onQuote?: (m: Moment) => void
+}) {
   const [key, setKey] = usePref(`lesson-${l.id}-track`, tracks[0].key)
   const i = Math.max(0, tracks.findIndex(t => t.key === key))
   const track = tracks[i]
+  const player = useRef<ListenControl | null>(null)
+  // a time in another recording: switch to it, then play from there once it has loaded
+  const startAt = useRef<number | null>(null)
+  useEffect(() => {
+    if (!controlRef) return
+    controlRef.current = {
+      now: () => player.current?.now() ?? null,
+      playAt: (k, t) => {
+        if (k === track.key || !tracks.some(x => x.key === k)) return player.current?.playAt(k, t)
+        startAt.current = t
+        setKey(k)
+      },
+    }
+    return () => { controlRef.current = null }
+  })
   return (
     <section className="listen" aria-label="Listen">
       <div className="listen-head">
@@ -43,13 +72,16 @@ export function Listen({ l, tracks, onChange }: { l: Lesson; tracks: Track[]; on
         {track.source != null && <ButtonLink variant="ghost" size="small" className="listen-source" to={`/sources/${track.source}`} title="Open this recording’s source, its transcript and sentences">
           <FileText aria-hidden="true" />Source</ButtonLink>}
       </div>
-      <Player key={track.key} l={l} track={track} onChange={onChange}
+      <Player key={track.key} l={l} track={track} onChange={onChange} controlRef={player} startAtRef={startAt} onQuote={onQuote}
         onNextTrack={i + 1 < tracks.length ? () => setKey(tracks[i + 1].key) : undefined} />
     </section>
   )
 }
 
-function Player({ l, track, onChange, onNextTrack }: { l: Lesson; track: Track; onChange: (l: Lesson) => void; onNextTrack?: () => void }) {
+function Player({ l, track, onChange, onNextTrack, controlRef, startAtRef, onQuote }: {
+  l: Lesson; track: Track; onChange: (l: Lesson) => void; onNextTrack?: () => void
+  controlRef: RefObject<ListenControl | null>; startAtRef: RefObject<number | null>; onQuote?: (m: Moment) => void
+}) {
   const media = useRef<HTMLMediaElement>(null)
   const scroller = useRef<HTMLDivElement>(null)
   const [time, setTime] = useState(0)
@@ -120,14 +152,32 @@ function Player({ l, track, onChange, onNextTrack }: { l: Lesson; track: Track; 
   // it only moves the playhead, so a paused player stays paused
   const prev = () => lines.length ? goToLine(at >= 0 && time - lines[at].start! > 1.5 ? at : Math.max(0, at - 1)) : seek(time - 5)
   const next = () => lines.length ? playLine(Math.min(lines.length - 1, at + 1)) : seek(time + 5)
+  const ready = duration > 0 && !failed
   const toggleRepeat = () => { setRepeat(!repeat); setLoopLine(Math.max(0, at)) }
+  const moment = (i: number): Moment => lines[i]
+    ? { track: track.key, name: track.name, t: lines[i].start!, text: lines[i].text }
+    : { track: track.key, name: track.name, t: time, text: '' }
+  const quoteLine = useCallback((i: number) => { if (onQuote && lines[i]) onQuote({ track: track.key, name: track.name, t: lines[i].start!, text: lines[i].text }) }, [onQuote, lines, track])
+  const quote = () => { if (onQuote && ready) onQuote(moment(at)) }
 
-  const keys = useRef({ toggle, prev, next, toggleRepeat })
-  useEffect(() => { keys.current = { toggle, prev, next, toggleRepeat } })
+  const keys = useRef({ toggle, prev, next, toggleRepeat, quote })
+  useEffect(() => {
+    keys.current = { toggle, prev, next, toggleRepeat, quote }
+    controlRef.current = {
+      now: () => ready ? moment(at) : null,
+      playAt: (_k, t) => { setFollow(true); loopAt(Math.max(0, lines.findLastIndex(x => x.start! <= t + .05))); seek(t); play() },
+    }
+  })
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if (shortcutBlocked(e)) return
       const k = keys.current
+      // with Alt (Option) the player answers even while you write a note
+      if (e.altKey && !e.ctrlKey && !e.metaKey && !e.isComposing && !e.repeat) {
+        const act = { KeyK: k.toggle, KeyJ: k.prev, KeyL: k.next, KeyQ: k.quote }[e.code]
+        if (act) { e.preventDefault(); act() }
+        return
+      }
+      if (shortcutBlocked(e)) return
       if (e.code === 'Space') { e.preventDefault(); k.toggle() }
       else if (e.key === 'ArrowLeft') { e.preventDefault(); k.prev() }
       else if (e.key === 'ArrowRight') { e.preventDefault(); k.next() }
@@ -151,10 +201,14 @@ function Player({ l, track, onChange, onNextTrack }: { l: Lesson; track: Track; 
   const onTranslated = useCallback((x: Sentence) => script.set(prev => prev && ({ ...prev, sentences: prev.sentences.map(y => y.id === x.id ? x : y) })), [script])
   const span = duration || lines.at(-1)?.end || 0
   const pct = (t: number) => `${span ? Math.min(100, t / span * 100) : 0}%`
-  const ready = duration > 0 && !failed
   const props = {
     ref: media as never, src: track.url, preload: 'metadata',
-    onLoadedMetadata: (e: React.SyntheticEvent<HTMLMediaElement>) => { setDuration(e.currentTarget.duration); e.currentTarget.playbackRate = speed },
+    onLoadedMetadata: (e: React.SyntheticEvent<HTMLMediaElement>) => {
+      const a = e.currentTarget
+      setDuration(a.duration); a.playbackRate = speed
+      // asked to play from a time in this recording before it was loaded
+      if (startAtRef.current !== null) { a.currentTime = startAtRef.current; startAtRef.current = null; void a.play().catch(() => setFailed(true)) }
+    },
     onPlay: () => setPlaying(true), onPause: () => setPlaying(false),
     onEnded: () => { setPlaying(false); setTime(media.current?.duration ?? 0) },
     onSeeked: (e: React.SyntheticEvent<HTMLMediaElement>) => setTime(e.currentTarget.currentTime),
@@ -175,11 +229,11 @@ function Player({ l, track, onChange, onNextTrack }: { l: Lesson; track: Track; 
           aria-label="Seek" aria-valuetext={`${clockTime(time)} of ${clockTime(span)}`}
           onChange={e => { const t = Number(e.target.value); setFollow(true); loopAt(Math.max(0, lines.findLastIndex(x => x.start! <= t + .05))); seek(t) }} onKeyDown={e => { if (e.code === 'Space') { e.preventDefault(); toggle() } }} />
       </div>
-      <div className="listen-times num" aria-hidden="true"><span>{clockTime(time)}</span><span>{lines.length > 0 && at >= 0 ? `line ${at + 1} of ${lines.length}` : ''}</span><span>{clockTime(span)}</span></div>
       <div className="listen-transport">
-        <Button variant="ghost" icon disabled={!ready} onClick={prev} aria-label={lines.length ? 'Previous line' : 'Back 5 seconds'} title={lines.length ? 'Previous line (←)' : 'Back 5 seconds (←)'}><SkipBack aria-hidden="true" /></Button>
-        <Button variant="primary" icon className="listen-play" disabled={!ready} onClick={toggle} aria-label={playing ? 'Pause' : 'Play'} title={playing ? 'Pause (Space)' : 'Play (Space)'}>{playing ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}</Button>
-        <Button variant="ghost" icon disabled={!ready} onClick={next} aria-label={lines.length ? 'Next line' : 'Forward 5 seconds'} title={lines.length ? 'Next line (→)' : 'Forward 5 seconds (→)'}><SkipForward aria-hidden="true" /></Button>
+        <Button variant="ghost" size="small" icon disabled={!ready} onClick={prev} aria-label={lines.length ? 'Previous line' : 'Back 5 seconds'} title={lines.length ? 'Previous line (←)' : 'Back 5 seconds (←)'}><SkipBack aria-hidden="true" /></Button>
+        <Button variant="primary" size="small" icon className="listen-play" disabled={!ready} onClick={toggle} aria-label={playing ? 'Pause' : 'Play'} title={playing ? 'Pause (Space)' : 'Play (Space)'}>{playing ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}</Button>
+        <Button variant="ghost" size="small" icon disabled={!ready} onClick={next} aria-label={lines.length ? 'Next line' : 'Forward 5 seconds'} title={lines.length ? 'Next line (→)' : 'Forward 5 seconds (→)'}><SkipForward aria-hidden="true" /></Button>
+        <span className="listen-times num" aria-hidden="true">{clockTime(time)} / {clockTime(span)}{lines.length > 0 && at >= 0 && <> · line {at + 1} of {lines.length}</>}</span>
         <span className="grow" />
         <Button variant="ghost" size="small" className="listen-repeat" aria-pressed={repeat} disabled={!ready} onClick={toggleRepeat} title={lines.length ? 'Repeat the current line (R)' : 'Repeat the recording (R)'}>
           <Repeat1 aria-hidden="true" />{lines.length ? 'Repeat line' : 'Repeat'}</Button>
@@ -196,19 +250,19 @@ function Player({ l, track, onChange, onNextTrack }: { l: Lesson; track: Track; 
         <div className="listen-aids"><ReadingAids aids={aids} roman={lines.some(x => x.roman)} /></div>
         <ol className="listen-lines">
           {lines.map((x, i) => <Line key={x.id} x={x} i={i} state={i === at ? 'now' : i < at ? 'past' : ''}
-            furigana={aids.furigana} roman={aids.roman} translation={aids.translation} onPlay={playLine} onTranslated={onTranslated} />)}
+            furigana={aids.furigana} roman={aids.roman} translation={aids.translation} onPlay={playLine} onTranslated={onTranslated} onQuote={onQuote && quoteLine} />)}
         </ol>
         {at === lines.length - 1 && !playing && time > 0 && onNextTrack && <Button size="small" className="listen-next" onClick={onNextTrack}><SkipForward aria-hidden="true" />Next recording</Button>}
       </> : <NoTranscript l={l} track={track} loading={script.loading && !!track.source && !waiting} error={script.error} empty={!!script.data} onChange={onChange} />}
       {playing && !follow && at >= 0 && <Button variant="primary" size="small" className="listen-follow" onClick={() => setFollow(true)}><ListEnd aria-hidden="true" />Back to the current line</Button>}
     </div>
-    <p className="meta listen-keys">Space: play / pause · ← →: {lines.length ? 'previous / next line' : '5 seconds'} · R: repeat</p>
+    <p className="meta listen-keys">Space: play / pause · ← →: {lines.length ? 'previous / next line' : '5 seconds'} · R: repeat{onQuote && lines.length > 0 && <> · {altKey} Q: quote in notes</>}</p>
   </>
 }
 
-const Line = memo(function Line({ x, i, state, furigana, roman, translation, onPlay, onTranslated }: {
+const Line = memo(function Line({ x, i, state, furigana, roman, translation, onPlay, onTranslated, onQuote }: {
   x: Sentence; i: number; state: 'now' | 'past' | ''; furigana: boolean; roman: boolean; translation: boolean
-  onPlay: (i: number) => void; onTranslated: (x: Sentence) => void
+  onPlay: (i: number) => void; onTranslated: (x: Sentence) => void; onQuote?: (i: number) => void
 }) {
   return (
     <li data-line={i} data-state={state || undefined} aria-current={state === 'now' ? 'true' : undefined}>
@@ -218,6 +272,7 @@ const Line = memo(function Line({ x, i, state, furigana, roman, translation, onP
         {roman && x.roman && <span className="roman">{x.roman.split('\t')[0]}</span>}
         {translation && <Translation s={x} onTranslated={onTranslated} />}
       </div>
+      {onQuote && <button type="button" className="listen-quote" onClick={() => onQuote(i)} aria-label={`Quote line ${i + 1} in your notes`} title="Quote in notes"><Quote aria-hidden="true" /></button>}
     </li>
   )
 })
