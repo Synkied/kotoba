@@ -11,7 +11,7 @@ from rest_framework import serializers, viewsets
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 
-from .models import Lesson, LessonFile, LessonFolder, Material, Source
+from .models import Lesson, LessonFile, LessonFolder, Material, Note, Source
 from .views import AUDIO_EXT, IMAGE_EXT, VIDEO_EXT, ranged_file
 
 PDF_EXT = {".pdf"}
@@ -120,6 +120,10 @@ class LessonFolderViewSet(viewsets.ModelViewSet):
             for i, item in enumerate(folder.materials.all()):
                 item.folder, item.position = folder.parent, start + i
                 item.save(update_fields=["folder", "position"])
+            start = next_position(Note.objects.filter(folder=folder.parent))
+            for i, note in enumerate(folder.notes.all()):
+                note.folder, note.position = folder.parent, start + i
+                note.save(update_fields=["folder", "position"])
             start = next_position(LessonFolder.objects.filter(parent=folder.parent))
             for i, child in enumerate(folder.children.all()):
                 child.parent, child.position = folder.parent, start + i
@@ -196,6 +200,8 @@ class LessonSerializer(serializers.ModelSerializer):
         out["sources"] = [{"id": s.id, "title": str(s) or "Untitled", "kind": s.kind, "status": s.status,
                            "sentences": len(s.sentences.all()), "job": s.job,
                            "media": f"/api/sources/{s.id}/media" if s.media else None} for s in lesson.sources.all()]
+        out["linked_notes"] = [{"id": n.id, "title": n.title, "excerpt": next((line.strip() for line in n.body.splitlines() if line.strip()), "")}
+                               for n in sorted(lesson.lesson_notes.all(), key=lambda n: (n.created_at, n.id))]
         from speech import jobs
         out["can_transcribe"] = jobs.can_transcribe()
         return out
@@ -230,7 +236,7 @@ class LessonViewSet(viewsets.ModelViewSet):
     pagination_class = None
 
     def get_queryset(self):
-        qs = Lesson.objects.prefetch_related("files__source", "files__material__source", "sources__sentences")
+        qs = Lesson.objects.prefetch_related("files__source", "files__material__source", "sources__sentences", "lesson_notes")
         p = self.request.query_params
         if self.action == "list":
             if p.get("state") == "done":
@@ -239,7 +245,7 @@ class LessonViewSet(viewsets.ModelViewSet):
                 qs = qs.filter(Q(done_at__isnull=True) | Q(pinned=True))
             if p.get("q", "").strip():
                 q = p["q"].strip()
-                qs = qs.filter(Q(title__icontains=q) | Q(notes__icontains=q) | Q(folder__name__icontains=q) | Q(files__name__icontains=q)).distinct()
+                qs = qs.filter(Q(title__icontains=q) | Q(notes__icontains=q) | Q(lesson_notes__title__icontains=q) | Q(lesson_notes__body__icontains=q) | Q(folder__name__icontains=q) | Q(files__name__icontains=q)).distinct()
         return qs
 
     def create(self, request):

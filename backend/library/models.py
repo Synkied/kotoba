@@ -265,3 +265,24 @@ class LessonFile(models.Model):
 
     class Meta:
         ordering = ["position", "id"]
+
+
+class Note(models.Model):
+    """A freeform Markdown page kept in the local library. Sources mentioned in the body as
+    [@title](/sources/12) are linked to it as well."""
+
+    title = models.CharField(max_length=200, default="Untitled")
+    body = models.TextField(blank=True)
+    folder = models.ForeignKey(LessonFolder, related_name="notes", null=True, blank=True, on_delete=models.SET_NULL)
+    position = models.PositiveIntegerField(default=0)
+    sources = models.ManyToManyField(Source, related_name="linked_notes", blank=True)
+    # the lesson it was written for; the note outlives the lesson
+    lesson = models.ForeignKey(Lesson, related_name="lesson_notes", null=True, blank=True, on_delete=models.SET_NULL)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["position", "-updated_at", "-id"]
+
+    def __str__(self):
+        return self.title

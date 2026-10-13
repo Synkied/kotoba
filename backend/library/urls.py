@@ -1,7 +1,7 @@
 from django.urls import path
 from rest_framework.routers import SimpleRouter
 
-from . import views, lessons
+from . import views, lessons, notes
 
 router = SimpleRouter(trailing_slash=False)
 router.register("sources", views.SourceViewSet, basename="source")
@@ -10,6 +10,7 @@ router.register("decks", views.DeckViewSet, basename="deck")
 router.register("lessons", lessons.LessonViewSet, basename="lesson")
 router.register("materials", lessons.MaterialViewSet, basename="material")
 router.register("lesson-folders", lessons.LessonFolderViewSet, basename="lesson-folder")
+router.register("notes", notes.NoteViewSet, basename="note")
 
 urlpatterns = [
     path("lessons/arrange", lessons.arrange_lessons),
