@@ -1,21 +1,22 @@
-/* <Balloon>: the electronic-sound balloon. The outline is the sentence state. */
+/* <Balloon>: the calm speech balloon of practice. The outline is the sentence state. */
 .balloon {
-  /* Reserve the SVG's outward corners, burst spikes and stroke in normal flow. */
-  --balloon-left-space: var(--s-5);
+  /* Reserve the tail and the recording crackle in normal flow. */
+  --balloon-left-space: var(--s-2);
   position: relative; isolation: isolate; display: inline-block; min-width: 0;
-  max-width: calc(100% - var(--balloon-left-space) - var(--s-5));
-  margin: var(--s-5) var(--s-5) var(--s-5) var(--balloon-left-space);
-  padding: .7em 1.5em .75em; color: var(--ink); line-height: 1.7;
-  overflow-wrap: anywhere;
+  max-width: calc(100% - var(--balloon-left-space) - var(--s-2));
+  margin: var(--s-2) var(--s-2) var(--s-2) var(--balloon-left-space);
+  padding: .75em 1.4em .8em; color: var(--ink); line-height: 1.85;
+  overflow-wrap: anywhere; text-wrap: pretty;
 }
-.balloon.has-tail { --balloon-left-space: var(--s-7); }
+.balloon.has-tail { --balloon-left-space: var(--s-5); }
 .balloon > svg.outline { position: absolute; inset: 0; z-index: -1; overflow: visible; pointer-events: none; }
-.balloon > svg.outline path { fill: var(--paper); stroke: var(--ink); stroke-width: var(--frame-thin); stroke-linejoin: miter; stroke-miterlimit: 8; }
-.balloon.dashed > svg.outline path { stroke-dasharray: 5 4; }
-.balloon.burst > svg.outline path { stroke-width: 2.25px; }
-.balloon.burst.live > svg.outline path { stroke: var(--red); }
+.balloon > svg.outline path { fill: var(--paper); stroke: var(--rule-strong); stroke-width: var(--frame); stroke-linejoin: miter; vector-effect: non-scaling-stroke; transition: stroke var(--t-state) var(--ease); }
+.balloon.big > svg.outline path { stroke: var(--ink-3); }
+.balloon.dashed > svg.outline path { stroke: var(--ink-2); stroke-dasharray: 5 4; }
+.balloon.burst > svg.outline path { stroke: var(--ink); stroke-width: 1.5px; }
+.balloon.burst.live > svg.outline path { stroke: var(--accent); }
 .balloon.dim { color: var(--ink-3); }
-.balloon.dim > svg.outline path { fill: transparent; stroke: var(--ink-3); }
-.balloon.big { font-size: var(--t-l); line-height: 1.75; padding: .8em 1.4em .85em; font-weight: 400; }
+.balloon.dim > svg.outline path { fill: transparent; stroke: var(--rule); }
+.balloon.big { font-size: var(--t-l); line-height: 1.85; padding: .8em 1.3em .85em; font-weight: var(--w-medium); text-wrap: balance; }
 .balloon.big ruby rt { font-size: .42em; }
-.balloon .roman { display: block; font-size: var(--t-s); color: var(--ink-3); line-height: 1.4; margin-top: 2px; }
+.balloon .roman { display: block; font-size: var(--t-s); color: var(--ink-3); line-height: 1.4; margin-top: 2px; font-weight: 400; }

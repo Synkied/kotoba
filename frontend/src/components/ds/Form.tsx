@@ -6,7 +6,7 @@ export function Field({ className, ...props }: ComponentProps<'label'>) {
   return <label className={cx('field', className)} {...props} />
 }
 
-/** Text input on paper with the thin ink frame; aria-invalid turns the frame red. */
+/** Text input on paper with a hairline frame that turns ink on focus; aria-invalid turns it burgundy. */
 export function Input({ className, ...props }: ComponentProps<'input'>) {
   return <input className={cx('input', className)} {...props} />
 }
@@ -28,7 +28,7 @@ export function Checkbox({ className, ...props }: ComponentProps<'input'>) {
 export type SegmentOption<T extends string> = { value: T; label: ReactNode; disabled?: boolean; title?: string }
 
 /**
- * A segmented control: native radios in one thin ink frame; the checked segment reverses to ink.
+ * A segmented control: native radios in one hairline frame; the checked segment reverses to ink.
  * Pass role="radiogroup" and an aria-label unless a labelled group already wraps it.
  */
 export function Segmented<T extends string>({ name, value, options, onChange, className, ...props }:

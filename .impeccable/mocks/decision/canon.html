@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<link href="fonts/fonts.css" rel="stylesheet">
+<style>
+:root{--bg:#fff;--side:#f4f5f7;--ink:#1f2328;--ink2:#424a53;--ink3:#59636e;--rule:#e5e7eb;--acc:#2563eb;--red:#dc2626}
+*{box-sizing:border-box;margin:0}
+body{width:1440px;height:900px;overflow:hidden;background:var(--bg);color:var(--ink);font:15px/1.55 "BIZ UDPGothic",system-ui,sans-serif;display:grid;grid-template-columns:240px 1fr}
+nav{background:var(--side);padding:20px 12px;border-right:1px solid var(--rule)}
+.brand{display:flex;gap:10px;align-items:center;font-weight:700;font-size:17px;padding:0 8px 20px}
+.brand i{width:28px;height:28px;border-radius:8px;background:var(--acc);display:grid;place-items:center;color:#fff;font-style:normal;font-size:14px}
+nav a{display:flex;align-items:center;gap:10px;height:38px;padding:0 10px;border-radius:8px;color:var(--ink2);font-size:14px}
+nav a.on{background:#fff;color:var(--ink);font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+nav a .n{margin-left:auto;background:#e5e7eb;border-radius:10px;padding:0 8px;font-size:12px}
+nav a .n.r{background:#fee2e2;color:var(--red)}
+main{padding:32px 48px}
+header{display:flex;align-items:center;gap:12px}
+h1{font-size:26px}
+.sub{color:var(--ink3);font-size:14px;margin-top:2px}
+.sp{margin-left:auto}
+.btn{height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--rule);background:#fff;font:700 14px "BIZ UDPGothic"}
+.btn.p{background:var(--acc);color:#fff;border-color:var(--acc)}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:24px 0}
+.k{border:1px solid var(--rule);border-radius:12px;padding:16px 20px}
+.k span{font-size:13px;color:var(--ink3)}.k b{display:block;font-size:26px}
+.k.r b{color:var(--red)}
+table{width:100%;border-collapse:collapse;border:1px solid var(--rule);border-radius:12px}
+th{text-align:left;font-size:12px;color:var(--ink3);padding:10px 16px;border-bottom:1px solid var(--rule);background:#fafafa}
+td{padding:14px 16px;border-bottom:1px solid var(--rule);vertical-align:middle}
+.jp{font-size:19px}
+.en{font-size:13px;color:var(--ink3)}
+.pill{display:inline-block;padding:2px 10px;border-radius:10px;font-size:13px;font-weight:700;background:var(--b);color:var(--g)}
+.muted{color:var(--ink3);font-size:13px}
+</style></head><body>
+<nav>
+ <div class="brand"><i>言</i>kotoba</div>
+ <a>Inbox<span class="n">12</span></a><a>Library</a><a>Words</a><a class="on">Decks</a><a>Practice</a><a>Review<span class="n r">9</span></a><a>Collect</a>
+</nav>
+<main>
+ <header><div><h1>Lesson 18 · できること</h1><div class="sub">Minna no Nihongo I · lesson_18.mp3</div></div><span class="sp"></span><button class="btn">Edit deck</button><button class="btn p">Start practice</button></header>
+ <div class="cards"><div class="k"><span>Sentences</span><b>24</b></div><div class="k r"><span>Due today</span><b>9</b></div><div class="k"><span>Average score</span><b>71</b></div></div>
+ <table>
+  <tr><th>#</th><th>Sentence</th><th>Source</th><th>Attempts</th><th>Grade</th></tr>
+  <tr><td class="muted">1</td><td><div class="jp">ミラーさんは 漢字を 読む ことが できます。</div><div class="en">Mr Miller can read kanji.</div></td><td class="muted">0:41–0:44</td><td>6</td><td><span class="pill" style="--b:#fef3c7;--g:#92400e">秀 94</span></td></tr>
+  <tr><td class="muted">2</td><td><div class="jp">わたしの 趣味は 写真を 撮る ことです。</div><div class="en">My hobby is taking photos.</div></td><td class="muted">0:52–0:56</td><td>3</td><td><span class="pill" style="--b:#e0e7ff;--g:#3730a3">良 58</span></td></tr>
+  <tr><td class="muted">3</td><td><div class="jp">寝る まえに、日記を 書きます。</div><div class="en">Before sleeping, I write in my diary.</div></td><td class="muted">1:07–1:10</td><td>2</td><td><span class="pill" style="--b:#fee2e2;--g:#991b1b">可 41</span></td></tr>
+  <tr><td class="muted">4</td><td><div class="jp">日本へ 来る まえに、日本語を 勉強しました。</div><div class="en">I studied Japanese before coming to Japan.</div></td><td class="muted">1:15–1:20</td><td>4</td><td><span class="pill" style="--b:#dcfce7;--g:#166534">優 82</span></td></tr>
+  <tr><td class="muted">5</td><td><div class="jp">カードで 払う ことが できますか。</div><div class="en">Can I pay by card?</div></td><td class="muted">1:31–1:33</td><td>0</td><td class="muted">—</td></tr>
+ </table>
+</main>
+</body></html>

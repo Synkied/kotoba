@@ -3,11 +3,11 @@
 .filters .group .grow { flex: 1; }
 .chip .n { margin-left: 2px; }
 .chip-select { width: auto; min-height: 26px; height: 26px; padding-block: 0; font-size: var(--t-s); }
-/* library: each source is a clipping pinned to the straw stock; as many columns as fit at ≥19rem */
+/* library: each source is a card on the sheet; as many columns as fit at ≥19rem */
 .source-cards { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--gutter); grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr)); }
 .source-card {
   position: relative; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 1fr auto; gap: var(--s-3);
-  padding: var(--s-3) var(--s-4); background: var(--paper); border: var(--frame-thin) solid var(--ink);
+  padding: var(--s-3) var(--s-4); background: var(--paper); border: var(--frame) solid var(--rule-strong);
   transition: box-shadow var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
 }
 .source-card:has(.source-card-thumb) { grid-template-columns: 88px minmax(0, 1fr); }
@@ -17,7 +17,7 @@
 .source-card[data-selected='true'] { box-shadow: inset 0 0 0 1.5px var(--ink); }
 .source-card[data-selected='true']:hover { box-shadow: inset 0 0 0 1.5px var(--ink), var(--lift); }
 .source-card:focus-within:has(.source-card-link:focus-visible) { outline: 2px solid var(--ink); outline-offset: 2px; }
-.source-card-thumb { width: 88px; aspect-ratio: 4 / 3; object-fit: cover; border: var(--frame-thin) solid var(--ink); display: block; }
+.source-card-thumb { width: 88px; aspect-ratio: 4 / 3; object-fit: cover; border: var(--frame) solid var(--rule-strong); display: block; }
 .source-card-body { display: grid; align-content: start; gap: var(--s-1); min-width: 0; padding-right: var(--s-6); }
 .source-card h3 { font-size: var(--t-m); font-weight: 700; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .source-card-link { color: inherit; text-decoration: none; }

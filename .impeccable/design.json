@@ -1,14 +1,36 @@
 {
-  "world": "weekly manga magazine",
+  "world": "Muji labelling (無印良品)",
   "colors": {
-    "stock-inbox": "#f4dfd5", "stock-library": "#f0e7c6", "stock-decks": "#dce8d2",
-    "stock-practice": "#fbfaf6", "stock-review": "#e5dff1", "stock-collect": "#e8e4db", "stock-recordings": "#dbe4ea",
-    "ink": "#1a1714", "ink-2": "#463f37", "ink-3": "#5f574d", "paper": "#fffdf8",
-    "red": "#cc1f1a", "red-ink": "#b0130e", "spine": "#171411"
+    "page": "#ffffff", "rail": "#f3f1ec", "rail-hover": "#e9e6de", "wash": "#faf8f4",
+    "ink": "#1f1f1f", "ink-2": "#474542", "ink-3": "#5e5b56", "paper": "#ffffff", "paper-hover": "#faf8f4", "on-ink": "#ffffff",
+    "rule": "#e6e3dc", "rule-strong": "#cfcac0",
+    "kraft": "#e7dac4", "kraft-ink": "#3d3124",
+    "accent": "#7f0019", "accent-ink": "#7f0019", "accent-wash": "#f5e6e8", "accent-press": "#600013", "on-accent": "#ffffff",
+    "brand": "#7f0019", "on-brand": "#ffffff",
+    "stamp-shu": "#9a7400", "stamp-shu-ink": "#7d5e00", "stamp-yu": "#2f6b45", "stamp-ryo": "#34508f",
+    "ok": "#3f8f45", "warn": "#c07f12",
+    "dark": {
+      "page": "#161513", "rail": "#0d0c0a", "rail-hover": "#1c1a17", "wash": "#1f1d1a",
+      "ink": "#f2ecdf", "ink-2": "#d2c9b9", "ink-3": "#a99f8f", "paper": "#1a1917", "paper-hover": "#24221e", "on-ink": "#161513",
+      "rule": "#2b2824", "rule-strong": "#3a362f",
+      "kraft": "#2f2619", "kraft-ink": "#e7dac4",
+      "accent": "#ff6f6a", "accent-ink": "#ff8a85", "accent-wash": "#3a1418", "accent-press": "#ff8a85", "on-accent": "#161513",
+      "brand": "#7f0019",
+      "stamp-shu": "#f2bf4a", "stamp-shu-ink": "#f6cd6b", "stamp-yu": "#5cc98a", "stamp-yu-ink": "#7ad6a0", "stamp-ryo": "#7fa2ff", "stamp-ryo-ink": "#9db7ff",
+      "ok": "#6fbf73", "warn": "#e2a33a"
+    },
+    "accentRule": "burgundy only for due, missed, current, recording and 可 (errors borrow it)"
   },
-  "type": { "family": "Kotoba Kana (BIZ UDPMincho kana) + BIZ UDPGothic", "sizes": ["0.8125rem", "1rem", "1.75rem"], "weights": [400, 700] },
-  "frames": { "thin": "1.5px", "bold": "3px", "radiusControl": "3px", "radiusPanel": "0" },
+  "type": {
+    "family": "Zen Kaku Gothic New (self-hosted via @fontsource)",
+    "weights": [400, 500, 700],
+    "sizes": { "t-tag": "11px", "t-s": "0.8125rem", "t-sub": "0.9375rem", "t-m": "1rem", "t-read": "1.4375rem", "t-fig": "1.5rem", "t-l": "1.75rem", "t-xl": "2.25rem" },
+    "sentence": { "size": "1.4375rem", "weight": 500, "lineHeight": 1.9, "measure": "36em" },
+    "body": { "size": "1rem", "lineHeight": 1.65 }
+  },
+  "frames": { "frame": "1px", "frameHead": "2px ink rule under a page head", "radiusControl": "0", "radiusPanel": "0", "currentRow": "wash + inset 3px accent edge, accent number" },
   "spacing": [4, 8, 12, 16, 24, 32, 48, 64],
-  "motion": { "fast": "120ms", "state": "160ms", "ease": "cubic-bezier(.2,.7,.2,1)" },
-  "signature": "Balloon outline encodes sentence state: round / burst (recording) / dashed (unclear)"
+  "sizes": { "railWidth": "224px", "controlH": "40px", "controlHSmall": "30px", "touchTarget": "44px" },
+  "motion": { "fast": "120ms", "state": "160ms", "ease": "cubic-bezier(.2,.7,.2,1)", "lift": "0 1px 2px rgb(31 31 31 / .06), 0 10px 28px -12px rgb(31 31 31 / .22)", "exception": "score stamp press, about 1s" },
+  "signature": "meaning underline + kraft label"
 }

@@ -91,7 +91,7 @@ function Row({ r }: { r: Recording }) {
         <span className="rec-steps" aria-label={steps.filter((s) => s[0]).map((s) => s[1]).join(', ') || 'not started'}>
           {r.job === 'waiting' || r.job === 'running'
             ? <Plate tone="hollow">{r.job === 'running' ? 'transcribing…' : 'waiting to transcribe'}</Plate>
-            : r.job === 'failed' ? <Plate tone="red">transcription failed</Plate>
+            : r.job === 'failed' ? <Plate tone="accent">transcription failed</Plate>
               : steps.map(([done, name]) => <i key={name} className={done ? 'on' : ''} title={name} />)}
         </span>
         <ButtonLink size="small" to={`/sources/${r.id}/cleanup`}><Scissors aria-hidden="true" />{r.rendered ? 'Edit' : 'Clean up'}</ButtonLink>

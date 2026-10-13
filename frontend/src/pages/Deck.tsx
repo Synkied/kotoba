@@ -8,7 +8,7 @@ import { SourcePanel, fmtTime } from '../components/SourcePanel'
 import { Stamps } from '../components/Stamp'
 import { playClip, speak, stopAudio } from '../lib/audio'
 import { ErrorNotice, Skeleton, useAsync, usePref, useToast, useAction } from '../components/ui'
-import { Button, ButtonLink, EmptyState, Input } from '../components/ds'
+import { Button, ButtonLink, Chip, EmptyState, Input } from '../components/ds'
 
 export default function DeckPage() {
   const id = Number(useParams().id)
@@ -90,6 +90,11 @@ function DeckPageDetail({ id }: { id: number }) {
           </form>
         )}
         <span className="grow" />
+        <dl className="facts">
+          <div className="due"><dt>due</dt><dd className="num">{deck.data.due}</dd></div>
+          <div><dt>average</dt><dd className="num">{deck.data.average != null ? Math.round(deck.data.average) : '–'}</dd></div>
+          <div><dt>practised</dt><dd className="num">{deck.data.practised}</dd></div>
+        </dl>
         <Button variant="ghost" onClick={async () => { if (window.confirm(`Delete the deck “${deck.data!.name}”? Its sentences stay in Sources.`)) { await action.run(async () => { await api.deleteDeck(id); nav('/decks') }) } }}><Trash2 aria-hidden="true" />Delete deck</Button>
         {items.length > 0 && <ButtonLink variant="primary" to={`/practice?deck=${id}`}><Play aria-hidden="true" />Practise</ButtonLink>}
       </header>
@@ -101,16 +106,16 @@ function DeckPageDetail({ id }: { id: number }) {
           <ButtonLink variant="primary" to="/sources">Open Sources</ButtonLink>
         </EmptyState>
       ) : (
-        <ol className="rows" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+        <ol className="rows deck-rows" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
           {items.map((s, k) => (
             <li className="row row-lead" key={s.id}>
               <div className="lead">
                 <span className="tc num" aria-hidden="true">{String(k + 1).padStart(2, '0')}</span>
-                <SourcePanel kind={s.source_kind} image={s.image} start={s.start} end={s.end} alt="" />
+                {s.image && <SourcePanel kind={s.source_kind} image={s.image} start={s.start} end={s.end} alt="" />}
               </div>
-              <div style={{ display: 'grid', gap: 4, minWidth: 0 }}>
+              <div style={{ display: 'grid', gap: 6, minWidth: 0, justifyItems: 'start' }}>
                 <SentenceText><Furigana text={s.text} pairs={s.furigana} show={furigana} /></SentenceText>
-                <span className="meta"><Link to={`/sources/${s.source}`}>{s.source_title}</Link>{s.start != null && <> · <span className="num">{fmtTime(s.start)}</span></>}</span>
+                <Chip className="source-tag"><Link to={`/sources/${s.source}`}>{s.source_title}</Link>{s.start != null && <span>{fmtTime(s.start)}</span>}</Chip>
               </div>
               <div className="acts">
                 <Button variant="ghost" size="small" onClick={() => void listen(s)} aria-label={`${playing === s.id ? 'Stop audio' : 'Listen to sentence'} ${k + 1}`}>

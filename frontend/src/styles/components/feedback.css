@@ -2,30 +2,30 @@
 .empty {
   display: grid; justify-items: start; gap: var(--s-3); max-width: 34rem; padding: var(--s-7) 0;
 }
-.empty h2 { font-size: var(--t-l); }
+.empty h2 { font-size: var(--t-l); font-weight: var(--w-medium); }
 .empty p { color: var(--ink-2); }
 .empty code, .code {
-  display: block; width: 100%; padding: var(--s-3) var(--s-4); background: var(--ink); color: var(--on-ink);
-  font: 400 var(--t-s)/1.6 var(--mono); white-space: pre-wrap; word-break: break-all; border-radius: 2px;
+  display: block; width: 100%; padding: var(--s-3) var(--s-4); background: var(--wash); color: var(--ink);
+  border: var(--frame) solid var(--rule); font: 400 var(--t-s)/1.6 var(--mono); white-space: pre-wrap; word-break: break-all;
 }
 .skeleton { display: grid; gap: var(--s-4); }
 .skeleton i {
-  display: block; height: 72px; background: color-mix(in srgb, var(--stock) 82%, var(--ink));
+  display: block; height: 72px; background: var(--wash); border-bottom: var(--frame) solid var(--rule);
   animation: pulse 1.2s var(--ease) infinite alternate;
 }
 @keyframes pulse { to { opacity: .45; } }
 .notice {
   display: flex; gap: var(--s-3); align-items: flex-start; padding: var(--s-3) var(--s-4);
-  border: var(--frame-thin) solid var(--ink); background: var(--paper); font-size: var(--t-s);
+  border: var(--frame) solid var(--rule-strong); background: var(--paper); font-size: var(--t-sub);
 }
 .notice svg { width: 18px; height: 18px; flex: none; margin-top: 1px; }
-.notice.error { border-color: var(--red); color: var(--red-ink); }
+.notice.error { border-color: var(--accent); background: var(--accent-wash); color: var(--accent-ink); }
 .notice b { color: var(--ink); }
 .toast {
   max-width: calc(100vw - 2 * var(--s-4)); overflow-wrap: anywhere;
   position: fixed; left: 50%; bottom: var(--s-5); translate: -50% 0; z-index: 60;
   display: flex; align-items: center; gap: var(--s-4); padding: var(--s-2) var(--s-2) var(--s-2) var(--s-4);
-  background: var(--ink); color: var(--on-ink); font-size: var(--t-s); font-weight: 700; box-shadow: var(--lift);
+  background: var(--ink); color: var(--on-ink); font-size: var(--t-sub); font-weight: var(--w-medium); box-shadow: var(--lift);
   animation: toast-in var(--t-state) var(--ease);
 }
 .toast .btn { border-color: var(--on-ink); background: transparent; color: var(--on-ink); }

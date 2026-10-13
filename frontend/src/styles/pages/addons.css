@@ -5,7 +5,7 @@
 .addon-body { grid-column: 2 / -1; display: grid; gap: var(--s-3); }
 .install { display: flex; gap: var(--s-2); align-items: flex-start; }
 .install .code { flex: 1; }
-code.inline { font: 400 .95em var(--mono); padding: 0 3px; background: color-mix(in srgb, var(--paper) 85%, var(--ink)); }
+code.inline { font: 400 .95em var(--mono); padding: 0 3px; background: var(--wash); }
 @media (max-width: 760px) {
   .addon-state { grid-column: 2 / -1; justify-self: start; text-align: left; }
 }
@@ -18,17 +18,17 @@ code.inline { font: 400 .95em var(--mono); padding: 0 3px; background: color-mix
 .translators legend .meta { font-weight: 400; margin-left: var(--s-2); }
 .translator {
   display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-4); padding: var(--s-3);
-  border: var(--frame-thin) solid color-mix(in srgb, var(--ink) 22%, transparent); min-width: 0;
+  border: var(--frame) solid var(--rule); min-width: 0;
 }
 .translator:has(input:checked) { border-color: var(--ink); background: var(--paper); }
 .translator > label { flex: 1 1 18rem; display: flex; gap: var(--s-3); align-items: flex-start; cursor: pointer; min-width: 0; }
 .translator input[type="radio"] { accent-color: var(--ink); width: 16px; height: 16px; margin: 3px 0 0; flex: none; }
 .translator .what { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
-.translator .failed, .translator-form .test-result.failed { color: var(--red-ink); }
+.translator .failed, .translator-form .test-result.failed { color: var(--accent-ink); }
 .translator .hint { font-size: var(--t-s); }
 .translator-form {
   display: grid; gap: var(--s-3); padding: var(--s-4); min-width: 0;
-  border: var(--frame-thin) solid var(--ink); background: var(--paper);
+  border: var(--frame) solid var(--rule-strong); background: var(--paper);
   animation: take-error-in var(--t-state) var(--ease);
 }
 .translator-form .seg { justify-self: start; max-width: 100%; }
@@ -42,7 +42,7 @@ code.inline { font: 400 .95em var(--mono); padding: 0 3px; background: color-mix
 @media (max-width: 600px) {
   .translator-form .seg { display: grid; grid-template-columns: 1fr 1fr; justify-self: stretch; }
   .translator-form .seg label + label span { border-left: 0; }
-  .translator-form .seg label:nth-child(even) span { border-left: var(--frame-thin) solid var(--ink); }
-  .translator-form .seg label:nth-child(n+3) span { border-top: var(--frame-thin) solid var(--ink); }
+  .translator-form .seg label:nth-child(even) span { border-left: var(--frame) solid var(--rule-strong); }
+  .translator-form .seg label:nth-child(n+3) span { border-top: var(--frame) solid var(--rule-strong); }
   .translator-form .form-grid { grid-template-columns: 1fr; }
 }

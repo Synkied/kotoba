@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<link href="fonts/fonts.css" rel="stylesheet">
+<style>
+:root{--bg:#fafafa;--card:#fff;--ink:#111214;--ink2:#3f4248;--ink3:#62666d;--rule:#e4e5e7;--acc:#4f46e5;--red:#d33a2c}
+*{box-sizing:border-box;margin:0}
+body{width:1440px;height:900px;overflow:hidden;background:var(--bg);color:var(--ink);font:15px/1.55 "BIZ UDPGothic",sans-serif;display:grid;grid-template-columns:220px 1fr}
+nav{border-right:1px solid var(--rule);padding:24px 14px;background:var(--bg)}
+.brand{font-weight:700;font-size:18px;padding:0 10px 20px}
+nav a{display:flex;height:38px;align-items:center;padding:0 10px;border-radius:6px;color:var(--ink2);font-size:14px}
+nav a.on{background:#ececee;color:var(--ink);font-weight:700}
+nav a .n{margin-left:auto;color:var(--ink3);font-size:12px}
+main{padding:40px 56px}
+.crumb{font-size:13px;color:var(--ink3)}
+header{display:flex;align-items:center;gap:12px;margin:8px 0 28px}
+h1{font-size:28px;letter-spacing:-.01em}
+.sub{color:var(--ink3);font-size:14px}
+.sp{margin-left:auto}
+.btn{height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--rule);background:#fff;font:700 14px "BIZ UDPGothic";color:var(--ink)}
+.btn.p{background:var(--acc);border-color:var(--acc);color:#fff}
+.grid{display:grid;grid-template-columns:1fr 300px 90px;border:1px solid var(--rule);border-radius:10px;background:var(--card);overflow:hidden}
+.h{font-size:12px;color:var(--ink3);padding:10px 20px;border-bottom:1px solid var(--rule);background:#f6f6f7;font-weight:700}
+.c{padding:18px 20px;border-bottom:1px solid var(--rule)}
+.jp{font-size:21px;line-height:1.7}
+.en{color:var(--ink3);font-size:14px}
+.wave{height:44px;border-radius:6px;background:repeating-linear-gradient(90deg,#c9cad0 0 2px,transparent 2px 5px);-webkit-mask:linear-gradient(#000,#000);opacity:.9;position:relative}
+.wave:after{content:"";position:absolute;inset:14px 0;background:#fff;opacity:0}
+.shot{height:52px;border-radius:6px;background:#2b2d33;color:#e9e9ec;font-size:13px;display:flex;align-items:center;padding:0 12px}
+.meta{font-size:12px;color:var(--ink3);margin-top:6px;font-variant-numeric:tabular-nums}
+.stamp{width:44px;height:44px;border-radius:50%;border:2px solid var(--g);color:var(--g);display:grid;place-items:center;font-weight:700;font-size:18px}
+.sel{background:#f3f2fe}
+.sel .jp{color:var(--ink)}
+</style></head><body>
+<nav>
+ <div class="brand">kotoba</div>
+ <a>Inbox<span class="n">12</span></a><a>Library</a><a>Words</a><a class="on">Decks</a><a>Practice</a><a>Review<span class="n">9</span></a><a>Collect</a>
+</nav>
+<main>
+ <div class="crumb">Decks / Minna no Nihongo</div>
+ <header><div><h1>Lesson 18 · できること</h1><div class="sub">24 sentences · 9 due · avg 71</div></div><span class="sp"></span><button class="btn">Edit</button><button class="btn p">Practise 9 due</button></header>
+ <div class="grid">
+  <div class="h">Sentence</div><div class="h">Source</div><div class="h">Score</div>
+  <div class="c"><div class="jp">ミラーさんは 漢字を 読む ことが できます。</div><div class="en">Mr Miller can read kanji.</div></div><div class="c"><div class="wave"></div><div class="meta">lesson_18.mp3 · 0:41–0:44</div></div><div class="c"><span class="stamp" style="--g:#b8860b">秀</span></div>
+  <div class="c"><div class="jp">わたしの 趣味は 写真を 撮る ことです。</div><div class="en">My hobby is taking photos.</div></div><div class="c"><div class="wave"></div><div class="meta">lesson_18.mp3 · 0:52–0:56</div></div><div class="c"><span class="stamp" style="--g:#3b5bb5">良</span></div>
+  <div class="c sel"><div class="jp">寝る まえに、日記を 書きます。</div><div class="en">Before sleeping, I write in my diary.</div></div><div class="c sel"><div class="shot">📷 Capture · textbook p.152</div><div class="meta">screen_ocr · 12 Oct</div></div><div class="c sel"><span class="stamp" style="--g:var(--red)">可</span></div>
+  <div class="c"><div class="jp">日本へ 来る まえに、日本語を 勉強しました。</div><div class="en">I studied Japanese before coming to Japan.</div></div><div class="c"><div class="wave"></div><div class="meta">lesson_18.mp3 · 1:15–1:20</div></div><div class="c"><span class="stamp" style="--g:#2e8b57">優</span></div>
+  <div class="c"><div class="jp">カードで 払う ことが できますか。</div><div class="en">Can I pay by card?</div></div><div class="c"><div class="wave"></div><div class="meta">lesson_18.mp3 · 1:31–1:33</div></div><div class="c"><span class="meta">—</span></div>
+ </div>
+</main>
+</body></html>

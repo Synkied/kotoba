@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<link href="fonts/fonts.css" rel="stylesheet">
+<style>
+:root{--paper:#fcfcfa;--rail:#f3f4f1;--ink:#1e2633;--ink2:#4a5566;--ink3:#5c6775;--rule:#dfe3e8;--box:#c9d2dc;--blue:#2f6fd6;--bluewash:#eaf1fc;--red:#cf2f1f;
+--inbox:#e0782a;--lib:#3f9a5b;--decks:#2f8f8a;--prac:#5a64c8;--rev:#c2457a;--words:#b08a1e}
+*{box-sizing:border-box;margin:0}
+body{width:1440px;height:900px;overflow:hidden;background:var(--paper);color:var(--ink);font:16px/1.6 "BIZ UDPGothic",sans-serif;display:grid;grid-template-columns:232px 1fr}
+nav{background:var(--rail);border-right:1px solid var(--rule);padding:24px 0}
+.brand{font:600 24px "Klee One";padding:0 24px 24px;letter-spacing:.02em}
+.brand small{font:400 13px "BIZ UDPGothic";color:var(--ink3);margin-left:6px}
+.search{margin:0 16px 20px;height:36px;border:1px solid var(--box);border-radius:6px;background:#fff;display:flex;align-items:center;padding:0 12px;color:var(--ink3);font-size:14px;justify-content:space-between}
+.search kbd{font:12px "BIZ UDPGothic";border:1px solid var(--box);border-radius:4px;padding:0 5px}
+nav a{display:flex;align-items:center;gap:12px;height:44px;padding:0 20px 0 0;color:var(--ink2);text-decoration:none;font-size:15px}
+nav a i{width:6px;height:28px;border-radius:0 3px 3px 0;background:var(--c);opacity:.55}
+nav a .n{margin-left:auto;font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink3)}
+nav a.on{background:#fff;color:var(--ink);font-weight:700;margin-right:-1px}
+nav a.on i{opacity:1;width:8px}
+nav a .due{color:var(--red);font-weight:700}
+main{position:relative;padding:0 56px 0 56px;overflow:hidden}
+main:before{content:"";position:absolute;inset:0 0 auto 0;height:4px;background:var(--decks)}
+.crumb{padding-top:36px;font-size:14px;color:var(--ink3)}
+.crumb b{color:var(--decks);font-weight:700}
+header{display:flex;align-items:flex-end;gap:24px;padding:8px 0 24px;border-bottom:1px solid var(--rule)}
+h1{font:600 34px/1.25 "Klee One";letter-spacing:.01em}
+h1 span{display:block;font:400 15px "BIZ UDPGothic";color:var(--ink3);margin-top:6px}
+.meta{display:flex;gap:28px;margin-left:auto;margin-right:24px;font-size:14px;color:var(--ink3)}
+.meta b{display:block;font-size:22px;color:var(--ink);font-variant-numeric:tabular-nums}
+.meta .d b{color:var(--red)}
+.btn{height:44px;padding:0 20px;border-radius:6px;border:1px solid var(--box);background:#fff;font:700 15px "BIZ UDPGothic";color:var(--ink);display:inline-flex;align-items:center;gap:8px}
+.btn.p{background:var(--ink);color:#fff;border-color:var(--ink)}
+.tools{display:flex;gap:8px;padding:16px 0;align-items:center;font-size:14px;color:var(--ink3)}
+.chip{height:32px;padding:0 12px;border:1px solid var(--box);border-radius:16px;display:inline-flex;align-items:center;background:#fff;color:var(--ink2)}
+.chip.on{border-color:var(--ink);color:var(--ink);font-weight:700}
+.tools .r{margin-left:auto}
+ol{list-style:none;padding:0}
+li{display:grid;grid-template-columns:44px 1fr 132px 96px;gap:20px;align-items:start;padding:18px 0 18px;border-bottom:1px solid var(--rule);position:relative}
+li .num{width:32px;height:32px;border:1.5px solid var(--box);border-radius:4px;display:grid;place-items:center;font-size:14px;font-weight:700;color:var(--ink2);margin-top:6px;font-variant-numeric:tabular-nums}
+.jp{font:400 23px/1.9 "Klee One";letter-spacing:.03em}
+.jp rt{font:400 11px "BIZ UDPGothic";color:var(--ink3)}
+.ro{font-size:14px;color:var(--ink3);margin-top:2px}
+.en{font-size:15px;color:var(--ink2)}
+.src{font-size:13px;color:var(--ink3);padding-top:10px;font-variant-numeric:tabular-nums}
+.src b{display:block;color:var(--ink2);font-weight:400}
+.mark{display:flex;align-items:center;gap:10px;justify-content:flex-end;padding-top:4px}
+.pen{font:600 30px "Klee One";color:var(--red);line-height:1}
+.stamp{width:46px;height:46px;border-radius:50%;border:2.5px solid var(--g);color:var(--g);display:grid;place-items:center;font:700 20px "BIZ UDPGothic";box-shadow:inset 0 0 0 2px #fff,inset 0 0 0 3.5px var(--g);transform:rotate(var(--r,-8deg))}
+.none{font-size:13px;color:var(--ink3)}
+li.cur{background:var(--bluewash);margin:0 -24px;padding-left:24px;padding-right:24px;border-bottom-color:transparent}
+li.cur:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--blue)}
+li.cur .num{border-color:var(--blue);color:var(--blue)}
+.next{font-size:13px;font-weight:700;color:var(--blue);margin-top:6px}
+</style></head><body>
+<nav>
+ <div class="brand">kotoba<small>言葉</small></div>
+ <div class="search">Search sentences <kbd>Ctrl K</kbd></div>
+ <a style="--c:var(--inbox)"><i></i>Inbox<span class="n">12</span></a>
+ <a style="--c:var(--lib)"><i></i>Library</a>
+ <a style="--c:var(--words)"><i></i>Words</a>
+ <a class="on" style="--c:var(--decks)"><i></i>Decks</a>
+ <a style="--c:var(--prac)"><i></i>Practice</a>
+ <a style="--c:var(--rev)"><i></i>Review<span class="n due">9</span></a>
+ <a style="--c:#8a8f96"><i></i>Collect</a>
+</nav>
+<main>
+ <div class="crumb">Decks › <b>Minna no Nihongo</b></div>
+ <header>
+  <h1>Lesson 18 · できること<span>From lesson_18.mp3 · Minna no Nihongo I</span></h1>
+  <div class="meta"><div><b>24</b>sentences</div><div class="d"><b>9</b>due</div><div><b>71</b>avg score</div></div>
+  <button class="btn">Edit</button><button class="btn p">▶ Practise 9 due</button>
+ </header>
+ <div class="tools"><span class="chip on">All 24</span><span class="chip">Due 9</span><span class="chip">Missed words 4</span><span class="chip">Not practised 3</span><span class="r">Furigana · Romaji · English</span></div>
+ <ol>
+  <li><span class="num">1</span><div><div class="jp">ミラーさんは <ruby>漢字<rt>かんじ</rt></ruby>を <ruby>読<rt>よ</rt></ruby>む ことが できます。</div><div class="en">Mr Miller can read kanji.</div></div><div class="src"><b>0:41 – 0:44</b>native · 6 attempts</div><div class="mark"><span class="pen">○</span><span class="stamp" style="--g:#b8860b">秀</span></div></li>
+  <li><span class="num">2</span><div><div class="jp">わたしの <ruby>趣味<rt>しゅみ</rt></ruby>は <ruby>写真<rt>しゃしん</rt></ruby>を <ruby>撮<rt>と</rt></ruby>る ことです。</div><div class="en">My hobby is taking photos.</div></div><div class="src"><b>0:52 – 0:56</b>native · 3 attempts</div><div class="mark"><span class="pen">△</span><span class="stamp" style="--g:#3b5bb5;--r:6deg">良</span></div></li>
+  <li class="cur"><span class="num">3</span><div><div class="jp"><ruby>寝<rt>ね</rt></ruby>る まえに、<ruby>日記<rt>にっき</rt></ruby>を <ruby>書<rt>か</rt></ruby>きます。</div><div class="en">Before sleeping, I write in my diary.</div><div class="next">Next to practise</div></div><div class="src"><b>1:07 – 1:10</b>native · 2 attempts</div><div class="mark"><span class="pen">✕</span><span class="stamp" style="--g:var(--red);--r:-3deg">可</span></div></li>
+  <li><span class="num">4</span><div><div class="jp"><ruby>日本<rt>にほん</rt></ruby>へ <ruby>来<rt>く</rt></ruby>る まえに、<ruby>日本語<rt>にほんご</rt></ruby>を <ruby>勉強<rt>べんきょう</rt></ruby>しました。</div><div class="en">I studied Japanese before coming to Japan.</div></div><div class="src"><b>1:15 – 1:20</b>native · 4 attempts</div><div class="mark"><span class="pen">○</span><span class="stamp" style="--g:#2e8b57;--r:9deg">優</span></div></li>
+  <li><span class="num">5</span><div><div class="jp">カードで <ruby>払<rt>はら</rt></ruby>う ことが できますか。</div><div class="en">Can I pay by card?</div></div><div class="src"><b>1:31 – 1:33</b>native</div><div class="mark"><span class="none">Not practised</span></div></li>
+ </ol>
+</main>
+</body></html>

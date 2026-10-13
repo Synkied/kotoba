@@ -3,7 +3,7 @@ import { cx } from './cx'
 
 type As<T extends ElementType> = { as?: T } & Omit<ComponentProps<T>, 'as'>
 
-/** A panel: the bold 3px ink frame on paper, square. Screenshots, waveforms, editor panes. */
+/** A panel: a hairline frame on paper, square. Screenshots, waveforms, editor panes. */
 export function Panel<T extends ElementType = 'div'>({ as, className, ...props }: As<T>) {
   const Tag: ElementType = as ?? 'div'
   return <Tag className={cx('panel', className)} {...props} />
@@ -15,7 +15,7 @@ export function Sheet<T extends ElementType = 'section'>({ as, className, ...pro
   return <Tag className={cx('sheet', className)} {...props} />
 }
 
-/** A framed notice. `tone="error"` takes the red frame; give errors role="alert". */
+/** A framed notice. `tone="error"` takes the burgundy frame; give errors role="alert". */
 export function Notice<T extends ElementType = 'div'>({ as, tone, className, ...props }: As<T> & { tone?: 'error' }) {
   const Tag: ElementType = as ?? 'div'
   return <Tag className={cx('notice', tone, className)} {...props} />

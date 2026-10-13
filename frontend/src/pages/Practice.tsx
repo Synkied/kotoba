@@ -404,7 +404,7 @@ export function PracticeSession({ title, back, sentences: initial, onFinish, sta
                   {voiceLoading ? <LoaderCircle className="loading-spinner" aria-hidden="true" /> : <Volume2 aria-hidden="true" />}{voiceLoading ? 'Loading voice…' : playing ? 'Stop audio' : 'Listen'}
                 </Button>
               )}
-              <Button variant="red" className={recording ? 'rec on' : 'rec'} onClick={recording ? stopRec : startRec} disabled={scoring || saving || (engine === 'loading' && !recording)} aria-busy={scoring || engine === 'loading'} aria-pressed={recording}>
+              <Button variant="accent" className={recording ? 'rec on' : 'rec'} onClick={recording ? stopRec : startRec} disabled={scoring || saving || (engine === 'loading' && !recording)} aria-busy={scoring || engine === 'loading'} aria-pressed={recording}>
                 {recording ? <Square aria-hidden="true" /> : scoring || engine === 'loading' ? <LoaderCircle className="loading-spinner" aria-hidden="true" /> : <Mic aria-hidden="true" />}
                 {scoring ? 'Scoring…' : recording ? 'Stop' : engine === 'loading' ? 'Loading Whisper…' : res ? 'Say it again' : 'Say it'}
               </Button>

@@ -1,5 +1,4 @@
 /* kotoba styles, in cascade order. Tokens first; touch targets last so they win. */
-@import './kana.css';
 @import './tokens.css';
 @import './base.css';
 @import './shell.css';
@@ -13,6 +12,7 @@
 @import './components/lists.css';
 @import './components/feedback.css';
 @import './components/word-lookup.css';
+@import './components/note-markdown.css';
 
 @import './pages/addons.css';
 @import './pages/cleanup.css';
@@ -20,6 +20,7 @@
 @import './pages/decks.css';
 @import './pages/lesson.css';
 @import './pages/library.css';
+@import './pages/notes.css';
 @import './pages/practice.css';
 @import './pages/recordings.css';
 @import './pages/sentence.css';

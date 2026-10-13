@@ -11,7 +11,7 @@ import { ButtonLink, EmptyState, Plate } from '../components/ds'
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
 const KIND = { capture: 'Capture', audio: 'Audio', video: 'Video', subtitle: 'Subtitles', text: 'Text' } as const
 
-/** The search box on the spine: Enter opens everything that matches. Ctrl/⌘ K finds it from anywhere. */
+/** The search box on the rail: Enter opens everything that matches. Ctrl/⌘ K finds it from anywhere. */
 export function GlobalSearch() {
   const loc = useLocation()
   const nav = useNavigate()
@@ -23,14 +23,14 @@ export function GlobalSearch() {
     const key = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() !== 'k' || !(e.metaKey || e.ctrlKey) || e.altKey) return
       e.preventDefault()
-      // the spine is hidden on phones: the search page has its own box
+      // the rail is hidden on phones: the search page has its own box
       if (ref.current?.offsetParent) { ref.current.focus(); ref.current.select() } else nav('/search')
     }
     window.addEventListener('keydown', key)
     return () => window.removeEventListener('keydown', key)
   }, [nav])
   return (
-    <form className="spine-search" role="search" onSubmit={(e) => {
+    <form className="rail-search" role="search" onSubmit={(e) => {
       e.preventDefault()
       const q = value.trim()
       setDraft(null)

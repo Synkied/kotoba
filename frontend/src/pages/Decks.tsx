@@ -102,7 +102,7 @@ function DeckRow({ d }: { d: Deck }) {
       <td className="n hide-s">{d.practised}</td>
       <td className="hide-s"><span className="meter" role="img" aria-label={`${d.practised} of ${d.size} practised`}><i style={{ width: d.size ? `${(100 * d.practised) / d.size}%` : 0 }} /></span></td>
       <td className="n hide-s">{d.average != null ? Math.round(d.average) : '–'}</td>
-      <td className="n">{d.due ? <Plate tone="red">{d.due}</Plate> : <span className="meta">0</span>}</td>
+      <td className="n">{d.due ? <Plate tone="accent">{d.due}</Plate> : <span className="meta">0</span>}</td>
       <td style={{ textAlign: 'right' }}>{d.size > 0 && <ButtonLink size="small" to={`/practice?deck=${d.id}`}><Play aria-hidden="true" />Practise</ButtonLink>}</td>
     </tr>
   )

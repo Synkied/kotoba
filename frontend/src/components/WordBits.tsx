@@ -23,7 +23,7 @@ export function WordPlates({ w }: { w: Pick<WordRow, 'status' | 'trouble' | 'tri
   return <>
     {w.status === 'known' && <Plate>known</Plate>}
     {w.status === 'practised' && <Plate tone="hollow" title="You've said a sentence with it well">practised</Plate>}
-    {w.trouble && <Plate tone="red" title="Missed or unclear in your latest attempts">missed {w.misses} of {w.tries}</Plate>}
+    {w.trouble && <Plate tone="accent" title="Missed or unclear in your latest attempts">missed {w.misses} of {w.tries}</Plate>}
   </>
 }
 

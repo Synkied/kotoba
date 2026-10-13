@@ -49,7 +49,7 @@ function cut(text: string, pairs: [string, string][], marks: [number, number][])
   return pieces
 }
 
-/** Scored sentence: missed words underlined in red, unclear ones dashed. */
+/** Scored sentence: missed words underlined in burgundy, unclear ones dashed. */
 export function Units({ units, pairs = [], show = false }: { units: Unit[]; pairs?: [string, string][]; show?: boolean }) {
   const text = units.map(u => u.text).join('')
   let at = 0

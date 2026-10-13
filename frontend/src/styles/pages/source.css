@@ -11,7 +11,7 @@
   .source-layout { grid-template-columns: minmax(0, 1fr); }
   .source-aside { display: contents; }
   .source-aside > * { min-width: 0; }
-  .source-aside .source-audio { position: sticky; top: 0; z-index: 6; background: var(--stock); padding-block: var(--s-2); border-bottom: var(--frame-thin) solid var(--ink); gap: var(--s-2); }
+  .source-aside .source-audio { position: sticky; top: 0; z-index: 6; background: var(--page); padding-block: var(--s-2); border-bottom: var(--frame) solid var(--rule-strong); gap: var(--s-2); }
   .source-aside .source-audio .sentence-section-head { display: none; }
   .source-aside .source-audio .sentence-wave { height: 56px; }
   .source-aside .source-audio .sentence-audio-hint { display: none; }
@@ -25,17 +25,12 @@
 .sentence-layout { margin-top: var(--s-5); }
 .source-content { min-width: 0; display: grid; gap: var(--s-4); }
 .source-aside > audio { width: 100%; min-width: 0; }
-/* Source playback: the sentence being spoken is marked with an ink rule and paper,
-   and its timecode is reversed, like the character under the playhead. */
+/* Source playback: the sentence being spoken sits on the warm wash with a burgundy edge,
+   and its timecode turns burgundy, like the current row of a deck. */
 .source-aside .source-audio { padding-top: 0; border-top: 0; }
 .source-aside .source-audio .sentence-wave { height: 120px; }
 .row .tc { border: 0; background: none; padding: 0; text-align: left; cursor: pointer; }
 .row .tc:hover { color: var(--ink); text-decoration: underline; }
-.row.now { background: var(--paper); box-shadow: inset 4px 0 0 var(--ink); transition: background-color var(--t-state) var(--ease); }
-.row.now .tc { background: var(--ink); color: var(--paper); padding: 2px var(--s-1); }
-@media (prefers-reduced-motion: reduce) {
-  .row.now { transition: none; }
-}
 .source-content .row { padding-inline: var(--s-3); }
 /* what has been said steps back to the second ink, so the eye finds the reading front */
 .source-content .row.past .sentence-text { color: var(--ink-3); }

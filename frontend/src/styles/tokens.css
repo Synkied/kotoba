@@ -1,5 +1,6 @@
-/* kotoba design tokens: a weekly manga magazine of your own sentences.
-   Each section is printed on its own tinted newsprint stock; ink frames; one red.
+/* kotoba design tokens: a Muji-labelled study shelf.
+   A white sheet where the Japanese sentence is the largest, calmest thing; facts about it
+   sit on small kraft labels; hairline rules; one burgundy accent.
 
    Change the design here. Every colour below has a light value in :root and a dark
    value in the one block under prefers-color-scheme; nothing else in the app holds a
@@ -7,118 +8,116 @@
 :root {
   color-scheme: light dark;
 
-  /* ---- colour: newsprint stocks, one per section (set on <main> as --stock) */
-  --stock-inbox: #f4dfd5;
-  --stock-sources: #f0e7c6;
-  --stock-decks: #dce8d2;
-  --stock-practice: #fbfaf6;
-  --stock-review: #e5dff1;
-  --stock-collect: #e8e4db;
-  --stock-recordings: #dbe4ea;  /* the recording editor, the cutting room */
-  --stock-words: #efd9e2;
-  --stock-library: #d5e9e3;
+  /* ---- colour: the sheet and the rail */
+  --page: #ffffff;           /* every section reads on the same white sheet */
+  --rail: #f3f1ec;           /* the warm-grey nav rail */
+  --rail-hover: #e9e6de;     /* a rail link under the pointer */
+  --wash: #faf8f4;           /* the current row, quiet fills (quotes, code, table heads) */
 
   /* ---- colour: ink and paper */
-  --ink: #1a1714;
-  --ink-2: #463f37;
-  --ink-3: #5f574d;          /* meta text; >= 4.5:1 on every stock */
-  --paper: #fffdf8;          /* balloons, inputs, sheets */
-  --paper-hover: #fffdf8;    /* a card under the pointer; light pages lift it with --lift alone */
-  --on-ink: #fbf7ee;         /* text on black reversal plates */
-  --rule: color-mix(in srgb, var(--ink) 16%, transparent);         /* hairline between rows */
-  --rule-strong: color-mix(in srgb, var(--ink) 25%, transparent);  /* a rule that groups, under a head */
+  --ink: #1f1f1f;
+  --ink-2: #474542;
+  --ink-3: #5e5b56;          /* meta text; >= 5.9:1 on the page and the rail */
+  --paper: #ffffff;          /* inputs, balloons, sheets: the page itself, set off by a hairline */
+  --paper-hover: #faf8f4;    /* a card under the pointer */
+  --on-ink: #ffffff;         /* text on ink (primary buttons, pressed chips, toasts) */
+  --rule: #e6e3dc;           /* hairline between rows */
+  --rule-strong: #cfcac0;    /* field frames, a rule that groups */
 
-  /* ---- colour: the one red. Recording, misses, due counts, 可 stamps. Nothing decorative. */
-  --red: #cc1f1a;
-  --red-ink: #b0130e;        /* red used as text on stock */
-  --red-wash: #f7d4cf;
-  --red-press: color-mix(in srgb, var(--red) 86%, #000);  /* a red button under the pointer */
-  --on-red: #fffdf8;
+  /* ---- colour: kraft labels. Source, time, tries, labels: the facts pinned beside a sentence */
+  --kraft: #e7dac4;
+  --kraft-ink: #3d3124;
 
-  /* ---- colour: stamp inks by grade (秀 優 良 可); 可 keeps the red. -ink variants are for text on stock */
-  --stamp-shu: #c08a12;  --stamp-shu-ink: #8a5f00;
-  --stamp-yu: #2e7d4f;   --stamp-yu-ink: #1f6b3e;
-  --stamp-ryo: #2f56a8;  --stamp-ryo-ink: #234690;
+  /* ---- colour: the one accent, burgundy. Due counts, misses, the current item, recording, 可. */
+  --accent: #7f0019;
+  --accent-ink: #7f0019;     /* burgundy as text and underline */
+  --accent-wash: #f5e6e8;
+  --accent-press: #600013;   /* an accent button under the pointer */
+  --on-accent: #ffffff;
+  --brand: #7f0019;          /* the 言葉 KOTOBA block, the same in both themes */
+  --on-brand: #ffffff;
+
+  /* ---- colour: stamp inks by grade (秀 優 良 可); 可 keeps the accent. -ink variants are for text */
+  --stamp-shu: #9a7400;  --stamp-shu-ink: #7d5e00;
+  --stamp-yu: #2f6b45;   --stamp-yu-ink: #2f6b45;
+  --stamp-ryo: #34508f;  --stamp-ryo-ink: #34508f;
 
   /* ---- colour: status lights (engine and add-on dots). Never used for text. */
-  --ok: #3f8f45;    --ok-on-spine: #6fbf73;
-  --warn: #c07f12;  --warn-on-spine: #e2a33a;
+  --ok: #3f8f45;
+  --warn: #c07f12;
 
-  /* ---- colour: the spine, a black plate */
-  --spine: #171411;
-  --spine-2: #2a2520;
-  --spine-ink: #efe8da;
-  --spine-ink-2: #b4ab9c;
-  --on-ink-wash: rgb(255 255 255 / .12);  /* a ghost control under the pointer on a black plate */
-
-  /* ---- texture: screentone, the only one, used only to push things back */
-  --tone-dot: rgb(26 23 20 / .34);
-  --tone: radial-gradient(var(--tone-dot) .7px, transparent 1.1px) 0 0 / 4px 4px;
-
-  /* ---- frames */
-  --frame-thin: 1.5px;       /* controls, balloons */
-  --frame-bold: 3px;         /* panels */
-  --radius-control: 3px;     /* controls only; panels and balloons are square */
+  /* ---- frames: hairlines, and one 2px ink rule under a page head */
+  --frame: 1px;              /* controls, panels, sheets */
+  --frame-head: 2px;         /* the rule that opens a page or a list */
+  --radius-control: 0;       /* square, like a printed label */
 
   /* ---- type */
-  --font: 'Kotoba Kana', 'BIZ UDPGothic', system-ui, -apple-system, 'Hiragino Kaku Gothic ProN',
-          'Yu Gothic UI', 'Noto Sans CJK JP', sans-serif;
+  --font: 'Zen Kaku Gothic New', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Noto Sans CJK JP',
+          system-ui, -apple-system, sans-serif;
   --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-  /* three sizes only; rank comes from weight and black reversal */
-  --t-s: .8125rem;
-  --t-m: 1rem;
-  --t-l: 1.75rem;
-  --t-tag: 11px;             /* not a reading size: only uppercase reversal tags, keys and the phone tab bar */
+  --t-tag: 11px;             /* not a reading size: keys and the phone tab bar only */
+  --t-s: .8125rem;           /* 13px: meta, crumbs, labels, filters */
+  --t-sub: .9375rem;         /* 15px: English glosses, secondary lines, nav */
+  --t-m: 1rem;               /* 16px: body and controls */
+  --t-read: 1.4375rem;       /* 23px: a Japanese sentence being read */
+  --t-fig: 1.5rem;           /* 24px: figures in a head (due, average) */
+  --t-l: 1.75rem;            /* 28px: section heads, empty states, a looked-up word */
+  --t-xl: 2.25rem;           /* 36px: the page title */
+  --w-medium: 500;           /* headings and the sentence; 700 is for counts and emphasis */
+  --measure: 36em;           /* the reading line of a sentence */
 
   /* ---- space */
   --s-1: 4px;  --s-2: 8px;  --s-3: 12px;  --s-4: 16px;
   --s-5: 24px; --s-6: 32px; --s-7: 48px;  --s-8: 64px;
-  --gutter: 12px;            /* white gutter between panels */
+  --gutter: 16px;            /* between panels */
 
   /* ---- sizes */
-  --control-h: 36px;         /* 44px on phones and coarse pointers (touch.css) */
-  --control-h-s: 28px;
-  --spine-w: 208px;
+  --control-h: 40px;         /* 44px on phones and coarse pointers (touch.css) */
+  --control-h-s: 30px;
+  --rail-w: 224px;
 
   /* ---- motion */
   --ease: cubic-bezier(.2, .7, .2, 1);
   --t-fast: 120ms;           /* hover */
   --t-state: 160ms;          /* state changes */
-  --lift: 0 1px 0 rgb(26 23 20 / .08), 0 6px 18px -8px rgb(26 23 20 / .28);
+  --lift: 0 1px 2px rgb(31 31 31 / .06), 0 10px 28px -12px rgb(31 31 31 / .22);
 }
 
-/* Dark: black "beta" pages; the stock tints survive as deep inks.
+/* Dark: the sheet turns near-black, the rail darker still, the kraft deepens.
+   Burgundy text lifts to a lighter red so it still reads; the brand block keeps its burgundy.
    Only colours change here; every other token holds in both themes. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --stock-inbox: #2a1e1a;
-    --stock-sources: #28241a;
-    --stock-decks: #1c241b;
-    --stock-practice: #161513;
-    --stock-review: #211d2a;
-    --stock-collect: #22201c;
-    --stock-recordings: #1a2127;
-    --stock-words: #261b21;
-    --stock-library: #172420;
+    --page: #161513;
+    --rail: #0d0c0a;
+    --rail-hover: #1c1a17;
+    --wash: #1f1d1a;
 
     --ink: #f2ecdf;
     --ink-2: #d2c9b9;
     --ink-3: #a99f8f;
-    --paper: #1f1d1a;
-    --paper-hover: #302d29;  /* --lift sinks into the black page; the card steps up instead */
+    --paper: #1a1917;
+    --paper-hover: #24221e;
     --on-ink: #161513;
-    --on-red: #161513;
-    --red: #ff5b4f;
-    --red-ink: #ff7a6f;
-    --red-wash: #4a1d19;
+    --rule: #2b2824;
+    --rule-strong: #3a362f;
+
+    --kraft: #2f2619;
+    --kraft-ink: #e7dac4;
+
+    --accent: #ff6f6a;
+    --accent-ink: #ff8a85;
+    --accent-wash: #3a1418;
+    --accent-press: #ff8a85;
+    --on-accent: #161513;
+
     --stamp-shu: #f2bf4a;  --stamp-shu-ink: #f6cd6b;
     --stamp-yu: #5cc98a;   --stamp-yu-ink: #7ad6a0;
     --stamp-ryo: #7fa2ff;  --stamp-ryo-ink: #9db7ff;
-    --spine: #0d0c0a;
-    --spine-2: #221f1b;
-    --spine-ink: #efe8da;
-    --spine-ink-2: #9d9486;
-    --tone-dot: rgb(242 236 223 / .26);
-    --lift: 0 1px 0 rgb(0 0 0 / .4), 0 8px 22px -10px rgb(0 0 0 / .7);
+
+    --ok: #6fbf73;
+    --warn: #e2a33a;
+
+    --lift: 0 1px 0 rgb(0 0 0 / .4), 0 10px 28px -12px rgb(0 0 0 / .75);
   }
 }

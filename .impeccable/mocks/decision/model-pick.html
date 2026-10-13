@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<link href="fonts/fonts.css" rel="stylesheet">
+<style>
+:root{--bg:#ffffff;--panel:#f5f6f7;--ink:#15191f;--ink2:#3d4550;--ink3:#5d6671;--rule:#e3e6ea;--line:#00a7db;--next:#00a7db;--red:#d7000f;
+--I:#f39700;--L:#009944;--W:#b5a000;--D:#00a7db;--P:#9b7cb6;--R:#e85298;--C:#8f9399}
+*{box-sizing:border-box;margin:0}
+body{width:1440px;height:900px;overflow:hidden;background:var(--bg);color:var(--ink);font:16px/1.55 "BIZ UDPGothic",sans-serif;display:grid;grid-template-columns:240px 1fr}
+nav{background:#20252c;color:#fff;padding:24px 16px}
+.brand{font-weight:700;font-size:22px;padding:0 8px 4px}
+.brand small{display:block;font-size:12px;font-weight:400;color:#aab2bd}
+.search{margin:20px 0;height:38px;border-radius:6px;background:#2f363f;display:flex;align-items:center;padding:0 12px;color:#b9c1cb;font-size:14px}
+nav a{display:flex;align-items:center;gap:12px;height:46px;padding:0 8px;border-radius:6px;color:#e6e9ed;font-size:15px}
+.rd{width:30px;height:30px;border-radius:50%;border:4px solid var(--c);background:#fff;color:var(--ink);display:grid;place-items:center;font-weight:700;font-size:13px}
+nav a .n{margin-left:auto;font-size:13px;color:#b9c1cb}
+nav a .due{background:var(--red);color:#fff;border-radius:10px;padding:0 8px;font-weight:700}
+nav a.on{background:#fff;color:var(--ink);font-weight:700}
+main{padding:0}
+.band{height:56px;background:var(--D);color:#fff;display:flex;align-items:center;gap:16px;padding:0 48px;font-size:15px}
+.band .rd{--c:#fff;background:var(--D);color:#fff;width:34px;height:34px}
+.band b{font-size:20px}
+.band span{opacity:.9}
+.head{display:flex;align-items:center;gap:20px;padding:28px 48px 24px;border-bottom:1px solid var(--rule)}
+h1{font-size:34px;line-height:1.2}
+h1 small{display:block;font-size:15px;font-weight:400;color:var(--ink3);margin-top:6px;letter-spacing:.04em}
+.stats{display:flex;gap:32px;margin-left:auto;font-size:13px;color:var(--ink3)}
+.stats b{display:block;font-size:24px;color:var(--ink);font-variant-numeric:tabular-nums}
+.stats .d b{color:var(--red)}
+.btn{height:46px;padding:0 22px;border-radius:23px;border:1.5px solid var(--ink);background:#fff;font:700 15px "BIZ UDPGothic";display:inline-flex;align-items:center;gap:8px}
+.btn.p{background:var(--ink);color:#fff}
+.body{display:grid;grid-template-columns:1fr 320px;gap:40px;padding:8px 48px}
+ol{list-style:none;padding:0;position:relative}
+ol:before{content:"";position:absolute;left:21px;top:28px;bottom:0;width:8px;background:var(--line);border-radius:4px}
+li{display:grid;grid-template-columns:52px 1fr 70px;gap:18px;padding:16px 0;align-items:start;position:relative}
+.stn{width:50px;height:50px;border-radius:12px;border:5px solid var(--line);background:#fff;display:grid;place-items:center;text-align:center;line-height:1;font-weight:700;font-size:17px;z-index:1}
+.stn small{display:block;font-size:10px;letter-spacing:.06em}
+li.done .stn{background:#fff}
+li.nx .stn{background:var(--line);color:#fff;box-shadow:0 0 0 5px #d6f2fb}
+li.todo .stn{border-color:#b9dff0;color:var(--ink3)}
+.jp{font-size:24px;line-height:1.6;font-weight:700;letter-spacing:.02em}
+.jp rt{font-size:11px;font-weight:400;color:var(--ink3)}
+.ro{font-size:14px;color:var(--ink3);letter-spacing:.03em}
+.en{font-size:15px;color:var(--ink2)}
+.tag{display:inline-block;margin-top:6px;font-size:13px;font-weight:700;color:#fff;background:var(--line);padding:2px 10px;border-radius:4px}
+.stamp{width:48px;height:48px;border-radius:50%;border:2.5px solid var(--g);color:var(--g);display:grid;place-items:center;font-weight:700;font-size:20px;box-shadow:inset 0 0 0 2px #fff,inset 0 0 0 3.5px var(--g);transform:rotate(var(--r,-8deg));margin-top:4px}
+.none{font-size:13px;color:var(--ink3);padding-top:14px}
+aside{background:var(--panel);border-radius:12px;padding:24px;margin-top:16px;align-self:start}
+aside h3{font-size:13px;color:var(--ink3);letter-spacing:.06em;margin-bottom:12px}
+.row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--rule);font-size:15px}
+.row b{font-variant-numeric:tabular-nums}
+.bar{display:flex;gap:3px;margin:16px 0 6px}.bar i{flex:1;height:10px;border-radius:2px;background:var(--line)}.bar i.o{background:#cfe9f4}.bar i.r{background:var(--red)}
+</style></head><body>
+<nav>
+ <div class="brand">kotoba<small>言葉 · ことば</small></div>
+ <div class="search">Search sentences ⌘K</div>
+ <a><span class="rd" style="--c:var(--I)">I</span>Inbox<span class="n">12</span></a>
+ <a><span class="rd" style="--c:var(--L)">L</span>Library</a>
+ <a><span class="rd" style="--c:var(--W)">W</span>Words</a>
+ <a class="on"><span class="rd" style="--c:var(--D)">D</span>Decks</a>
+ <a><span class="rd" style="--c:var(--P)">P</span>Practice</a>
+ <a><span class="rd" style="--c:var(--R)">R</span>Review<span class="n due">9</span></a>
+ <a><span class="rd" style="--c:var(--C)">C</span>Collect</a>
+</nav>
+<main>
+ <div class="band"><span class="rd">D</span><b>Decks</b><span>› Minna no Nihongo › Lesson 18</span></div>
+ <div class="head">
+  <h1>Lesson 18 · できること<small>レッスン 18 · Minna no Nihongo I · lesson_18.mp3</small></h1>
+  <div class="stats"><div><b>24</b>stops</div><div class="d"><b>9</b>due</div><div><b>71</b>avg</div></div>
+  <button class="btn">Edit</button><button class="btn p">▶ Practise from D-03</button>
+ </div>
+ <div class="body">
+  <ol>
+   <li class="done"><span class="stn"><small>D18</small>01</span><div><div class="jp">ミラーさんは <ruby>漢字<rt>かんじ</rt></ruby>を <ruby>読<rt>よ</rt></ruby>む ことが できます。</div><div class="en">Mr Miller can read kanji.</div></div><span class="stamp" style="--g:#b8860b">秀</span></li>
+   <li class="done"><span class="stn"><small>D18</small>02</span><div><div class="jp">わたしの <ruby>趣味<rt>しゅみ</rt></ruby>は <ruby>写真<rt>しゃしん</rt></ruby>を <ruby>撮<rt>と</rt></ruby>る ことです。</div><div class="en">My hobby is taking photos.</div></div><span class="stamp" style="--g:#3b5bb5;--r:6deg">良</span></li>
+   <li class="nx"><span class="stn"><small>D18</small>03</span><div><div class="jp"><ruby>寝<rt>ね</rt></ruby>る まえに、<ruby>日記<rt>にっき</rt></ruby>を <ruby>書<rt>か</rt></ruby>きます。</div><div class="en">Before sleeping, I write in my diary.</div><span class="tag">Next stop</span></div><span class="stamp" style="--g:var(--red);--r:-3deg">可</span></li>
+   <li class="todo"><span class="stn"><small>D18</small>04</span><div><div class="jp"><ruby>日本<rt>にほん</rt></ruby>へ <ruby>来<rt>く</rt></ruby>る まえに、<ruby>日本語<rt>にほんご</rt></ruby>を <ruby>勉強<rt>べんきょう</rt></ruby>しました。</div><div class="en">I studied Japanese before coming to Japan.</div></div><span class="stamp" style="--g:#2e8b57;--r:9deg">優</span></li>
+  </ol>
+  <aside>
+   <h3>THIS LINE</h3>
+   <div class="bar"><i></i><i></i><i class="r"></i><i></i><i></i><i class="r"></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i></div>
+   <div class="ro">21 of 24 practised</div>
+   <div class="row"><span>Due today</span><b>9</b></div>
+   <div class="row"><span>Missed words</span><b>4</b></div>
+   <div class="row"><span>Last session</span><b>Mon 12 Oct</b></div>
+   <div class="row"><span>Source</span><b>lesson_18.mp3</b></div>
+  </aside>
+ </div>
+</main>
+</body></html>

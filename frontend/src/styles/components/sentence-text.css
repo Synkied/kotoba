@@ -1,18 +1,23 @@
-/* <SentenceText>, reading aids (furigana, romaji, translation) and scored units. */
+/* <SentenceText>, reading aids (furigana, romaji, translation) and scored units.
+   The Japanese is the largest, calmest thing on the page: 23px, weight 500, a 36em line. */
 .sentence-text {
-  min-width: 0; max-width: 100%; margin: 0; padding-block: var(--s-1);
-  color: var(--ink); font-size: var(--t-m); line-height: 1.7;
-  overflow-wrap: anywhere; line-break: strict;
+  min-width: 0; max-width: min(100%, var(--measure)); margin: 0; padding-block: var(--s-1);
+  color: var(--ink); font-size: var(--t-read); font-weight: var(--w-medium); line-height: 1.9;
+  overflow-wrap: anywhere; line-break: strict; text-wrap: pretty;
 }
 .sentence-text .roman {
-  display: block; margin-top: var(--s-1); font-size: var(--t-s);
+  display: block; margin-top: 0; font-size: var(--t-s); font-weight: 400;
   color: var(--ink-3); line-height: 1.4;
 }
 /* reading aids: furigana, romaji, translation; pressed chips right under the text */
 .aids { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+/* the aids are toggles, not labels: a hairline when off, ink when on */
+.aids .chip, .practice-bar .chip { background: transparent; color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--rule-strong); }
+.aids .chip:hover, .practice-bar .chip:hover { background: var(--wash); color: var(--ink); }
+.aids .chip[aria-pressed='true'], .practice-bar .chip[aria-pressed='true'] { background: var(--ink); color: var(--on-ink); box-shadow: none; }
 .aids-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-2); }
 .sentence-text .translation, .meaning .translation {
-  display: block; margin-top: var(--s-1); font-size: var(--t-s); line-height: 1.5;
+  display: block; margin-top: 2px; font-size: var(--t-sub); font-weight: 400; line-height: 1.55;
   color: var(--ink-2); overflow-wrap: break-word;
 }
 .translation.pending { color: var(--ink-3); }
@@ -35,19 +40,21 @@ button.link {
   padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer;
   text-decoration: underline; text-underline-offset: .2em; text-decoration-thickness: 1px;
 }
-/* practice: the meaning stays folded under screentone until asked for */
+/* practice: the meaning stays folded, in ink-3, until asked for */
 .meaning { justify-self: stretch; margin: 0; }
 button.meaning {
   display: flex; align-items: center; min-height: var(--control-h); padding: 0 var(--s-3);
-  border: var(--frame-thin) solid var(--ink-3); border-radius: 3px; background: transparent;
+  border: var(--frame) dashed var(--rule-strong); border-radius: 0; background: transparent;
   font-size: var(--t-s); text-align: left; cursor: pointer; transition: color var(--t-fast) var(--ease);
 }
 button.meaning > span { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: var(--s-2); }
 button.meaning:hover { color: var(--ink); }
 .meaning.open .translation { margin: 0; font-size: var(--t-m); color: var(--ink); }
-ruby rt { font-size: .5em; color: var(--ink-2); font-weight: 400; letter-spacing: 0; }
-.unit.missed { color: var(--red-ink); text-decoration: underline solid; text-decoration-thickness: 2px; text-underline-offset: .3em; }
-.unit.partial { color: var(--red-ink); }
-.unit.unclear { text-decoration: underline dashed var(--ink-3); text-decoration-thickness: 1.5px; text-underline-offset: .28em; }
+ruby rt { font-size: .48em; color: var(--ink-3); font-weight: 400; letter-spacing: 0; }
+/* meaning underlines, from NHK News Web Easy: solid burgundy = missed, dashed ink = unclear.
+   The word keeps its ink; only the line under it speaks. */
+.unit.missed { text-decoration: underline 2px var(--accent); text-underline-offset: .3em; }
+.unit.partial { text-decoration: underline 1px var(--accent); text-underline-offset: .3em; }
+.unit.unclear { text-decoration: underline dashed 1.5px var(--ink-2); text-underline-offset: .3em; }
 .unit.ok { color: var(--ink); }
 .unit.pending { color: var(--ink-3); }

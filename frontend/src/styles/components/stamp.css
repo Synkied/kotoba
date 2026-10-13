@@ -1,12 +1,12 @@
-/* <Stamp>: the red double-ring score stamp, inked by grade, and its press. */
+/* <Stamp>: the double-ring score stamp, inked by grade, and its press. */
 .stamps { display: flex; align-items: center; }
 .stamps .stamp + .stamp { margin-left: -8px; }
 .stamp {
-  --size: 34px; --ink-c: var(--red); --text-c: var(--red-ink);
+  --size: 34px; --ink-c: var(--accent); --text-c: var(--accent-ink);
   position: relative; display: grid; place-items: center; flex: none;
   width: var(--size); height: var(--size); border-radius: 50%;
   border: 2px solid var(--ink-c); color: var(--text-c);
-  font: 700 12px/1 var(--font); font-variant-numeric: tabular-nums;
+  font: 700 14px/1 var(--font); font-variant-numeric: tabular-nums;
   background: color-mix(in srgb, var(--paper) 55%, transparent);
   rotate: var(--rot, -6deg);
 }

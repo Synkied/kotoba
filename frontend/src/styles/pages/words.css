@@ -26,14 +26,14 @@
 .word-kanji li { display: flex; align-items: center; gap: var(--s-3); }
 .word-kanji-char {
   display: grid; place-items: center; width: 44px; height: 44px; font-size: var(--t-l); font-weight: 700;
-  border: var(--frame-bold) solid var(--ink); background: var(--paper); color: var(--ink); text-decoration: none;
+  border: var(--frame) solid var(--rule-strong); background: var(--paper); color: var(--ink); text-decoration: none;
 }
 .word-kanji-char:hover { background: var(--ink); color: var(--on-ink); }
 /* how saying it went, newest first: ink for right, red for a miss */
 .word-results { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
-.word-results i { width: 14px; height: 14px; border: var(--frame-thin) solid var(--ink); }
+.word-results i { width: 14px; height: 14px; border: var(--frame) solid var(--rule-strong); }
 .word-results i.ok { background: var(--ink); }
-.word-results i.miss { background: var(--red); border-color: var(--red); }
+.word-results i.miss { background: var(--accent); border-color: var(--accent); }
 @media (max-width: 1000px) {
   .word-page-layout { grid-template-columns: minmax(0, 1fr); }
   .word-page-aside { padding-left: 0; border-left: 0; }
@@ -42,7 +42,7 @@
 /* on a sentence page: its words, and other sentences that share them */
 .sentence-words { display: flex; flex-wrap: wrap; gap: var(--s-2); }
 .sentence-word {
-  display: inline-grid; gap: 0; padding: var(--s-1) var(--s-3); border: var(--frame-thin) solid var(--ink);
+  display: inline-grid; gap: 0; padding: var(--s-1) var(--s-3); border: var(--frame) solid var(--rule-strong);
   border-radius: var(--radius-control); background: var(--paper); color: var(--ink); text-decoration: none; line-height: 1.3;
 }
 .sentence-word:hover { background: var(--paper-hover); }
@@ -50,7 +50,7 @@
 .sentence-word small { font-size: var(--t-s); color: var(--ink-3); }
 .sentence-word[data-status='known'] { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
 .sentence-word[data-status='known'] small { color: inherit; opacity: .8; }
-.sentence-word[data-trouble] { border-color: var(--red); box-shadow: inset 0 -3px 0 var(--red); }
+.sentence-word[data-trouble] { border-color: var(--accent); box-shadow: inset 0 -3px 0 var(--accent); }
 .related { display: grid; }
 .related-item { display: grid; gap: var(--s-1); padding: var(--s-3) 0; border-bottom: 1px solid var(--rule); overflow-wrap: anywhere; }
 .related-item > a { text-decoration: none; }
@@ -58,7 +58,7 @@
 
 /* on a source page: how much of its vocabulary you have */
 .source-coverage { display: grid; gap: var(--s-2); }
-.source-coverage .bar { display: flex; height: 8px; border: var(--frame-thin) solid var(--ink); background: var(--paper); }
+.source-coverage .bar { display: flex; height: 8px; border: var(--frame) solid var(--rule-strong); background: var(--paper); }
 .source-coverage .bar i { display: block; height: 100%; }
 .source-coverage .bar .known { background: var(--ink); }
 .source-coverage .bar .practised { background: var(--ink-3); }

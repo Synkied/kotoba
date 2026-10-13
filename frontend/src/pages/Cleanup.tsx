@@ -520,7 +520,7 @@ function Wave({ peaks, peaksError, duration, cuts, sel, show, mode, audio, onSee
     const ctx = cv.getContext('2d')!
     const css = getComputedStyle(cv)
     const v = (n: string) => css.getPropertyValue(n).trim()
-    const ink = v('--ink'), ink2 = v('--ink-2'), ink3 = v('--ink-3'), red = v('--red'), paper = v('--paper')
+    const ink = v('--ink'), ink2 = v('--ink-2'), ink3 = v('--ink-3'), red = v('--accent'), paper = v('--paper')
     const { peaks: pk, show: sh, sel: sl, mode: md } = props.current
     const h = cv.clientHeight || WAVE_H
     ctx.fillStyle = paper; ctx.fillRect(0, 0, w, h)

@@ -2,18 +2,18 @@
 .day { margin-top: var(--s-7); }
 .day:first-child { margin-top: 0; }
 .day-head {
-  display: flex; align-items: baseline; gap: var(--s-3); padding-bottom: var(--s-2); margin-bottom: var(--s-4);
-  border-bottom: var(--frame-thin) solid var(--ink);
+  display: flex; align-items: baseline; gap: var(--s-3); padding-bottom: var(--s-2); margin-bottom: var(--s-2);
+  border-bottom: var(--frame) solid var(--ink);
 }
-.day-head .date { font-weight: 700; }
+.day-head .date { font-weight: 700; font-size: var(--t-sub); }
 .entry {
   display: grid; grid-template-columns: auto 132px minmax(0, 1fr) auto; gap: var(--s-4); align-items: start;
-  padding: var(--s-4) 0; border-bottom: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
+  padding: var(--s-5) 0; border-bottom: var(--frame) solid var(--rule);
 }
 .entry.no-select { grid-template-columns: 132px minmax(0, 1fr) auto; }
 .entry:last-child { border-bottom: 0; }
-.entry[data-selected='true'] { background: color-mix(in srgb, var(--stock) 70%, var(--ink) 9%); box-shadow: -12px 0 0 color-mix(in srgb, var(--stock) 70%, var(--ink) 9%), 12px 0 0 color-mix(in srgb, var(--stock) 70%, var(--ink) 9%); }
-.entry.cursor { outline: 2px solid var(--ink); outline-offset: 4px; }
+.entry[data-selected='true'] { background: var(--wash); box-shadow: -12px 0 0 var(--wash), 12px 0 0 var(--wash), inset 0 0 0 0 transparent; }
+.entry.cursor { background: var(--wash); box-shadow: -12px 0 0 var(--wash), 12px 0 0 var(--wash), -15px 0 0 var(--accent); }
 .entry .body { display: grid; gap: var(--s-2); min-width: 0; }
 .entry .lines { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-2); }
 .entry .info { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); }
@@ -31,12 +31,29 @@
 .rows { display: grid; }
 .row {
   display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--s-3) var(--s-4); align-items: center;
-  padding: var(--s-3) 0; border-bottom: 1px solid var(--rule);
+  padding: var(--s-5) 0; border-bottom: var(--frame) solid var(--rule);
 }
+.rows { border-top: var(--frame) solid var(--rule); }
 .row .lead { display: flex; align-items: center; gap: var(--s-2); }
-.row .tc { font: 400 var(--t-s)/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-3); min-width: 4.5em; }
+.row .tc { font: 400 var(--t-s)/1 var(--font); font-variant-numeric: tabular-nums; color: var(--ink-3); min-width: 2.5em; }
+/* the source, pinned under the sentence as a kraft tag: title · time */
+.source-tag { max-width: 100%; }
+.source-tag a { min-width: 0; overflow: hidden; text-overflow: ellipsis; text-decoration: none; align-self: center; }
+.source-tag a:hover { text-decoration: underline; text-decoration-color: currentColor; }
+.source-tag > span { opacity: .8; }
 .row .acts { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: var(--s-2); }
 .row-simple { grid-template-columns: minmax(0, 1fr) auto; }
+/* the current row: the warm wash and a burgundy edge; its number turns burgundy */
+.row.now { background: var(--wash); box-shadow: inset 3px 0 0 var(--accent); transition: background-color var(--t-state) var(--ease); }
+.row.now .tc { color: var(--accent-ink); font-weight: 700; }
+/* deck rows rest as sentence, tag and stamp; the tools come up under the pointer or focus */
+@media (hover: hover) and (pointer: fine) and (min-width: 1101px) {
+  .deck-rows .row .acts > :not(.record) { opacity: 0; transition: opacity var(--t-fast) var(--ease); }
+  .deck-rows .row:hover .acts > *, .deck-rows .row:focus-within .acts > * { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .row.now { transition: none; }
+}
 /* scores go last in a slot of their own, so the buttons stay put whether a line has stamps or not */
 .row .acts .record { display: flex; justify-content: flex-end; width: 6.5rem; white-space: nowrap; }
 .row-select { grid-template-columns: auto minmax(0, 1fr) auto; }
@@ -54,20 +71,22 @@
 /* filter bar */
 .filters { display: grid; gap: var(--s-3); margin-bottom: var(--s-5); }
 .filters .group { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); }
-.filters .group > .meta { min-width: 5.5em; font-weight: 700; color: var(--ink-2); }
+.filters .group > .meta { min-width: 5.5em; font-weight: var(--w-medium); color: var(--ink-2); }
 /* selection toolbar: sticks to the top while you work through a long inbox */
 .toolbar {
   position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3);
   margin: 0 calc(-1 * var(--s-3)) var(--s-3); padding: var(--s-2) var(--s-3);
-  background: var(--stock); border-bottom: var(--frame-thin) solid var(--ink);
+  background: var(--page); border-bottom: var(--frame) solid var(--rule);
 }
 .toolbar .grow { flex: 1; }
-.toolbar.active { background: var(--ink); color: var(--on-ink); }
-.toolbar.active .btn { border-color: var(--on-ink); }
-.toolbar.active .btn.ghost { color: var(--on-ink); border-color: transparent; }
-.toolbar.active .btn.ghost:hover { background: var(--on-ink-wash); }
-.toolbar.active .input { border-color: var(--on-ink); }
-.toolbar.active .check { accent-color: var(--on-ink); }
+/* while there is a selection the toolbar becomes a kraft label holding the actions */
+.toolbar.active { background: var(--kraft); color: var(--kraft-ink); border-bottom-color: transparent; }
+.toolbar.active .btn { border-color: var(--kraft-ink); color: var(--kraft-ink); }
+.toolbar.active .btn.primary { background: var(--kraft-ink); color: var(--kraft); }
+.toolbar.active .btn.ghost { border-color: transparent; }
+.toolbar.active .btn:hover:not(:disabled) { background: color-mix(in srgb, var(--kraft) 82%, var(--kraft-ink)); }
+.toolbar.active .btn.primary:hover:not(:disabled) { background: var(--ink); color: var(--on-ink); }
+.toolbar.active .check { accent-color: var(--kraft-ink); }
 .entry h3, .sheet, .notice, .deck-picker, .edit-line > label { min-width: 0; overflow-wrap: anywhere; }
 .filter-details summary { cursor: pointer; font-size: var(--t-s); font-weight: 700; padding-block: var(--s-2); }
 .filter-details .btn-row { padding: var(--s-2) 0; }
@@ -79,13 +98,13 @@
 .bulk-label-form { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: end; gap: var(--s-2); }
 .bulk-label-form .field { flex: 1 1 220px; }
 .bulk-label-form p, .bulk-label-form .notice { flex-basis: 100%; margin: 0; }
-.toolbar.active .bulk-label-form .meta { color: var(--on-ink); }
+.toolbar.active .bulk-label-form .meta { color: var(--kraft-ink); }
 .bulk-label-help { flex-basis: 100%; display: grid; gap: var(--s-2); }
-.toolbar.active .bulk-label-help .chip { color: var(--on-ink); border-color: var(--on-ink); }
+.toolbar.active .bulk-label-help .chip { background: var(--page); color: var(--ink); }
 .day-head .grow { flex: 1; }
 /* library selection: docked over the bottom of the page so selecting never shifts the cards */
 .toolbar.selection-dock {
-  position: fixed; top: auto; left: calc(var(--spine-w) + var(--s-5)); right: var(--s-5); bottom: var(--s-5); z-index: 35;
+  position: fixed; top: auto; left: calc(var(--rail-w) + var(--s-5)); right: var(--s-5); bottom: var(--s-5); z-index: 35;
   margin: 0; padding: var(--s-2) var(--s-3); border: 0; box-shadow: var(--lift);
   max-height: 70dvh; overflow-y: auto; animation: dock-in var(--t-state) var(--ease);
 }

@@ -1,5 +1,5 @@
 /* Recordings page. */
-.rec-drop { min-height: 50vh; outline: var(--frame-thin) dashed transparent; outline-offset: 6px; transition: outline-color var(--t-fast) var(--ease); }
+.rec-drop { min-height: 50vh; outline: var(--frame) dashed transparent; outline-offset: 6px; transition: outline-color var(--t-fast) var(--ease); }
 .rec-drop.over { outline-color: var(--ink); }
 .rec-list { list-style: none; margin: 0; padding: 0; display: grid; }
 .rec-row {
@@ -9,7 +9,7 @@
 }
 .rec-main a { font-weight: 700; text-decoration: none; }
 .rec-main a:hover { text-decoration: underline; }
-.rec-icon { display: grid; place-items: center; width: 44px; height: 44px; border: var(--frame-bold) solid var(--ink); background: var(--paper); }
+.rec-icon { display: grid; place-items: center; width: 44px; height: 44px; border: var(--frame) solid var(--rule-strong); background: var(--paper); }
 .rec-icon svg { width: 20px; height: 20px; }
 .rec-main { display: grid; gap: 2px; min-width: 0; }
 .rec-main a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

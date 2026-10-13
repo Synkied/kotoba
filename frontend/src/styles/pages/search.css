@@ -6,7 +6,7 @@
 .search-group .day-head h2 { margin: 0; font-size: var(--t-m); }
 .search-words { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: var(--s-2); }
 .search-word {
-  display: grid; gap: 2px; height: 100%; padding: var(--s-3); border: var(--frame-thin) solid var(--ink); background: var(--paper);
+  display: grid; gap: 2px; height: 100%; padding: var(--s-3); border: var(--frame) solid var(--rule-strong); background: var(--paper);
   color: var(--ink); text-decoration: none;
 }
 .search-word:hover { background: var(--paper-hover); box-shadow: var(--lift); }

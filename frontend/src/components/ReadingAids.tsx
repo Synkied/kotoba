@@ -155,7 +155,7 @@ export function MeaningHint({ s, open, onOpen, onTranslated }: { s: Sentence; op
   const lang = useLanguage()
   if (open) return <p className="meaning open"><Translation s={s} onTranslated={onTranslated} auto /></p>
   return (
-    <button type="button" className="meaning tone" lang="en" aria-expanded={false} onClick={onOpen}>
+    <button type="button" className="meaning quiet" lang="en" aria-expanded={false} onClick={onOpen}>
       <span>Show the {lang?.name ?? 'translation'} <Kbd>T</Kbd></span>
     </button>
   )

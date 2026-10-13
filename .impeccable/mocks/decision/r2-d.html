@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<link href="fonts/fonts.css" rel="stylesheet">
+<style>
+/* D — Focus + list: Muji calm, master/detail; the selected sentence opens large with its kraft tag */
+:root{--bg:#fff;--rail:#f3f1ec;--ink:#1f1f1f;--ink2:#474542;--ink3:#5e5b56;--rule:#e6e3dc;--kraft:#e7dac4;--kink:#3d3124;--bur:#7f0019}
+*{box-sizing:border-box;margin:0}
+body{width:1440px;height:900px;overflow:hidden;background:var(--bg);color:var(--ink);font:16px/1.65 "Zen Kaku Gothic New",sans-serif;display:grid;grid-template-columns:200px 520px 1fr}
+nav{background:var(--rail);padding:28px 18px}
+.logo{display:inline-flex;flex-direction:column;background:var(--bur);color:#fff;padding:8px 14px;font-weight:700;font-size:15px;line-height:1.2}
+.logo small{font-weight:500;font-size:11px}
+nav a{display:flex;align-items:baseline;gap:8px;padding:9px 0;color:var(--ink2);font-size:15px}
+nav a:first-of-type{margin-top:24px}
+nav a small{font-size:12px;color:var(--ink3)}
+nav a .n{margin-left:auto;font-size:13px}
+nav a .due{color:var(--bur);font-weight:700}
+nav a.on{color:var(--ink);font-weight:700}
+.list{border-right:1px solid var(--rule);padding:32px 0;overflow:hidden}
+.lh{padding:0 28px 16px;border-bottom:2px solid var(--ink)}
+h1{font-weight:500;font-size:26px;line-height:1.3}
+.sub{font-size:13px;color:var(--ink3)}
+.it{display:grid;grid-template-columns:28px 1fr 30px;gap:12px;padding:14px 28px;border-bottom:1px solid var(--rule);align-items:center}
+.it .no{font-size:13px;color:var(--ink3);font-variant-numeric:tabular-nums}
+.it .jp{font-size:17px;line-height:1.6;font-weight:500;word-break:auto-phrase}
+.it .g{font-weight:700;font-size:15px;color:var(--g);text-align:center;border:1.5px solid var(--g);border-radius:50%;width:28px;height:28px;line-height:25px}
+.it.on{background:#faf8f4;box-shadow:inset 3px 0 0 var(--bur)}
+.it.on .no{color:var(--bur);font-weight:700}
+.detail{padding:40px 64px}
+.top{display:flex;gap:12px;align-items:center}
+.crumb{font-size:13px;color:var(--ink3)}
+.sp{margin-left:auto}
+.btn{height:44px;padding:0 22px;border:1px solid var(--ink);background:#fff;font:500 15px "Zen Kaku Gothic New"}
+.btn.p{background:var(--ink);color:#fff}
+.big{font-size:36px;line-height:2;font-weight:500;margin:48px 0 4px;word-break:auto-phrase}
+.big rt{font-size:15px;font-weight:400;color:var(--ink3)}
+.miss{text-decoration:underline 3px var(--bur);text-underline-offset:10px}
+.en{font-size:18px;color:var(--ink2)}
+.tagrow{display:flex;gap:24px;align-items:center;margin:32px 0;padding:24px 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.tag{background:var(--kraft);color:var(--kink);padding:12px 18px 12px 30px;position:relative;font-size:14px;line-height:1.6;font-variant-numeric:tabular-nums;min-width:240px}
+.tag:before{content:"";position:absolute;left:11px;top:18px;width:8px;height:8px;border-radius:50%;background:#fff}
+.tag b{display:block}
+.stamp{width:72px;height:72px;border-radius:50%;border:3px solid var(--g);color:var(--g);display:grid;place-items:center;font-weight:700;font-size:30px;box-shadow:inset 0 0 0 3px #fff,inset 0 0 0 5px var(--g);transform:rotate(-6deg)}
+.hist{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--ink3)}
+.hist i{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--g);color:var(--g);display:grid;place-items:center;font-style:normal;font-weight:700;font-size:13px}
+.heard{font-size:15px;color:var(--ink2)}
+.heard b{color:var(--bur)}
+</style></head><body>
+<nav><div class="logo">言葉<small>KOTOBA</small></div>
+ <a>受信<small>Inbox</small><span class="n">12</span></a><a>資料<small>Library</small></a><a>単語<small>Words</small></a><a class="on">デッキ<small>Decks</small></a><a>練習<small>Practice</small></a><a>復習<small>Review</small><span class="n due">9</span></a><a>収集<small>Collect</small></a></nav>
+<section class="list">
+ <div class="lh"><h1>Lesson 18　できること</h1><div class="sub">24 sentences · 9 due · average 71</div></div>
+ <div class="it"><span class="no">01</span><span class="jp">ミラーさんは 漢字を 読む ことが できます。</span><span class="g" style="--g:#9a7400">秀</span></div>
+ <div class="it"><span class="no">02</span><span class="jp">わたしの 趣味は 写真を 撮る ことです。</span><span class="g" style="--g:#34508f">良</span></div>
+ <div class="it on"><span class="no">03</span><span class="jp">寝る まえに、日記を 書きます。</span><span class="g" style="--g:var(--bur)">可</span></div>
+ <div class="it"><span class="no">04</span><span class="jp">日本へ 来る まえに、日本語を 勉強しました。</span><span class="g" style="--g:#2f6b45">優</span></div>
+ <div class="it"><span class="no">05</span><span class="jp">カードで 払う ことが できますか。</span><span></span></div>
+ <div class="it"><span class="no">06</span><span class="jp">何か 楽器を 弾く ことが できますか。</span><span class="g" style="--g:#2f6b45">優</span></div>
+ <div class="it"><span class="no">07</span><span class="jp">ピアノを 弾く ことが できます。</span><span class="g" style="--g:var(--bur)">可</span></div>
+ <div class="it"><span class="no">08</span><span class="jp">趣味は 何ですか。</span><span class="g" style="--g:#9a7400">秀</span></div>
+</section>
+<section class="detail">
+ <div class="top"><span class="crumb">デッキ ／ Lesson 18 ／ 03</span><span class="sp"></span><button class="btn">▶ Listen</button><button class="btn p">Practise 9 due</button></div>
+ <div class="big"><ruby>寝<rt>ね</rt></ruby>る まえに、<span class="miss"><ruby>日記<rt>にっき</rt></ruby></span>を <ruby>書<rt>か</rt></ruby>きます。</div>
+ <div class="en">Before sleeping, I write in my diary.</div>
+ <div class="tagrow"><div class="tag"><b>lesson_18.mp3　1:07–1:10</b>native audio · Minna no Nihongo I</div><span class="stamp" style="--g:var(--bur)">可</span><div><div class="heard">Last time: <b>日記</b> missed</div><div class="hist">History <i style="--g:var(--bur)">可</i><i style="--g:#34508f">良</i></div></div></div>
+</section>
+</body></html>

@@ -20,9 +20,6 @@ const UNITS: Unit[] = [
   { text: 'ことが', status: 'unclear', conf: null }, { text: 'できます', status: 'ok', conf: null },
 ]
 
-const STOCKS = ['inbox', 'sources', 'decks', 'library', 'practice', 'review', 'words', 'recordings', 'collect'] as const
-type Stock = (typeof STOCKS)[number]
-
 const dark = window.matchMedia('(prefers-color-scheme: dark)')
 const useDark = () => useSyncExternalStore((f) => { dark.addEventListener('change', f); return () => dark.removeEventListener('change', f) }, () => dark.matches, () => false)
 
@@ -77,13 +74,12 @@ function Specimen({ label, children, wide }: { label: string; children: ReactNod
 }
 
 const SECTIONS: [string, string][] = [
-  ['stocks', 'Stocks'], ['ink', 'Ink and red'], ['type', 'Type'], ['space', 'Frames and space'],
+  ['sheet', 'Sheet, rail, kraft'], ['ink', 'Ink and burgundy'], ['type', 'Type'], ['space', 'Frames and space'],
   ['buttons', 'Buttons'], ['tags', 'Chips and plates'], ['fields', 'Fields'], ['surfaces', 'Panels and notices'],
   ['sentences', 'Sentences and scores'], ['motion', 'Motion'],
 ]
 
 export default function DesignPage() {
-  const [stock, setStock] = useState<Stock>('collect')
   const [pressed, setPressed] = useState<string[]>(['lesson 18'])
   const [model, setModel] = useState<'native' | 'tts'>('native')
   const [query, setQuery] = useState('')
@@ -91,20 +87,14 @@ export default function DesignPage() {
   const toast = useToast()
 
   return (
-    <div className="ds" style={{ ['--stock' as string]: `var(--stock-${stock})` }}>
+    <div className="ds">
       <header className="page-head">
         <h1><PageHome to="/design">Design system</PageHome> <span className="meta">tokens and components, live</span></h1>
-        <span className="grow" />
-        <label className="ds-stock-pick">
-          <span className="meta">Print on</span>
-          <Select value={stock} onChange={(e) => setStock(e.target.value as Stock)}>
-            {STOCKS.map((s) => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)} stock</option>)}
-          </Select>
-        </label>
       </header>
 
       <p className="ds-lede">
-        A weekly manga magazine of your own sentences. Colours, type, space and motion live in <code>styles/tokens.css</code>;
+        A Muji-labelled study shelf: a white sheet where the Japanese sentence is the largest, calmest thing,
+        and the facts about it sit on small kraft labels. Colours, type, space and motion live in <code>styles/tokens.css</code>;
         component styles in <code>styles/components/</code>; React primitives in <code>components/ds</code>.
         Change a token and every page follows. Rules and reasons are in <code>DESIGN.md</code>.
       </p>
@@ -113,42 +103,55 @@ export default function DesignPage() {
         {SECTIONS.map(([id, name]) => <a key={id} href={'#' + id}>{name}</a>)}
       </nav>
 
-      <Section id="stocks" title="Stocks" use={<>Each section is printed on its own newsprint; the ground does the wayfinding. Pick one to see this page on it.</>}>
-        <ul className="ds-stocks">
-          {STOCKS.map((s) => (
-            <li key={s}>
-              <button type="button" className="ds-stock" aria-pressed={stock === s} onClick={() => setStock(s)}
-                style={{ background: `var(--stock-${s})` }}>
-                <b>{s[0].toUpperCase() + s.slice(1)}</b>
-                <code>--stock-{s}</code>
-              </button>
-            </li>
-          ))}
-        </ul>
+      <Section id="sheet" title="Sheet, rail, kraft" use={<>Every section reads on the same white sheet; the rail and its burgundy marker say where you are. Facts about a sentence (source, time, tries, labels) are kraft labels. The current row sits on the wash with a burgundy edge.</>}>
+        <div className="ds-swatch-groups">
+          <ul className="ds-swatches">
+            <Swatch token="--page" note="the sheet, every section" />
+            <Swatch token="--rail" note="the nav rail" />
+            <Swatch token="--rail-hover" note="a rail link under the pointer" />
+            <Swatch token="--wash" note="the current row, quiet fills" />
+          </ul>
+          <ul className="ds-swatches">
+            <Swatch token="--kraft" on="--kraft-ink" note="labels, source tags, selection" />
+            <Swatch token="--brand" on="--on-brand" note="the 言葉 KOTOBA block" />
+          </ul>
+        </div>
+        <ol className="rows ds-rows">
+          <li className="row row-lead">
+            <span className="tc num" aria-hidden="true">01</span>
+            <div className="ds-row-text"><SentenceText><Furigana text="ミラーさんは漢字を読むことができます。" pairs={[['漢字', 'かんじ'], ['読', 'よ']]} show lookup={false} /><span className="translation">Mr Miller can read kanji.</span></SentenceText><Chip className="source-tag"><a href="#sheet">lesson_18.mp3</a><span>0:41</span></Chip></div>
+            <span className="record"><Stamp s={{ id: 3, overall: 94, accuracy: 94, clarity: 94, fluency: 94 }} /></span>
+          </li>
+          <li className="row row-lead now">
+            <span className="tc num" aria-hidden="true">02</span>
+            <div className="ds-row-text"><SentenceText><span lang="ja"><Units units={UNITS} /></span><span className="translation">I can play the piano.</span></SentenceText><Chip className="source-tag"><a href="#sheet">lesson_18.mp3</a><span>1:07</span></Chip></div>
+            <span className="record"><Stamp s={{ id: 5, overall: 38, accuracy: 38, clarity: 38, fluency: 38 }} /></span>
+          </li>
+        </ol>
       </Section>
 
-      <Section id="ink" title="Ink and red" use={<>Near-black ink at three strengths on paper. One red, and only for recording, misses, due counts and 可 stamps. Grades ink the stamps.</>}>
+      <Section id="ink" title="Ink and burgundy" use={<>Near-black ink at three strengths on white. One accent, burgundy, and only for what is due, missed, current or recording, and 可 stamps. Grades ink the stamps. In dark, burgundy text lifts to a lighter red.</>}>
         <div className="ds-swatch-groups">
           <div>
             <h3>Ink and paper</h3>
             <ul className="ds-swatches">
-              <Swatch token="--ink" note="text, frames" />
+              <Swatch token="--ink" note="text, button outlines" />
               <Swatch token="--ink-2" note="secondary text" />
-              <Swatch token="--ink-3" note="meta, ≥4.5:1 on every stock" />
-              <Swatch token="--paper" note="balloons, inputs, sheets" />
+              <Swatch token="--ink-3" note="meta, ≥5.9:1 on the sheet and rail" />
+              <Swatch token="--paper" note="inputs, balloons, sheets" />
               <Swatch token="--paper-hover" note="a card under the pointer" />
-              <Swatch token="--on-ink" note="text on a black plate" />
+              <Swatch token="--on-ink" note="text on ink" />
               <Swatch token="--rule" note="hairline between rows" />
-              <Swatch token="--rule-strong" note="a rule that groups" />
+              <Swatch token="--rule-strong" note="field and panel frames" />
             </ul>
           </div>
           <div>
-            <h3>The red</h3>
+            <h3>The accent</h3>
             <ul className="ds-swatches">
-              <Swatch token="--red" on="--on-red" note="record, due, miss" />
-              <Swatch token="--red-ink" note="red as text" />
-              <Swatch token="--red-wash" note="behind a miss" />
-              <Swatch token="--red-press" note="red under the pointer" />
+              <Swatch token="--accent" on="--on-accent" note="record, due, miss, current" />
+              <Swatch token="--accent-ink" note="burgundy as text" />
+              <Swatch token="--accent-wash" note="behind an error" />
+              <Swatch token="--accent-press" note="the accent under the pointer" />
             </ul>
             <h3>Stamp inks</h3>
             <ul className="ds-swatches">
@@ -158,37 +161,35 @@ export default function DesignPage() {
             </ul>
           </div>
           <div>
-            <h3>Spine and lights</h3>
+            <h3>Lights</h3>
             <ul className="ds-swatches">
-              <Swatch token="--spine" on="--spine-ink" note="the nav plate" />
-              <Swatch token="--spine-2" note="hover on the spine" />
               <Swatch token="--ok" note="engine ready" />
               <Swatch token="--warn" note="engine degraded" />
-              <Swatch token="--ok-on-spine" />
-              <Swatch token="--warn-on-spine" />
             </ul>
           </div>
         </div>
       </Section>
 
-      <Section id="type" title="Type" use={<>アンチック体: kanji in BIZ UDPGothic, kana in BIZ UDPMincho. Three sizes only; rank comes from weight and black reversal, never from a fourth size.</>}>
+      <Section id="type" title="Type" use={<>Zen Kaku Gothic New, self-hosted, at 400, 500 and 700. The Japanese sentence is the largest reading size; rank comes from size steps and weight 500, numbers are tabular.</>}>
         <div className="ds-type">
-          <div className="ds-type-row"><code>--t-l</code><span className="meta num">1.75rem</span><span style={{ fontSize: 'var(--t-l)' }} lang="ja">昨日、友達と東京へ行きました。</span></div>
-          <div className="ds-type-row"><code>--t-m</code><span className="meta num">1rem</span><span lang="ja">日本語を話すことができます。 Body and sentences.</span></div>
-          <div className="ds-type-row"><code>--t-s</code><span className="meta num">.8125rem</span><span style={{ fontSize: 'var(--t-s)' }}>Buttons, meta, labels. <b>Bold for rank.</b></span></div>
-          <div className="ds-type-row"><code>--t-tag</code><span className="meta num">11px</span><span><span className="ds-tag">Capture</span> Uppercase reversal tags and keys only, never reading text.</span></div>
+          <div className="ds-type-row"><code>--t-xl</code><span className="meta num">2.25rem</span><span style={{ fontSize: 'var(--t-xl)', fontWeight: 'var(--w-medium)', lineHeight: 1.2 }}>Lesson 18　できること</span></div>
+          <div className="ds-type-row"><code>--t-l</code><span className="meta num">1.75rem</span><span style={{ fontSize: 'var(--t-l)', fontWeight: 'var(--w-medium)' }}>No decks yet</span></div>
+          <div className="ds-type-row"><code>--t-read</code><span className="meta num">1.4375rem</span><span className="ds-ruby" lang="ja"><Furigana text="趣味は写真を撮ることです。" pairs={[['趣味', 'しゅみ'], ['写真', 'しゃしん'], ['撮', 'と']]} show lookup={false} /></span></div>
+          <div className="ds-type-row"><code>--t-fig</code><span className="meta num">1.5rem</span><span className="num" style={{ fontSize: 'var(--t-fig)', fontWeight: 'var(--w-medium)' }}>9 · 71 · 21</span></div>
+          <div className="ds-type-row"><code>--t-m</code><span className="meta num">1rem</span><span>Body and controls. 日本語を話すことができます。</span></div>
+          <div className="ds-type-row"><code>--t-sub</code><span className="meta num">.9375rem</span><span style={{ fontSize: 'var(--t-sub)', color: 'var(--ink-2)' }}>English glosses, nav, secondary lines.</span></div>
+          <div className="ds-type-row"><code>--t-s</code><span className="meta num">.8125rem</span><span style={{ fontSize: 'var(--t-s)' }}>Meta, crumbs, filters, labels. <b>700 for counts.</b></span></div>
+          <div className="ds-type-row"><code>--t-tag</code><span className="meta num">11px</span><span style={{ fontSize: 'var(--t-tag)' }}>Keys and the phone tab bar only, never reading text.</span></div>
           <div className="ds-type-row"><code>rank</code><span className="meta">weight + plate</span><span><b>Lesson 18</b> <Plate>textbook</Plate> <Plate tone="hollow">3 due</Plate></span></div>
-          <div className="ds-type-row"><code>ruby</code><span className="meta">furigana</span><span className="ds-ruby" lang="ja"><Furigana text="趣味は写真を撮ることです。" pairs={[['趣味', 'しゅみ'], ['写真', 'しゃしん'], ['撮', 'と']]} lookup={false} /></span></div>
-          <div className="ds-type-row"><code>--mono</code><span className="meta">times, data</span><span className="num" style={{ fontFamily: 'var(--mono)', fontSize: 'var(--t-s)' }}>0:12.4 → 0:15.9 · 3.5 s</span></div>
         </div>
       </Section>
 
-      <Section id="space" title="Frames and space" use={<>Panels take the bold 3px frame, square. Controls and balloons take the thin 1.5px frame; only controls round, by 3px. Space steps 4 to 64.</>}>
+      <Section id="space" title="Frames and space" use={<>Hairlines everywhere: 1px frames on panels, sheets and fields, square. One 2px ink rule opens a page or a list. No texture: quiet comes from space and the third ink. Space steps 4 to 64.</>}>
         <div className="ds-frames">
-          <Specimen label="--frame-bold · panels"><div className="ds-frame" style={{ border: 'var(--frame-bold) solid var(--ink)' }} /></Specimen>
-          <Specimen label="--frame-thin · controls"><div className="ds-frame" style={{ border: 'var(--frame-thin) solid var(--ink)', borderRadius: 'var(--radius-control)' }} /></Specimen>
-          <Specimen label=".tone · screentone, to push back"><div className="ds-frame tone" style={{ border: 'var(--frame-thin) solid var(--ink-3)' }} /></Specimen>
-          <Specimen label="--lift · a card under the pointer"><div className="ds-frame" style={{ background: 'var(--paper-hover)', boxShadow: 'var(--lift)', border: '1px solid var(--ink)' }} /></Specimen>
+          <Specimen label="--frame · panels, fields"><div className="ds-frame" style={{ border: 'var(--frame) solid var(--rule-strong)' }} /></Specimen>
+          <Specimen label="--frame-head · under a page head"><div className="ds-frame" style={{ borderTop: 'var(--frame-head) solid var(--ink)' }} /></Specimen>
+          <Specimen label="--wash · the current row"><div className="ds-frame" style={{ background: 'var(--wash)', boxShadow: 'inset 3px 0 0 var(--accent)' }} /></Specimen>
+          <Specimen label="--lift · popovers, a card under the pointer"><div className="ds-frame" style={{ background: 'var(--paper-hover)', boxShadow: 'var(--lift)' }} /></Specimen>
         </div>
         <ol className="ds-space">
           {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
@@ -197,13 +198,13 @@ export default function DesignPage() {
         </ol>
       </Section>
 
-      <Section id="buttons" title="Buttons" use={<><code>&lt;Button&gt;</code>, <code>&lt;ButtonLink&gt;</code>, or <code>buttonClass()</code> on another element. Ink for the main action, paper for the rest, ghost inside dense rows, red only to record. 44px on touch.</>}>
+      <Section id="buttons" title="Buttons" use={<><code>&lt;Button&gt;</code>, <code>&lt;ButtonLink&gt;</code>, or <code>buttonClass()</code> on another element. Ink for the main action, an ink outline for the rest, ghost inside dense rows, burgundy only to record. 44px on touch.</>}>
         <div className="ds-matrix" role="table" aria-label="Button variants">
           <div role="row" className="ds-matrix-head">
             <span role="columnheader" /><span role="columnheader">Regular</span><span role="columnheader">Small</span>
             <span role="columnheader">Icon</span><span role="columnheader">Disabled</span><span role="columnheader">Busy</span>
           </div>
-          {([[undefined, 'Paper', Plus], ['primary', 'Primary', Play], ['ghost', 'Ghost', Trash2], ['red', 'Red', Mic]] as const).map(([variant, name, Icon]) => (
+          {([[undefined, 'Outline', Plus], ['primary', 'Primary', Play], ['ghost', 'Ghost', Trash2], ['accent', 'Record', Mic]] as const).map(([variant, name, Icon]) => (
             <div role="row" key={name}>
               <code role="rowheader">{variant ?? 'default'}</code>
               <span role="cell"><Button type="button" variant={variant}><Icon aria-hidden="true" />{name}</Button></span>
@@ -216,12 +217,12 @@ export default function DesignPage() {
         </div>
         <div className="ds-row">
           <Specimen label="ButtonRow · Kbd inside"><ButtonRow><Button type="button" variant="primary"><Play aria-hidden="true" />Practise <Kbd>P</Kbd></Button><ButtonLink to="/decks">Open decks</ButtonLink></ButtonRow></Specimen>
-          <Specimen label="recording: red, filled while live"><Button type="button" variant="red" className="rec on"><Square aria-hidden="true" />Stop</Button></Specimen>
+          <Specimen label="recording: burgundy, pulsing while live"><Button type="button" variant="accent" className="rec on"><Square aria-hidden="true" />Stop</Button></Specimen>
           <Specimen label="toast with Undo"><Button type="button" size="small" onClick={() => toast({ text: 'Archived 3 sources.', undo: () => {} })}>Show a toast</Button></Specimen>
         </div>
       </Section>
 
-      <Section id="tags" title="Chips and plates" use={<>Labels are boxed 1px (<code>&lt;Chip&gt;</code>). Filters are pressable (<code>&lt;ChipButton aria-pressed&gt;</code>). Categories and counts are black plates (<code>&lt;Plate&gt;</code>), red only when due.</>}>
+      <Section id="tags" title="Chips and plates" use={<>Labels are kraft (<code>&lt;Chip&gt;</code>), like the tag tied to a product. Filters press to ink (<code>&lt;ChipButton aria-pressed&gt;</code>). Categories and counts are ink plates (<code>&lt;Plate&gt;</code>), burgundy only when due.</>}>
         <div className="ds-row">
           <Specimen label="Chip · labels"><div className="chips"><Chip>minna no nihongo</Chip><Chip>lesson 18</Chip><Chip>game</Chip></div></Specimen>
           <Specimen label="ChipButton · filters">
@@ -234,12 +235,12 @@ export default function DesignPage() {
               ))}
             </div>
           </Specimen>
-          <Specimen label="Plate · default, red, hollow"><div className="chips"><Plate>textbook</Plate><Plate tone="red">12 due</Plate><Plate tone="hollow">kept</Plate></div></Specimen>
+          <Specimen label="Plate · default, accent, hollow"><div className="chips"><Plate>textbook</Plate><Plate tone="accent">12 due</Plate><Plate tone="hollow">kept</Plate></div></Specimen>
           <Specimen label="Kbd"><span className="ds-keys"><Kbd>/</Kbd> search <Kbd>L</Kbd> listen <Kbd>Space</Kbd> record <Kbd>N</Kbd> next</span></Specimen>
         </div>
       </Section>
 
-      <Section id="fields" title="Fields" use={<><code>&lt;Field&gt;</code> puts a bold label over its control. Inputs sit on paper in the thin frame; an invalid one turns red. Native selects and radios, always.</>}>
+      <Section id="fields" title="Fields" use={<><code>&lt;Field&gt;</code> puts a label over its control. Inputs sit on paper in a hairline that turns ink on focus; an invalid one turns burgundy. Native selects and radios, always.</>}>
         <div className="ds-fields">
           <Field><span>Deck name</span><Input placeholder="e.g. Lesson 19" /></Field>
           <Field><span>Invalid</span><Input aria-invalid="true" defaultValue="lesson 18, game, anime, extra" /></Field>
@@ -254,7 +255,7 @@ export default function DesignPage() {
         </div>
       </Section>
 
-      <Section id="surfaces" title="Panels and notices" use={<>A panel is the source: screenshot, clip or text. A sheet holds a form. Notices are framed in ink, errors in red with the recovery. Empty states say why and offer the one fix.</>}>
+      <Section id="surfaces" title="Panels and notices" use={<>A panel is the source: screenshot, clip or text. A sheet holds a form. Notices take a hairline, errors burgundy with the recovery. Empty states say why and offer the one fix.</>}>
         <div className="ds-row">
           <Specimen label="SourcePanel · clip"><SourcePanel kind="audio" start={12.4} end={15.9} /></Specimen>
           <Specimen label="SourcePanel · text"><SourcePanel kind="text" /></Specimen>
@@ -273,8 +274,8 @@ export default function DesignPage() {
         </div>
       </Section>
 
-      <Section id="sentences" title="Sentences and scores" use={<>Browsing reads plain <code>&lt;SentenceText&gt;</code>. Practice puts the sentence in a <code>&lt;Balloon&gt;</code> whose outline is its state. Every attempt stamps it.</>}>
-        <Specimen label="SentenceText · browsing" wide><SentenceText>昨日、友達と一緒に東京へ行きました。<span className="roman">kinō, tomodachi to issho ni tōkyō e ikimashita.</span></SentenceText></Specimen>
+      <Section id="sentences" title="Sentences and scores" use={<>Browsing reads plain <code>&lt;SentenceText&gt;</code>. Practice puts the sentence in a calm <code>&lt;Balloon&gt;</code> whose outline is its state. Missed words get a burgundy underline, unclear ones a dashed one. Every attempt stamps it.</>}>
+        <Specimen label="SentenceText · browsing at --t-read" wide><SentenceText>昨日、友達と一緒に東京へ行きました。<span className="roman">kinō, tomodachi to issho ni tōkyō e ikimashita.</span></SentenceText></Specimen>
         <div className="ds-balloons">
           <Specimen label="round · at rest, the model line"><Balloon tail="left">すみません、駅はどこですか。</Balloon></Specimen>
           <Specimen label="burst · recording"><Balloon shape="burst" live tail="left">すみません、駅はどこですか。</Balloon></Specimen>

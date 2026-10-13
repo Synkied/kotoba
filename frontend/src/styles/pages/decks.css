@@ -1,15 +1,15 @@
 /* Decks page. */
 .deck-table { width: 100%; border-collapse: collapse; }
 .deck-table th {
-  text-align: left; font-size: var(--t-s); color: var(--ink-2); font-weight: 700;
-  padding: var(--s-2) var(--s-3); border-bottom: var(--frame-thin) solid var(--ink);
+  text-align: left; font-size: var(--t-s); color: var(--ink-3); font-weight: 400;
+  padding: var(--s-2) var(--s-3); border-bottom: var(--frame-head) solid var(--ink);
 }
-.deck-table td { padding: var(--s-3); border-bottom: 1px solid var(--rule); vertical-align: middle; }
+.deck-table td { padding: var(--s-4) var(--s-3); border-bottom: 1px solid var(--rule); vertical-align: middle; }
 .deck-table td.n, .deck-table th.n { text-align: right; font-variant-numeric: tabular-nums; }
-.deck-table a.name { font-weight: 700; text-decoration: none; }
+.deck-table a.name { font-weight: var(--w-medium); font-size: var(--t-sub); text-decoration: none; }
 .deck-table a.name:hover { text-decoration: underline; }
-.deck-table tr:hover td { background: color-mix(in srgb, var(--stock) 85%, var(--ink) 5%); }
-.meter { display: flex; height: 8px; width: 120px; border: 1px solid var(--ink); background: var(--paper); }
+.deck-table tr:hover td { background: var(--wash); }
+.meter { display: flex; height: 6px; width: 120px; background: var(--rule); }
 .meter i { display: block; background: var(--ink); }
 @media (max-width: 760px) {
   .deck-table .hide-s { display: none; }

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<link href="fonts/fonts.css" rel="stylesheet">
+<style>
+:root{--bg:#fff;--ink:#141414;--ink2:#3a3a3a;--ink3:#585858;--rule:#d9d9d9;--spot:#0f7f86;--red:#cc2a1e}
+*{box-sizing:border-box;margin:0}
+body{width:1440px;height:900px;overflow:hidden;background:var(--bg);color:var(--ink);font:15px/1.55 "M PLUS 1p",sans-serif;display:grid;grid-template-columns:200px 1fr}
+nav{border-right:3px solid var(--spot);padding:24px 0}
+.b{font-weight:800;font-size:22px;padding:0 20px 16px}
+nav a{display:grid;grid-template-columns:34px 1fr auto;padding:8px 20px;font-size:15px;color:var(--ink2)}
+nav a code{font:700 13px "M PLUS 1p";color:var(--spot)}
+nav a.on{background:var(--spot);color:#fff;font-weight:700}
+nav a.on code{color:#fff}
+nav a .r{color:var(--red);font-weight:800}
+main{padding:28px 40px}
+header{display:flex;align-items:flex-end;gap:12px;padding-bottom:16px;border-bottom:3px solid var(--spot)}
+h1{font-size:30px;font-weight:800;line-height:1.2}
+.sub{color:var(--ink3);font-size:14px}
+.sp{margin-left:auto}
+.btn{height:42px;padding:0 18px;border:2px solid var(--ink);background:#fff;font:700 14px "M PLUS 1p"}
+.btn.p{background:var(--ink);color:#fff}
+.bar{display:flex;gap:8px;align-items:center;padding:14px 0;font-size:13px;color:var(--ink3)}
+.chip{border:1.5px solid var(--ink);padding:2px 12px;font-weight:700;color:var(--ink)}
+.chip.on{background:var(--ink);color:#fff}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);border-top:1.5px solid var(--ink);border-left:1.5px solid var(--ink)}
+.c{border-right:1.5px solid var(--ink);border-bottom:1.5px solid var(--ink);padding:12px 14px 14px;position:relative;min-height:212px;display:flex;flex-direction:column}
+.code{font:800 13px "M PLUS 1p";color:var(--spot);display:flex;justify-content:space-between}
+.code span{color:var(--ink3);font-weight:400;font-variant-numeric:tabular-nums}
+.jp{word-break:auto-phrase;font-size:20px;line-height:1.75;font-weight:500;margin:6px 0 4px}
+.en{font-size:13.5px;color:var(--ink2)}
+.ft{margin-top:auto;display:flex;align-items:center;justify-content:space-between;padding-top:8px}
+.stamp{width:40px;height:40px;border-radius:50%;border:2px solid var(--g);color:var(--g);display:grid;place-items:center;font-weight:800;font-size:17px;transform:rotate(var(--r,-8deg))}
+.att{font-size:12px;color:var(--ink3)}
+.ring{position:absolute;left:4px;top:6px;width:calc(100% - 8px);height:calc(100% - 12px);pointer-events:none}
+.due{font-size:12px;font-weight:800;color:var(--red)}
+</style></head><body>
+<nav><div class="b">kotoba</div>
+ <a><code>IN</code>Inbox<span>12</span></a><a><code>LB</code>Library</a><a><code>WD</code>Words</a><a class="on"><code>DK</code>Decks</a><a><code>PR</code>Practice</a><a><code>RV</code>Review<span class="r">9</span></a><a><code>CL</code>Collect</a>
+</nav>
+<main>
+ <header><div><h1>Lesson 18　できること</h1><div class="sub">DK-18 · 24 sentences · lesson_18.mp3</div></div><span class="sp"></span><button class="btn">Edit</button><button class="btn p">Practise the 9 circled</button></header>
+ <div class="bar"><span class="chip on">All 24</span><span class="chip">Circled 9</span><span class="chip">Not practised 3</span></div>
+ <div class="grid">
+  <div class="c"><div class="code">18-a01<span>0:41</span></div><div class="jp">ミラーさんは 漢字を 読む ことが できます。</div><div class="en">Mr Miller can read kanji.</div><div class="ft"><span class="att">6 attempts</span><span class="stamp" style="--g:#9a7400">秀</span></div></div>
+  <div class="c"><svg class="ring" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M6 12 C30 2 80 3 95 14 C99 40 98 80 92 92 C60 99 20 98 6 90 C2 60 2 30 9 9" fill="none" stroke="#cc2a1e" stroke-width="1.2" vector-effect="non-scaling-stroke" style="stroke-width:2.5px"/></svg><div class="code">18-a02<span>0:52</span></div><div class="jp">わたしの 趣味は 写真を 撮る ことです。</div><div class="en">My hobby is taking photos.</div><div class="ft"><span class="due">due</span><span class="stamp" style="--g:#34508f;--r:6deg">良</span></div></div>
+  <div class="c"><svg class="ring" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M8 8 C40 3 85 2 94 12 C98 45 97 78 90 93 C55 98 22 97 5 91 C3 60 3 28 12 5" fill="none" stroke="#cc2a1e" vector-effect="non-scaling-stroke" style="stroke-width:2.5px"/></svg><div class="code">18-a03<span>1:07</span></div><div class="jp">寝る まえに、日記を 書きます。</div><div class="en">Before sleeping, I write in my diary.</div><div class="ft"><span class="due">due · next</span><span class="stamp" style="--g:var(--red);--r:-3deg">可</span></div></div>
+  <div class="c"><div class="code">18-a04<span>1:15</span></div><div class="jp">日本へ 来る まえに、日本語を 勉強しました。</div><div class="en">I studied Japanese before coming to Japan.</div><div class="ft"><span class="att">4 attempts</span><span class="stamp" style="--g:#2f6b45;--r:9deg">優</span></div></div>
+  <div class="c"><div class="code">18-a05<span>1:31</span></div><div class="jp">カードで 払う ことが できますか。</div><div class="en">Can I pay by card?</div><div class="ft"><span class="att">not practised</span></div></div>
+  <div class="c"><div class="code">18-a06<span>1:38</span></div><div class="jp">何か 楽器を 弾く ことが できますか。</div><div class="en">Can you play an instrument?</div><div class="ft"><span class="att">2 attempts</span><span class="stamp" style="--g:#2f6b45;--r:4deg">優</span></div></div>
+  <div class="c"><svg class="ring" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M7 10 C35 2 82 4 95 11 C98 42 99 76 91 94 C58 99 21 96 6 92 C1 62 4 30 10 6" fill="none" stroke="#cc2a1e" vector-effect="non-scaling-stroke" style="stroke-width:2.5px"/></svg><div class="code">18-a07<span>1:44</span></div><div class="jp">ピアノを 弾く ことが できます。</div><div class="en">I can play the piano.</div><div class="ft"><span class="due">due</span><span class="stamp" style="--g:var(--red);--r:-6deg">可</span></div></div>
+  <div class="c"><div class="code">18-a08<span>1:50</span></div><div class="jp">趣味は 何ですか。</div><div class="en">What are your hobbies?</div><div class="ft"><span class="att">5 attempts</span><span class="stamp" style="--g:#9a7400;--r:7deg">秀</span></div></div>
+ </div>
+</main>
+</body></html>

@@ -1,11 +1,11 @@
 /* <WordLookup>: the reversed word and its dictionary sheet. */
-/* Word lookup: tap a word in any sentence. The word is reversed (ink plate, paper
-   text) while its sheet is open, like the character under the playhead. */
+/* Word lookup: tap a word in any sentence. The word sits on kraft while its sheet is open,
+   as if a label had been tied to it. */
 .lookup { cursor: pointer; }
-::highlight(lookup) { background-color: var(--ink); color: var(--paper); }
+::highlight(lookup) { background-color: var(--kraft); color: var(--kraft-ink); }
 .word-pop {
   position: fixed; z-index: 60; width: min(24rem, calc(100vw - 32px)); max-height: min(28rem, 70vh);
-  border: var(--frame-bold) solid var(--ink); background: var(--paper); color: var(--ink); box-shadow: var(--lift);
+  border: var(--frame) solid var(--rule-strong); background: var(--paper); color: var(--ink); box-shadow: var(--lift);
   padding: var(--s-4) var(--s-4) var(--s-3); display: flex; flex-direction: column; gap: var(--s-2); font-size: var(--t-m); line-height: 1.5;
 }
 .word-pop-top { display: grid; gap: var(--s-2); flex: none; }
@@ -15,13 +15,13 @@
 .word-pop p { margin: 0; }
 .word-pop-close { position: absolute; top: var(--s-2); right: var(--s-2); }
 .word-head { display: flex; align-items: flex-end; gap: var(--s-3); padding-right: var(--s-6); }
-.word-surface { font-size: var(--t-l); font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+.word-surface { font-size: var(--t-l); font-weight: var(--w-medium); line-height: 1.3; overflow-wrap: anywhere; }
 .word-surface ruby rt { font-size: .42em; }
 .word-reading { font-size: var(--t-m); }
 .word-romaji { color: var(--ink-3); font-size: var(--t-s); letter-spacing: .02em; }
 .word-lemma { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-2); }
 .word-lemma b { color: var(--ink); font-size: var(--t-m); }
-.word-entry { border-top: var(--frame-thin) solid var(--ink); padding-top: var(--s-2); }
+.word-entry { border-top: var(--frame) solid var(--rule-strong); padding-top: var(--s-2); }
 .word-entry h3 { margin: 0 0 var(--s-1); font-size: var(--t-m); }
 .word-entry ol { margin: 0; padding-left: 1.5em; display: grid; gap: var(--s-1); }
 .word-entry li::marker { font-variant-numeric: tabular-nums; color: var(--ink-3); }
@@ -44,7 +44,7 @@
   .select-explain { animation: none; }
 }
 .word-explain { margin: 0; }
-section.word-explain { border-top: var(--frame-thin) solid var(--ink); padding-top: var(--s-2); display: grid; gap: var(--s-1); }
+section.word-explain { border-top: var(--frame) solid var(--rule-strong); padding-top: var(--s-2); display: grid; gap: var(--s-1); }
 .word-explain h3 { margin: 0; font-size: var(--t-s); font-weight: 400; }
 .explain-translation { font-weight: 700; }
 .explain-notes { margin: 0; padding-left: 1.2em; display: grid; gap: var(--s-1); font-size: var(--t-s); }
@@ -52,4 +52,4 @@ section.word-explain { border-top: var(--frame-thin) solid var(--ink); padding-t
 .word-library { font-size: var(--t-s); }
 .word-library a { font-weight: 700; }
 /* a word marked where it stands in a sentence (the word page) */
-mark.word-mark { background: none; color: inherit; font-weight: 700; text-decoration: underline var(--frame-bold) var(--ink); text-underline-offset: .25em; }
+mark.word-mark { background: none; color: inherit; font-weight: 700; text-decoration: underline var(--frame-head) var(--ink); text-underline-offset: .3em; }

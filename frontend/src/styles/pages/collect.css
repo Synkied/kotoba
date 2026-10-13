@@ -2,7 +2,7 @@
 .collect { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: var(--gutter); align-items: start; }
 .drop {
   display: grid; place-items: center; gap: var(--s-2); text-align: center; min-height: 10rem; padding: var(--s-5);
-  border: var(--frame-thin) dashed var(--ink); background: var(--stock); cursor: pointer;
+  border: var(--frame) dashed var(--ink); background: var(--page); cursor: pointer;
   transition: background-color var(--t-fast) var(--ease);
 }
 .drop svg { width: 28px; height: 28px; }

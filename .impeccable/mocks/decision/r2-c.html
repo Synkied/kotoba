@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<link href="fonts/fonts.css" rel="stylesheet">
+<style>
+/* C — Store signage: burgundy top band, bilingual section tabs, sentences as a calm table */
+:root{--bg:#fff;--ink:#1f1f1f;--ink2:#474542;--ink3:#5e5b56;--rule:#e6e3dc;--grey:#f5f4f1;--kraft:#e7dac4;--kink:#3d3124;--bur:#7f0019}
+*{box-sizing:border-box;margin:0}
+body{width:1440px;height:900px;overflow:hidden;background:var(--bg);color:var(--ink);font:16px/1.65 "Zen Kaku Gothic New",sans-serif}
+.band{height:72px;background:var(--bur);color:#fff;display:flex;align-items:stretch;padding:0 40px;gap:4px}
+.band .b{display:flex;flex-direction:column;justify-content:center;font-weight:700;font-size:18px;line-height:1.2;margin-right:32px}
+.band .b small{font-size:11px;font-weight:500}
+.band a{display:flex;flex-direction:column;justify-content:center;padding:0 18px;font-size:17px;line-height:1.25}
+.band a small{font-size:12px;opacity:.9}
+.band a.on{background:#fff;color:var(--ink)}
+.band a .n{font-weight:700}
+.band .s{margin-left:auto;align-self:center;background:#fff;color:var(--ink3);height:38px;width:260px;display:flex;align-items:center;padding:0 14px;font-size:14px}
+.wrap{padding:36px 64px}
+header{display:flex;align-items:center;gap:16px;padding-bottom:24px}
+h1{font-weight:500;font-size:34px;line-height:1.2}
+.sub{font-size:14px;color:var(--ink3);margin-top:6px}
+.sp{margin-left:auto}
+.facts{display:flex;gap:1px;background:var(--rule);border:1px solid var(--rule)}
+.facts div{background:var(--grey);padding:8px 18px;font-size:12px;color:var(--ink3)}
+.facts b{display:block;font-size:20px;font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
+.facts .d b{color:var(--bur)}
+.btn{height:44px;padding:0 22px;border:1px solid var(--ink);background:#fff;font:500 15px "Zen Kaku Gothic New"}
+.btn.p{background:var(--ink);color:#fff}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:12px;font-weight:700;color:var(--ink3);padding:10px 12px;border-top:2px solid var(--ink);border-bottom:1px solid var(--ink)}
+td{padding:16px 12px;border-bottom:1px solid var(--rule);vertical-align:middle}
+td.no{font-size:14px;color:var(--ink3);width:48px;font-variant-numeric:tabular-nums}
+.jp{font-size:22px;line-height:1.85;font-weight:500;word-break:auto-phrase}
+.jp rt{font-size:11px;font-weight:400;color:var(--ink3)}
+.en{font-size:15px;color:var(--ink2)}
+td.t{font-size:14px;color:var(--ink2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.price{display:inline-block;background:var(--kraft);color:var(--kink);padding:2px 10px;font-size:14px;font-variant-numeric:tabular-nums}
+.stamp{width:44px;height:44px;border-radius:50%;border:2px solid var(--g);color:var(--g);display:grid;place-items:center;font-weight:700;font-size:18px;box-shadow:inset 0 0 0 2px #fff,inset 0 0 0 3px var(--g);transform:rotate(var(--r,-8deg))}
+tr.cur td{background:#faf6f6}
+tr.cur td.no{color:var(--bur);font-weight:700;box-shadow:inset 3px 0 0 var(--bur)}
+</style></head><body>
+<div class="band"><span class="b">言葉<small>KOTOBA</small></span>
+ <a>受信<small>Inbox 12</small></a><a>資料<small>Library</small></a><a>単語<small>Words</small></a><a class="on">デッキ<small>Decks</small></a><a>練習<small>Practice</small></a><a>復習<small class="n">Review 9</small></a><a>収集<small>Collect</small></a>
+ <span class="s">Search sentences ⌘K</span></div>
+<div class="wrap">
+ <header><div><h1>Lesson 18　できること</h1><div class="sub">Minna no Nihongo ／ 24 sentences from lesson_18.mp3</div></div><span class="sp"></span>
+  <div class="facts"><div class="d"><b>9</b>due</div><div><b>71</b>average</div><div><b>21</b>practised</div></div>
+  <button class="btn">Edit</button><button class="btn p">Practise 9 due</button></header>
+ <table>
+  <tr><th>No.</th><th>Sentence</th><th>Source</th><th>Attempts</th><th>Score</th><th>Grade</th></tr>
+  <tr><td class="no">01</td><td><div class="jp">ミラーさんは <ruby>漢字<rt>かんじ</rt></ruby>を <ruby>読<rt>よ</rt></ruby>む ことが できます。</div><div class="en">Mr Miller can read kanji.</div></td><td class="t">0:41–0:44</td><td class="t">6</td><td><span class="price">94</span></td><td><span class="stamp" style="--g:#9a7400">秀</span></td></tr>
+  <tr><td class="no">02</td><td><div class="jp">わたしの <ruby>趣味<rt>しゅみ</rt></ruby>は <ruby>写真<rt>しゃしん</rt></ruby>を <ruby>撮<rt>と</rt></ruby>る ことです。</div><div class="en">My hobby is taking photos.</div></td><td class="t">0:52–0:56</td><td class="t">3</td><td><span class="price">58</span></td><td><span class="stamp" style="--g:#34508f;--r:6deg">良</span></td></tr>
+  <tr class="cur"><td class="no">03</td><td><div class="jp"><ruby>寝<rt>ね</rt></ruby>る まえに、<ruby>日記<rt>にっき</rt></ruby>を <ruby>書<rt>か</rt></ruby>きます。</div><div class="en">Before sleeping, I write in my diary.</div></td><td class="t">1:07–1:10</td><td class="t">2</td><td><span class="price">41</span></td><td><span class="stamp" style="--g:var(--bur);--r:-3deg">可</span></td></tr>
+  <tr><td class="no">04</td><td><div class="jp"><ruby>日本<rt>にほん</rt></ruby>へ <ruby>来<rt>く</rt></ruby>る まえに、<ruby>日本語<rt>にほんご</rt></ruby>を <ruby>勉強<rt>べんきょう</rt></ruby>しました。</div><div class="en">I studied Japanese before coming to Japan.</div></td><td class="t">1:15–1:20</td><td class="t">4</td><td><span class="price">82</span></td><td><span class="stamp" style="--g:#2f6b45;--r:9deg">優</span></td></tr>
+ </table>
+</div>
+</body></html>
