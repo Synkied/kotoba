@@ -1,4 +1,4 @@
-import { BookOpen, ChevronLeft, Play, Volume2, Pencil, Check, Archive, Inbox as InboxIcon, Scissors, SkipBack, SkipForward, ListEnd } from 'lucide-react'
+import { BookOpen, ChevronLeft, Play, Volume2, Pencil, Check, Archive, Inbox as InboxIcon, Scissors, SkipBack, SkipForward, ListEnd, ListOrdered } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, type Sentence, type Source } from '../lib/api'
@@ -76,6 +76,7 @@ function SourcePageDetail({ id }: { id: number }) {
         {s.status !== 'kept' && <Button onClick={() => status('kept')}><Check aria-hidden="true" />Keep</Button>}
         {s.status === 'kept' && <Button variant="ghost" onClick={() => status('inbox')}><InboxIcon aria-hidden="true" />Back to inbox</Button>}
         {s.status !== 'archived' && <Button variant="ghost" onClick={() => status('archived')}><Archive aria-hidden="true" />Archive</Button>}
+        {(s.job === 'waiting' || s.job === 'running') && <ButtonLink to="/sources/queue"><ListOrdered aria-hidden="true" />{s.job === 'running' ? 'Transcribing… see queue' : 'In the queue'}</ButtonLink>}
         {s.media && (s.kind === 'audio' || s.kind === 'video') && <ButtonLink to={`/sources/${s.id}/cleanup`}><Scissors aria-hidden="true" />Clean up</ButtonLink>}
         {s.sentences.length > 0 && <DeckPicker sentenceIds={() => s.sentences.map((x) => x.id)} />}
         {s.sentences.length > 0 && <ButtonLink variant="primary" to={`/practice?source=${s.id}`}><Play aria-hidden="true" />Practise all</ButtonLink>}

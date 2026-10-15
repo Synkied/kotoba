@@ -130,12 +130,14 @@
 /* a note being written: a ruled page that takes what's left of the notebook */
 .lesson-note[data-editing] { display: flex; flex-direction: column; flex: 1 0 auto; gap: var(--s-2); padding-bottom: 0; border-bottom: 0; }
 .lesson-note[data-editing] .mention-field { flex: 1 0 auto; }
+/* grows to fill the page but never shrinks under its text: the notebook scrolls, not the textarea */
+.lesson-note[data-editing] .mention-field > textarea { flex: 1 0 auto; }
 .lesson-note-title { width: 100%; font-weight: 700; border-width: 0 0 var(--frame); border-radius: 0; padding-left: 0; padding-right: 0; background: transparent; }
 .lesson-note-title:focus { outline: 0; border-bottom-color: var(--ink); box-shadow: 0 1.5px 0 var(--ink); }
 /* the writing lines sit under each line of text and scroll with it */
 .lesson-note-text {
   --ruled: calc(var(--t-m) * 1.75);
-  flex: none; width: 100%; min-height: calc(var(--ruled) * 8 + 2 * var(--s-2)); resize: none; overflow: hidden; padding: var(--s-2) var(--s-3);
+  width: 100%; min-height: calc(var(--ruled) * 8 + 2 * var(--s-2)); resize: none; overflow: hidden; padding: var(--s-2) var(--s-3);
   font: 400 var(--t-m)/var(--ruled) var(--font); tab-size: 2; caret-color: var(--ink);
   background: linear-gradient(to bottom, transparent calc(var(--ruled) - 1px), var(--rule) 0) 0 var(--s-2) / 100% var(--ruled) local, var(--paper);
 }
