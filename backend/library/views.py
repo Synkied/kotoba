@@ -426,6 +426,13 @@ def stats(request):
 
 
 @api_view(["GET"])
+def furigana(request):
+    """?text=<sentence>: the readings kotoba would give it, as [kanji, reading] pairs, so a
+    sentence being edited can show and correct them before it's saved."""
+    return Response({"furigana": romanize.furigana(request.query_params.get("text", "")[:2000].strip())})
+
+
+@api_view(["GET"])
 def lookup(request):
     """?text=<sentence>&at=<character offset>[&pairs=<JSON [kanji, reading] pairs>]: the word
     there, its readings and meanings; `pairs` are the furigana the sentence shows, which the

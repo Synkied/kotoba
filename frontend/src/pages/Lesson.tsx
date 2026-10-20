@@ -1,12 +1,15 @@
-import { AudioLines, Check, ChevronLeft, ExternalLink, FileText, Folder, Image, NotebookPen, Pencil, Pin, Play, Plus, RotateCcw, Trash2, Upload, X } from 'lucide-react'
+import { Check, Paperclip, ChevronRight, Ellipsis, ExternalLink, Folder, NotebookPen, Pencil, Pin, Play, Plus, RotateCcw, Trash2, Upload, X } from 'lucide-react'
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, type Lesson, type LessonFile, type Note } from '../lib/api'
 import { useStats } from '../App'
 import { ErrorNotice, Skeleton, useAction, useAsync, usePref, useToast } from '../components/ui'
-import { lessonContents, useLessonActions } from './Lessons'
+import { LessonContents, useLessonActions } from './Lessons'
+import { KindTile } from '../components/Kind'
+import { fileDye, fileIcon, type Dye } from '../lib/dyes'
+import { Menu, MenuItem, MenuRule } from '../components/Menu'
 import { Listen, altKey, clockTime, lessonTracks, type ListenControl, type Moment } from '../components/LessonListen'
-import { fileSize, folderOptions, materialsIn } from '../lib/lessonTree'
+import { fileSize, folderOptions, folderPath, materialsIn } from '../lib/lessonTree'
 import { Button, ButtonLink, ButtonRow, Checkbox, EmptyState, Field, Input, Plate, Select, buttonClass } from '../components/ds'
 import { MentionTextarea, NoteMarkdown, caretPoint, quoteToken, type Mentionable } from '../components/NoteMarkdown'
 
@@ -24,6 +27,7 @@ function LessonDetail({ id }: { id: number }) {
   const toast = useToast()
   const { refresh } = useStats()
   const [name, setName] = useState<string | null>(null)
+  const [moving, setMoving] = useState(false)
   // the desk's proportions, as you left them: the worksheet's share of the width, the player's of the side
   const [sheetShare, setSheetShare] = usePref('lesson-sheet-share', 50)
   const [listenShare, setListenShare] = usePref('lesson-listen-share', 60)
@@ -59,14 +63,22 @@ function LessonDetail({ id }: { id: number }) {
   return (
     <>
       {(actions.error ?? edit.error) != null && <ErrorNotice error={actions.error ?? edit.error} />}
-      <header className="page-head">
-        <ButtonLink variant="ghost" icon to={l.done_at && !l.pinned ? '/library?view=archive' : l.folder ? `/library?folder=${l.folder}` : '/library'} aria-label="Back to the library"><ChevronLeft aria-hidden="true" /></ButtonLink>
+      {/* where it's kept: the way back, a step at a time */}
+      <nav className="lesson-crumbs" aria-label="Where this lesson is kept">
+        <ol>
+          <li><Link to="/library">Library</Link></li>
+          {l.done_at && !l.pinned && <li><ChevronRight aria-hidden="true" /><Link to="/library?view=archive">Archive</Link></li>}
+          {folderPath(folders.data ?? [], l.folder).map(f => <li key={f.id}><ChevronRight aria-hidden="true" /><Link to={`/library?folder=${f.id}`}>{f.name}</Link></li>)}
+        </ol>
+      </nav>
+      <header className="page-head lesson-head">
+        <KindTile dye="lesson" size="large" />
         {name === null ? <>
-          <h1><Button variant="ghost" className="lesson-title" title="Rename" disabled={busy} onClick={() => setName(l.title)}>{l.title}</Button>
-            <span className="meta num">{lessonContents(l)}</span>
-            {l.done_at && <Plate tone="hollow">Done {new Date(l.done_at).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}</Plate>}</h1>
-          <span className="grow" />
-          <Button variant="ghost" disabled={busy} onClick={() => setName(l.title)}><Pencil aria-hidden="true" />Rename</Button>
+          <div className="lesson-heading">
+            <h1>{l.title}</h1>
+            <p><LessonContents l={l} />
+              {l.done_at && <Plate tone="hollow">Done {new Date(l.done_at).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}</Plate>}</p>
+          </div>
         </> : <>
           <form className="btn-row lesson-rename" onSubmit={rename}>
             <label><span className="sr">Lesson title</span>
@@ -75,17 +87,24 @@ function LessonDetail({ id }: { id: number }) {
             <Button variant="primary" size="small" disabled={!name.trim() || edit.busy} aria-busy={edit.busy}>{edit.busy ? 'Saving…' : 'Save'}</Button>
             <Button type="button" variant="ghost" size="small" disabled={edit.busy} onClick={() => setName(null)}>Cancel</Button>
           </form>
-          <span className="grow" />
         </>}
-        <Button variant="ghost" disabled={busy} onClick={remove}><Trash2 aria-hidden="true" />Delete</Button>
-        <Button aria-pressed={l.pinned} disabled={busy} onClick={() => actions.pin(l)}><Pin aria-hidden="true" />{l.pinned ? 'Pinned' : 'Pin'}</Button>
-        {l.done_at
-          ? <Button variant="primary" disabled={busy} onClick={() => actions.again(l)}><RotateCcw aria-hidden="true" />Study again</Button>
-          : <Button variant="primary" disabled={busy} onClick={() => actions.done(l)}><Check aria-hidden="true" />Done</Button>}
+        <div className="lesson-actions">
+          <Button variant="ghost" icon className="card-pin" aria-pressed={l.pinned} disabled={busy} onClick={() => actions.pin(l)}
+            aria-label="Pin to the top of the library" title={l.pinned ? 'Pinned to the top of the library' : 'Pin to the top of the library'}><Pin aria-hidden="true" /></Button>
+          {l.done_at
+            ? <Button disabled={busy} onClick={() => actions.again(l)}><RotateCcw aria-hidden="true" />Study again</Button>
+            : <Button variant="primary" disabled={busy} onClick={() => actions.done(l)} title="Finished with it: it moves to the archive"><Check aria-hidden="true" />Mark done</Button>}
+          <Menu label="More for this lesson" variant="ghost" icon content={<Ellipsis aria-hidden="true" />}>
+            <MenuItem disabled={busy} onClick={() => setName(l.title)}><Pencil aria-hidden="true" />Rename lesson</MenuItem>
+            <MenuItem disabled={busy || !folders.data} onClick={() => setMoving(true)}><KindTile dye="folder" size="small" />Move to another folder</MenuItem>
+            <MenuRule />
+            <MenuItem disabled={busy} onClick={remove}><Trash2 aria-hidden="true" />Delete lesson</MenuItem>
+          </Menu>
+        </div>
       </header>
 
-      {folders.data && (folders.data.length > 0 || l.folder !== null) && <LessonFolderField l={l} options={folderOptions(folders.data)} busy={busy}
-        onMove={to => edit.run(async () => set(await api.updateLesson(l.id, { folder: to })))} />}
+      {moving && folders.data && <LessonFolderField l={l} options={folderOptions(folders.data)} busy={busy} onClose={() => setMoving(false)}
+        onMove={to => edit.run(async () => { set(await api.updateLesson(l.id, { folder: to })); setMoving(false) })} />}
 
       <div className="lesson-desk" style={{ '--sheet': `${sheetShare}fr`, '--side': `${100 - sheetShare}fr`, '--listen': `${listenShare}fr`, '--notebook': `${100 - listenShare}fr` } as CSSProperties}>
         {pdfs.length > 0 ? <Sheet pdfs={pdfs} />
@@ -111,16 +130,19 @@ function LessonDetail({ id }: { id: number }) {
 }
 
 /** Which folder the lesson is kept in; changing it moves the lesson to the end of that folder. */
-function LessonFolderField({ l, options, busy, onMove }: { l: Lesson; options: { id: number; label: string }[]; busy: boolean; onMove: (to: number | null) => void }) {
+function LessonFolderField({ l, options, busy, onMove, onClose }: {
+  l: Lesson; options: { id: number; label: string }[]; busy: boolean; onMove: (to: number | null) => void; onClose: () => void
+}) {
   return (
-    <p className="lesson-folder">
-      <label className="folder-field"><Folder aria-hidden="true" />Folder
-        <Select className="chip-select" disabled={busy} value={l.folder ?? ''} onChange={e => onMove(e.target.value ? Number(e.target.value) : null)}>
-          <option value="">None, top level</option>
+    <div className="lesson-folder" role="group" aria-label="Move this lesson">
+      <label className="folder-field"><Folder aria-hidden="true" />Move to
+        <Select autoFocus className="chip-select" disabled={busy} value={l.folder ?? ''} onKeyDown={e => e.key === 'Escape' && onClose()}
+          onChange={e => onMove(e.target.value ? Number(e.target.value) : null)}>
+          <option value="">The top level</option>
           {options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
         </Select></label>
-      {l.folder !== null && <Link className="meta" to={`/library?folder=${l.folder}`}>Open the folder</Link>}
-    </p>
+      <Button variant="ghost" size="small" onClick={onClose}>Cancel</Button>
+    </div>
   )
 }
 
@@ -160,7 +182,7 @@ function Splitter({ label, axis, value, initial, min, max, onChange }: {
 }
 
 type NotebookTab = 'notes' | 'sources' | 'files'
-const notebookTabs: [NotebookTab, string][] = [['notes', 'Notes'], ['sources', 'Sources'], ['files', 'Files']]
+const notebookTabs: [NotebookTab, string, Dye][] = [['notes', 'Notes', 'note'], ['sources', 'Sources', 'source'], ['files', 'Files', 'doc']]
 
 /** The notebook under the player: the notes you write while you listen, with the lesson's sources and files a tab away.
  *  Every tab stays mounted, so a note half written keeps its place while you look something up. */
@@ -177,10 +199,10 @@ function Notebook({ tab, onTab, counts, children }: { tab: NotebookTab; onTab: (
   return (
     <section className="notebook" aria-label="Notebook">
       <div className="notebook-tabs" role="tablist" aria-label="Notebook">
-        {notebookTabs.map(([k, name], i) => (
-          <button key={k} ref={el => { tabs.current[i] = el }} type="button" role="tab" id={`${id}-${k}`} aria-controls={`${id}-${k}-panel`}
+        {notebookTabs.map(([k, name, dye], i) => (
+          <button key={k} ref={el => { tabs.current[i] = el }} type="button" role="tab" id={`${id}-${k}`} aria-controls={`${id}-${k}-panel`} data-dye={dye}
             aria-selected={tab === k} tabIndex={tab === k ? 0 : -1} onClick={() => onTab(k)} onKeyDown={e => move(e, i)}>
-            {k === 'notes' && <NotebookPen aria-hidden="true" />}{name}{counts[k] > 0 && <span className="n num">{counts[k]}</span>}
+            <KindTile dye={dye} size="small" icon={k === 'files' ? Paperclip : undefined} />{name}{counts[k] > 0 && <span className="n num">{counts[k]}</span>}
           </button>
         ))}
       </div>
@@ -228,7 +250,6 @@ function AddFiles({ l, onChange, primary = false }: { l: Lesson; onChange: (l: L
   </>
 }
 
-const kindIcon = { pdf: FileText, audio: AudioLines, video: AudioLines, image: Image, text: FileText }
 const jobLabel = { waiting: 'Waiting to transcribe', running: 'Transcribing…', failed: 'Transcribing failed', '': 'Transcript' }
 
 /** Every file kept with the lesson, to open, add or remove. */
@@ -241,11 +262,10 @@ function Files({ l, onChange }: { l: Lesson; onChange: (l: Lesson) => void }) {
   }
   return <>
     {l.files.length > 0 && <ul className="lesson-file-list">{l.files.map(f => {
-      const Icon = kindIcon[f.kind]
       return (
         <li key={f.id}>
           <div className="lesson-file-row">
-            <Icon aria-hidden="true" className="lesson-file-icon" />
+            <KindTile dye={fileDye(f.kind)} icon={fileIcon[f.kind]} size="small" />
             <span className="lesson-file-name" lang="ja">{f.name}</span>
             {f.source && f.job !== null && <Link className={'lesson-file-job' + (f.job === 'failed' ? ' failed' : '')} to={`/sources/${f.source}`}>{jobLabel[f.job]}</Link>}
             <a className={buttonClass({ variant: 'ghost', size: 'small', icon: true })} href={f.url} target="_blank" rel="noreferrer" aria-label={`Open ${f.name} in a new tab`} title="Open in a new tab"><ExternalLink aria-hidden="true" /></a>
@@ -371,6 +391,18 @@ function Notes({ l, onChange, controlRef, onTime, named }: {
   )
 }
 
+/** Bring the caret into sight, a little above the bottom, in whatever scrolls: the notebook, or the page.
+ *  `centre` also pulls it down from the top and settles it in the lower middle, for a quote just put in. */
+function reveal(el: HTMLTextAreaElement, caret: number, centre = false) {
+  const y = el.getBoundingClientRect().top + caretPoint(el, caret).top
+  const box = el.closest<HTMLElement>('.notebook-page')
+  const scrolls = box && box.scrollHeight > box.clientHeight
+  const [top, bottom] = scrolls ? [box.getBoundingClientRect().top, box.getBoundingClientRect().bottom - 72] : [0, window.innerHeight - 96]
+  const scroller = scrolls ? box : window
+  if (centre) { if (y > bottom || y < top + 24) scroller.scrollBy({ top: y - (top + (bottom - top) * .6) }) }
+  else if (y + 28 > bottom) scroller.scrollBy({ top: y + 28 - bottom })
+}
+
 /** One note, written in place: it saves itself as you type, and once more when you're done. */
 function NoteEditor({ note, near, busy, onSaved, onClose, onDelete, insertRef, first, player }: {
   note: Note; near: Mentionable[]; busy: boolean; onSaved: (n: Note) => void; onClose: () => void; onDelete: () => void
@@ -425,19 +457,25 @@ function NoteEditor({ note, near, busy, onSaved, onClose, onDelete, insertRef, f
     window.requestAnimationFrame(() => {
       if (!el) return
       el.focus({ preventScroll: true }); el.setSelectionRange(caret, caret)
-      // bring the caret into sight, a little above the bottom, in whatever scrolls: the notebook, or the page
-      const y = el.getBoundingClientRect().top + caretPoint(el, caret).top
-      const box = el.closest<HTMLElement>('.notebook-page')
-      const scrolls = box && box.scrollHeight > box.clientHeight
-      const [top, bottom] = scrolls ? [box.getBoundingClientRect().top, box.getBoundingClientRect().bottom - 72] : [0, window.innerHeight - 96]
-      if (y > bottom || y < top + 24) (scrolls ? box : window).scrollBy({ top: y - (top + (bottom - top) * .6) })
+      reveal(el, caret, true)
     })
   }
   // the page grows with what you write, so the notebook scrolls rather than a box inside it
   useLayoutEffect(() => {
     const el = area.current
     if (!el) return
-    const fit = () => { el.style.height = 'auto'; el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px` }
+    const fit = () => {
+      // measure with the field's room held open: letting the notebook shrink for that instant would
+      // clamp its scroll and throw a long note back to the top as you type
+      const box = el.parentElement!
+      box.style.minHeight = `${box.offsetHeight}px`
+      el.style.flex = 'none'; el.style.height = 'auto'
+      const grew = el.scrollHeight + el.offsetHeight - el.clientHeight > el.offsetHeight
+      el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`
+      el.style.flex = ''; box.style.minHeight = ''
+      // a new line at the bottom stays above the sticky foot
+      if (grew && document.activeElement === el) reveal(el, el.selectionEnd)
+    }
     fit()
     // and again when the notebook gets wider or narrower, which rewraps the lines
     let width = el.clientWidth

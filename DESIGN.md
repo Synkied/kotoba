@@ -1,6 +1,6 @@
 # kotoba design system
 
-A Muji-labelled study shelf (無印良品). Every section is the same white sheet; the Japanese sentence is the largest, calmest thing on it, and the facts about it (source, time, tries, labels) are small kraft labels pinned beside it. Hairline rules, square corners, one burgundy accent. The first section says where the system lives, so changing the design is one edit and reusing an element is one import; the rest says what the world is and how each screen uses it.
+A Muji-labelled study shelf (無印良品). Every section is the same white sheet; the Japanese sentence is the largest, calmest thing on it, and the facts about it (source, time, tries, labels) are small kraft labels pinned beside it. Hairline rules, square corners, one burgundy accent for state, and a traditional dye for each kind of thing on the shelf. The first section says where the system lives, so changing the design is one edit and reusing an element is one import; the rest says what the world is and how each screen uses it.
 
 ## How the system is built
 
@@ -12,6 +12,7 @@ Open **`/design`** in the app (by URL; it is not in the navigation). It shows ev
 - Kraft: `--kraft`, `--kraft-ink`.
 - The accent: `--accent`, `--accent-ink` (burgundy as text and underline), `--accent-wash` (behind an error), `--accent-press`, `--on-accent`; `--brand` and `--on-brand` for the 言葉 KOTOBA block.
 - Stamp inks: `--stamp-shu` `--stamp-yu` `--stamp-ryo`, each with an `-ink` variant for text. 可 uses the accent.
+- Kind dyes: `--dye-{folder,lesson,note,media,doc,source}`, each with `--on-dye-*` (the icon on a tile), `-ink` (the dye as text) and `-wash` (a pale ground). `[data-dye=…]` maps one onto `--dye` / `--on-dye` / `--dye-ink` / `--dye-wash` (`components/kind.css`).
 - Status lights: `--ok`, `--warn` (engine and add-on dots; never text).
 - Frames: `--frame` (1px), `--frame-head` (2px), `--radius-control` (0).
 - Type: `--font`, `--mono`, `--t-tag` `--t-s` `--t-sub` `--t-m` `--t-read` `--t-fig` `--t-l` `--t-xl`, `--w-medium` (500), `--measure` (36em).
@@ -33,6 +34,7 @@ New CSS goes in the file of the component or page it styles. If a page needs a c
 - `Chip` (a label: a kraft tag), `ChipButton` (a kraft filter; pass `aria-pressed`, pressed reverses to ink), `Plate` (an ink plate for categories and counts; `tone` accent | hollow), `Kbd`
 - `Field`, `Input`, `Textarea`, `Select`, `Checkbox`, `Segmented` (native radios)
 - `Panel`, `Sheet`, `Notice` (`tone="error"`), `EmptyState`; `as` changes the element where the markup needs it
+- `KindTile` and `KindCounts` (`components/Kind.tsx`): a dyed square holding the kind's icon, and dyed counts ("■ PDF ■ 4 recordings"). `Menu`, `MenuItem`, `MenuRule` (`components/Menu.tsx`): a button that opens a short hairline list of actions, lifted; arrows move, Escape closes.
 - Domain components stay in `frontend/src/components/`: `Balloon`, `SentenceText`, `Furigana` and `Units`, `Stamp` and `Stamps`, `SourcePanel`, `SentenceAudio`, `WordLookup`, `ReadingAids`, `NoteMarkdown` and `MentionTextarea`, plus `ui.tsx` (`SearchBox`, `Skeleton`, `ErrorNotice`, toasts).
 
 Known deviations from the type scale, kept as they are: the stamps' internal sizes (`stamp.css`; the small stamp's 14px grade, the big stamp's 2.25rem score, 15px mark and 10px label, the 56px history stamp's 1.125rem), the phone balloon at 1.375rem (`practice.css`), and the cutting room's transcript and script at 1.0625rem and its marks at 1.125rem (`cleanup.css`). Bring them onto the scale, or into a token, the next time those screens are designed.
@@ -49,9 +51,18 @@ Known deviations from the type scale, kept as they are: the stamps' internal siz
 
 **The Burgundy Rule.** Burgundy means due, missed, current, recording, or 可. Errors borrow it (an error notice, an invalid field, a failed job). Nothing else is burgundy: not links, not headings, not primary buttons (those are ink).
 
+**Kind dyes (染め).** Colour says *what* a thing is; burgundy says what *state* it is in. Each kind on the shelf has a traditional dye, so a folder, a lesson, a note and a recording read apart before their names do:
+- 藍 indigo `#24548a`: folders. A folder card is cut like a file folder: a tab of the dye on its shoulder and a 2px rule of it along the top.
+- 萌葱 green `#4a7a23`: lessons. A 4px band across the top of a lesson card (rule-strong once done).
+- 山吹 gold `#e3a80f` (icon in dark brown on it; as text `#8a6200`): notes.
+- 柿 persimmon `#c9592b`: recordings, audio and video. The recording playing on the lesson page is set in it.
+- 紫 purple `#6e4596`: documents: PDFs, images, text.
+- 浅葱 teal `#1b7f86`: collected sources linked to a lesson.
+Dark lifts each one (`#6f9fd8`, `#8cc063`, `#f0bd3c`, `#f08a5d`, `#b38be0`, `#5cc4cb`) and sets its icon in the page colour. A dye appears as a square tile holding the kind's icon (32px; 24px small; 44px in a lesson head), as an 8px square before a count, as a 10px square keying a section head, or as a tab or band. A dyed card takes a breath of its wash under the pointer. Dyes are never text colour for reading, never a page or panel ground, and never state.
+
 **Stamp inks.** Scores are inked by school grade: 秀 ≥90 gold (`--stamp-shu` #9a7400, text #7d5e00), 優 ≥75 green (#2f6b45), 良 ≥50 indigo (#34508f), 可 below 50 in the accent. Dark lifts each: #f2bf4a, #5cc98a, #7fa2ff.
 
-No texture anywhere. Quiet comes from space, the third ink and the wash.
+No texture anywhere and no tinted grounds (the manga world's tinted stocks were hard to read). Quiet comes from space, the third ink and the wash; colour comes from the dyes on small marks.
 
 ## Type
 
@@ -124,16 +135,18 @@ Recordings, Sentences and the transcription Queue are tabs of Sources (`/sources
 ## Library and lessons: the study desk
 
 A lesson page is a desk for reading and listening at once.
+- **The head:** a small crumb of where it is kept (Library › folder › folder, or Archive), then the lesson's large green tile, the title with what it holds as dyed counts, and at the right a pin, Mark done (primary; Study again once done) and a ⋯ menu: Rename lesson, Move to another folder (opens a folder picker on the folder's wash under the head), Delete lesson. Nothing else sits between the head and the desk.
+- **Recordings:** up to twelve are numbered keys in a hairline strip beside the persimmon tile, the one playing filled in persimmon and named beside the strip; past twelve they fall back to a select.
 - **The worksheet takes the page.** On wide screens the PDF fills the left column to the bottom of the viewport. Nothing on the desk scrolls the page: the PDF, the transcript and the notebook each scroll on their own. With nothing to study yet, a dashed `--ink-3` sheet holds the place.
 - **Rules share the room.** A rule between the PDF and the side column, and one between the listening panel and the notebook, can be dragged (or focused and moved with the arrow keys; Shift for bigger steps, Enter or a double click to reset). At rest each shows a short 3px × 40px grip in `--ink-3`; under the pointer, focused or held, it draws its full length in ink. The proportions are remembered.
 - **Listening panel** (hairline frame, paper): the recording picker, then a small player, then the transcript following the voice. The rail under the player lays the transcript's lines end to end as ink blocks (past lines at about half ink, the current one solid and taller) with the triangular-cap playhead. A repeated line gets a hairline outline. Without a transcript it is a plain progress rule.
 - **Transcript lines** match the Source page: a time code to play from, the current line as the current row (wash, burgundy edge, burgundy time code), and spoken lines in `--ink-3`. Scrolling away stops the follow; "Back to the current line" returns.
 - **Keys:** Space plays or pauses, the left and right arrows step through lines, and R repeats the current line. While writing a note, Alt (⌥) K plays or pauses, Alt J / L step lines and Alt Q quotes the current line.
-- **The notebook** (hairline frame, paper) sits under the listening panel: Notes, Sources and Files as tabs on its head, divided by hairlines; the current one is on paper with a 2px ink rule under it, counts boxed in a 1px frame. Every tab stays mounted, so a half-written note survives a look at the files. The tab is remembered.
+- **The notebook** (hairline frame, paper) sits under the listening panel: Notes, Sources and Files as tabs on its head, each with its small dyed tile (gold, teal, purple), divided by hairlines; the current one is on paper with a 3px rule in its dye under it, counts boxed in a 1px frame. Every tab stays mounted, so a half-written note survives a look at the files. The tab is remembered.
 - **Writing is a ruled page.** Clicking a note (not a link, not while selecting) starts writing it. The editor is set in `--font` on `--rule` hairlines that scroll with the text, grows with what is written (the notebook scrolls, not a box inside it), and keeps Saved / Done writing in a sticky foot. Selected text there is kraft.
 - **Quoting the voice.** Each transcript line has a quote button (on hover, focus or the current line; always on touch). It, or Alt Q, puts the line into the note being written at the caret (else into the last note, opened; else a new one) as `> [0:12](#at=f2:12) どんな写真を撮りますか。` with a blank line after it for the learner's own words. In a note the time code is a small kraft label with a play mark that plays the recording from there, switching recordings if needed; outside the lesson page it is a quiet hairline-outlined label in `--ink-3`.
 - **≤1000px:** one column: the listening panel, then the notebook, then the PDF, because phones show PDFs poorly inline.
-- **The library** is a drive: folders as deep as you like, holding files kept as they are and lessons, all in your order. Not everything in a folder is a lesson. A path leads back up (current step bold, the others underlined); folders are hairline cards, lessons are cards, files are drive rows in one hairline list on paper (icon, name, kind and size, the lessons using it, transcript state) so a folder of forty tracks stays scannable.
+- **The library** is a drive: folders as deep as you like, holding files kept as they are and lessons, all in your order. Not everything in a folder is a lesson. Every way to add something is in the head: New lesson (primary) and one Add menu (New folder, New note, Add files, Import a folder) acting on the open folder. Inside a folder, one line says where you are: the path back up in small underlined steps, the open folder named at `--t-fig` with its indigo tile, and a ⋯ menu beside it (pin, rename, delete); the drag hint and Arrange sit at the right of the same line. At the top level that line holds only the hint and Arrange. Section heads (Folders, Lessons, Notes, Files) are keyed with their dye. Folders are cut cards, lessons banded cards (tile and title, what it holds as dyed counts, a note excerpt, and a foot with the date, a pin and a quiet Mark done), notes and files are drive rows with their dyed tile in one hairline list on paper (name, kind and size, the lessons using it, transcript state) so a folder of forty tracks stays scannable. A note's folder select shows only while arranging.
 - **Moving things:** a folder or path step taking a drop reverses to ink like the file drop zone; a card or row taking one shows a 3px ink rule where the dragged item lands. A file dropped on a lesson joins it. Arrange gives the same moves as buttons (↑ ↓, a folder select) for keyboard and touch. Selected files get the selection dock: make a lesson, transcribe, move, rename, delete.
 - **A lesson is a choice:** made from files the learner picks (linked, never copied; they stay in their folder) plus any new uploads. Importing a folder brings it in as it is by default; one lesson per folder is an option. Nothing is transcribed until asked.
 

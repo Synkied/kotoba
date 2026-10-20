@@ -35,5 +35,3 @@
   .sentence-actions > .primary { grid-column: 1 / -1; }
   .sentence-actions .deck-picker .select { width: 100% !important; }
 }
-.reading-fields { display: flex; flex-wrap: wrap; gap: var(--s-3); }
-.reading-fields label { display: grid; gap: var(--s-2); width: min(100%, 180px); }

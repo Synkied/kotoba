@@ -36,7 +36,7 @@
   .word-pop .btn.icon.small { width: 44px; height: 44px; }
 }
 /* the selection's offer, and what the translator says it means */
-.select-explain { position: fixed; z-index: 59; width: 120px; justify-content: center; box-shadow: var(--lift); animation: dock-in var(--t-fast) var(--ease); }
+.select-explain { position: fixed; z-index: 59; width: 120px; justify-content: center; background: var(--paper); box-shadow: var(--lift); animation: dock-in var(--t-fast) var(--ease); }
 @media (pointer: coarse) {
   .select-explain { min-height: 44px; }
 }

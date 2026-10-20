@@ -1,0 +1,49 @@
+/* Kind dyes: each kind of thing on the shelf carries its dye (tokens.css) as a solid tile,
+   a dyed square before its count, a band or a tab. [data-dye] picks the dye; everything
+   under it reads --dye, --on-dye, --dye-ink and --dye-wash. */
+[data-dye='folder'] { --dye: var(--dye-folder); --on-dye: var(--on-dye-folder); --dye-ink: var(--dye-folder-ink); --dye-wash: var(--dye-folder-wash); }
+[data-dye='lesson'] { --dye: var(--dye-lesson); --on-dye: var(--on-dye-lesson); --dye-ink: var(--dye-lesson-ink); --dye-wash: var(--dye-lesson-wash); }
+[data-dye='note'] { --dye: var(--dye-note); --on-dye: var(--on-dye-note); --dye-ink: var(--dye-note-ink); --dye-wash: var(--dye-note-wash); }
+[data-dye='media'] { --dye: var(--dye-media); --on-dye: var(--on-dye-media); --dye-ink: var(--dye-media-ink); --dye-wash: var(--dye-media-wash); }
+[data-dye='doc'] { --dye: var(--dye-doc); --on-dye: var(--on-dye-doc); --dye-ink: var(--dye-doc-ink); --dye-wash: var(--dye-doc-wash); }
+[data-dye='source'] { --dye: var(--dye-source); --on-dye: var(--on-dye-source); --dye-ink: var(--dye-source-ink); --dye-wash: var(--dye-source-wash); }
+
+.kind-tile { display: inline-grid; place-items: center; flex: none; width: 32px; height: 32px; background: var(--dye); color: var(--on-dye); }
+.kind-tile svg { width: 18px; height: 18px; stroke-width: 1.75; }
+.kind-tile.small { width: 24px; height: 24px; }
+.kind-tile.small svg { width: 14px; height: 14px; }
+.kind-tile.large { width: 44px; height: 44px; }
+.kind-tile.large svg { width: 24px; height: 24px; }
+
+/* what something holds: a dyed square, then the count in quiet ink */
+.kind-counts { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px var(--s-3); font-size: var(--t-s); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.kind-count { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.kind-count::before { content: ''; width: 8px; height: 8px; background: var(--dye); flex: none; }
+
+/* a section of the shelf, keyed to its dye */
+.day-head .date[data-dye] { display: inline-flex; align-items: center; gap: var(--s-2); }
+.day-head .date[data-dye]::before { content: ''; width: 10px; height: 10px; background: var(--dye); flex: none; }
+
+/* menus: a hairline sheet under its button, lifted */
+.menu { position: relative; display: inline-flex; }
+.menu > .btn[aria-expanded='true'] { background: var(--wash); color: var(--ink); }
+.menu-list {
+  position: absolute; top: calc(100% + var(--s-1)); z-index: 30; display: grid; min-width: 15rem; padding: var(--s-1) 0;
+  background: var(--paper); border: var(--frame) solid var(--rule-strong); box-shadow: var(--lift);
+  animation: menu-in var(--t-state) var(--ease);
+}
+.menu-list[data-align='end'] { right: 0; }
+.menu-list[data-align='start'] { left: 0; }
+.menu-item {
+  display: flex; align-items: center; gap: var(--s-3); min-height: var(--control-h); padding: 0 var(--s-4) 0 var(--s-3);
+  background: none; border: 0; color: var(--ink); font: inherit; font-size: var(--t-sub); text-align: left; white-space: nowrap; cursor: pointer;
+}
+.menu-item > svg { width: 16px; height: 16px; flex: none; margin-inline: 4px; color: var(--ink-2); }
+.menu-item:hover, .menu-item:focus-visible { background: var(--wash); outline: none; }
+.menu-item:focus-visible { box-shadow: inset 2px 0 0 var(--ink); }
+.menu-item:disabled { opacity: .4; cursor: not-allowed; }
+.menu-item .meta { margin-left: auto; padding-left: var(--s-4); }
+.menu-rule { margin: var(--s-1) 0; border: 0; border-top: 1px solid var(--rule); }
+@keyframes menu-in { from { opacity: 0; translate: 0 -4px; } }
+@media (prefers-reduced-motion: reduce) { .menu-list { animation: none; } }
+@media (pointer: coarse) { .menu-item { min-height: 48px; } }

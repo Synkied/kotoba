@@ -7,6 +7,7 @@ import { stopAudio } from '../lib/audio'
 import { WaveformPlayer, type PlayerHandle } from '../components/SentenceAudio'
 import { SentenceText } from '../components/SentenceText'
 import { Furigana } from '../components/Furigana'
+import { SentenceEditor } from '../components/SentenceEditor'
 import { MAX_LABELS, parseLabels } from '../lib/labels'
 import { SourcePanel, fmtTime } from '../components/SourcePanel'
 import { Stamps } from '../components/Stamp'
@@ -35,7 +36,7 @@ function SourcePageDetail({ id }: { id: number }) {
   const [follow, setFollow] = useState(true)
   useEffect(() => {
     // scrolling the player column or dragging across the waveform isn't leaving the script
-    const away = (e: Event) => { if (!(e.target instanceof Element && e.target.closest('.source-aside'))) setFollow(false) }
+    const away = (e: Event) => { if (!(e.target instanceof Element && e.target.closest('.source-aside, dialog'))) setFollow(false) }
     const keys = (e: KeyboardEvent) => { if (['PageUp', 'PageDown', 'Home', 'End'].includes(e.key)) away(e) }
     window.addEventListener('wheel', away, { passive: true })
     window.addEventListener('touchmove', away, { passive: true })
@@ -144,8 +145,7 @@ function SentenceRow({ x, furigana, roman, translation, audio, current, past, pl
   x: Sentence; furigana: boolean; roman: boolean; translation: boolean; audio: boolean; current: boolean; past: boolean; playing: boolean; follow: boolean
   onPlay: () => void; onPlayFrom: () => void; onSaved: (x: Sentence) => void
 }) {
-  const [draft, setDraft] = useState<string | null>(null)
-  const action = useAction()
+  const [editing, setEditing] = useState(false)
   const row = useRef<HTMLLIElement>(null)
   // keep the spoken sentence in the upper part of the reading area, so the lines coming next
   // stay visible; only scroll once it drifts out of that band, not on every line
@@ -171,26 +171,17 @@ function SentenceRow({ x, furigana, roman, translation, audio, current, past, pl
           <button type="button" className="tc num" onClick={onPlayFrom} aria-label={`Play from ${fmtTime(x.start)}`} title="Play from here">{fmtTime(x.start)}</button>
         </div>
       )}
-      {draft !== null ? (
-        <form className="edit-line" onSubmit={async (e) => { e.preventDefault(); if (draft.trim()) await action.run(async () => { onSaved(await api.updateSentence(x.id, { text: draft })); setDraft(null) }) }}>
-          <label style={{ flex: 1 }}><span className="sr">Sentence text</span>
-            <Input lang="ja" autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && setDraft(null)} /></label>
-          <Button variant="primary" size="small" disabled={action.busy || !draft.trim()}>Save</Button>
-          <Button type="button" variant="ghost" size="small" disabled={action.busy} onClick={() => setDraft(null)}>Cancel</Button>
-          {action.error != null && <ErrorNotice error={action.error} />}
-        </form>
-      ) : (
-        <SentenceText>
-          <Furigana text={x.text} pairs={x.furigana} show={furigana} />
-          {roman && x.roman && <span className="roman">{x.roman.split('\t')[0]}</span>}
-          {translation && <Translation s={x} onTranslated={onSaved} />}
-        </SentenceText>
-      )}
+      <SentenceText>
+        <Furigana text={x.text} pairs={x.furigana} show={furigana} />
+        {roman && x.roman && <span className="roman">{x.roman.split('\t')[0]}</span>}
+        {translation && <Translation s={x} onTranslated={onSaved} />}
+      </SentenceText>
+      {editing && <SentenceEditor sentence={x} onSaved={onSaved} onClose={() => setEditing(false)} />}
       <div className="acts">
         <ButtonLink variant="ghost" size="small" to={`/practice?sentence=${x.id}&from=source`} title="Practise this sentence only"><Play aria-hidden="true" />Practise</ButtonLink>
         <ButtonLink variant="ghost" size="small" to={`/sentences/${x.id}`}>Details</ButtonLink>
         <CopyButton text={x.text} />
-        <Button variant="ghost" size="small" icon aria-label="Fix the text" title="Fix the text" onClick={() => setDraft(x.text)}><Pencil aria-hidden="true" /></Button>
+        <Button variant="ghost" size="small" icon aria-label="Edit the text, readings and translation" title="Edit sentence" onClick={() => setEditing(true)}><Pencil aria-hidden="true" /></Button>
         <span className="record"><Stamps stamps={x.stamps} max={3} /></span>
       </div>
     </li>

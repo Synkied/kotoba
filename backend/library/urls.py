@@ -22,6 +22,7 @@ urlpatterns = [
     path("facets", views.facets),
     path("stats", views.stats),
     path("lookup", views.lookup),
+    path("furigana", views.furigana),
     path("dictionary", views.dictionary_fetch),
     path("explain", views.explain),
     path("attempts", views.attempts),

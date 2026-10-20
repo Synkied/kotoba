@@ -161,6 +161,17 @@ export default function DesignPage() {
             </ul>
           </div>
           <div>
+            <h3>Kind dyes</h3>
+            <ul className="ds-swatches">
+              <Swatch token="--dye-folder" on="--on-dye-folder" note="藍 folders" />
+              <Swatch token="--dye-lesson" on="--on-dye-lesson" note="萌葱 lessons" />
+              <Swatch token="--dye-note" on="--on-dye-note" note="山吹 notes" />
+              <Swatch token="--dye-media" on="--on-dye-media" note="柿 recordings" />
+              <Swatch token="--dye-doc" on="--on-dye-doc" note="紫 PDFs, images, text" />
+              <Swatch token="--dye-source" on="--on-dye-source" note="浅葱 sources" />
+            </ul>
+          </div>
+          <div>
             <h3>Lights</h3>
             <ul className="ds-swatches">
               <Swatch token="--ok" note="engine ready" />

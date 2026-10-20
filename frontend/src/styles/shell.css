@@ -119,7 +119,7 @@
   .page:has(.lesson-desk) > .page-head { align-items: center; padding-bottom: var(--s-3); margin-bottom: var(--s-3); }
   .page:has(.lesson-desk) > .page-head h1 { font-size: var(--t-l); }
   .page:has(.lesson-desk) > .lesson-folder { margin-bottom: var(--s-3); }
-  .page:has(.lesson-desk) > .page-head, .page:has(.lesson-desk) > .notice { flex: none; }
+  .page:has(.lesson-desk) > .page-head, .page:has(.lesson-desk) > .notice, .page:has(.lesson-desk) > .lesson-crumbs, .page:has(.lesson-desk) > .lesson-folder { flex: none; }
 }
 .page:has(.selection-dock) { padding-bottom: calc(var(--s-8) + 64px); }
 @media (max-width: 760px) {

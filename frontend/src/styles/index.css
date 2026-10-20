@@ -12,7 +12,9 @@
 @import './components/lists.css';
 @import './components/feedback.css';
 @import './components/word-lookup.css';
+@import './components/sentence-editor.css';
 @import './components/note-markdown.css';
+@import './components/kind.css';
 
 @import './pages/addons.css';
 @import './pages/cleanup.css';

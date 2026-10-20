@@ -1,6 +1,7 @@
 /* kotoba design tokens: a Muji-labelled study shelf.
    A white sheet where the Japanese sentence is the largest, calmest thing; facts about it
-   sit on small kraft labels; hairline rules; one burgundy accent.
+   sit on small kraft labels; hairline rules; one burgundy accent for state, and a dye
+   for each kind of thing on the shelf.
 
    Change the design here. Every colour below has a light value in :root and a dark
    value in the one block under prefers-color-scheme; nothing else in the app holds a
@@ -41,6 +42,16 @@
   --stamp-shu: #9a7400;  --stamp-shu-ink: #7d5e00;
   --stamp-yu: #2f6b45;   --stamp-yu-ink: #2f6b45;
   --stamp-ryo: #34508f;  --stamp-ryo-ink: #34508f;
+
+  /* ---- colour: kind dyes (染め). Each kind of thing on the shelf has a traditional dye, so you
+     know what something is before you read it: a solid tile (`--dye-*` under `--on-dye-*`),
+     the dye as text (`-ink`) and a pale ground (`-wash`). Never for state: that is burgundy's. */
+  --dye-folder: #24548a;  --on-dye-folder: #ffffff;  --dye-folder-ink: #24548a;  --dye-folder-wash: #e8eef6;  /* 藍 indigo */
+  --dye-lesson: #4a7a23;  --on-dye-lesson: #ffffff;  --dye-lesson-ink: #3d6a1a;  --dye-lesson-wash: #edf3e4;  /* 萌葱 green */
+  --dye-note: #e3a80f;    --on-dye-note: #3a2a00;    --dye-note-ink: #8a6200;    --dye-note-wash: #fbf2d9;    /* 山吹 gold */
+  --dye-media: #c9592b;   --on-dye-media: #ffffff;   --dye-media-ink: #a8461c;   --dye-media-wash: #f9e9e1;   /* 柿 persimmon: recordings */
+  --dye-doc: #6e4596;     --on-dye-doc: #ffffff;     --dye-doc-ink: #67408c;     --dye-doc-wash: #f0e9f6;     /* 紫 purple: PDFs, images, text */
+  --dye-source: #1b7f86;  --on-dye-source: #ffffff;  --dye-source-ink: #16727a;  --dye-source-wash: #e3f2f3;  /* 浅葱 teal: collected sources */
 
   /* ---- colour: status lights (engine and add-on dots). Never used for text. */
   --ok: #3f8f45;
@@ -114,6 +125,13 @@
     --stamp-shu: #f2bf4a;  --stamp-shu-ink: #f6cd6b;
     --stamp-yu: #5cc98a;   --stamp-yu-ink: #7ad6a0;
     --stamp-ryo: #7fa2ff;  --stamp-ryo-ink: #9db7ff;
+
+    --dye-folder: #6f9fd8;  --on-dye-folder: #161513;  --dye-folder-ink: #8db4e6;  --dye-folder-wash: #1a2330;
+    --dye-lesson: #8cc063;  --on-dye-lesson: #161513;  --dye-lesson-ink: #a3cf80;  --dye-lesson-wash: #1c2617;
+    --dye-note: #f0bd3c;    --on-dye-note: #161513;    --dye-note-ink: #f3c95a;    --dye-note-wash: #2b2414;
+    --dye-media: #f08a5d;   --on-dye-media: #161513;   --dye-media-ink: #f3a07a;   --dye-media-wash: #2e1c15;
+    --dye-doc: #b38be0;     --on-dye-doc: #161513;     --dye-doc-ink: #c6a5ea;     --dye-doc-wash: #251d2e;
+    --dye-source: #5cc4cb;  --on-dye-source: #161513;  --dye-source-ink: #7fd2d8;  --dye-source-wash: #142829;
 
     --ok: #6fbf73;
     --warn: #e2a33a;

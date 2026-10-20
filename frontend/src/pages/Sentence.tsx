@@ -1,15 +1,16 @@
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, Pencil } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { useState } from 'react'
 import { api, type Sentence, type SentenceWords } from '../lib/api'
 import { SentenceText } from '../components/SentenceText'
 import { Furigana } from '../components/Furigana'
+import { SentenceEditor } from '../components/SentenceEditor'
 import { SentenceAudio } from '../components/SentenceAudio'
 import { DeckPicker } from '../components/DeckPicker'
 import { Stamps } from '../components/Stamp'
 import { ErrorNotice, Skeleton, useAsync, useToast } from '../components/ui'
 import { ReadingAids, Translation, useAids, useLanguage } from '../components/ReadingAids'
-import { Button, ButtonLink, ButtonRow, Input } from '../components/ds'
+import { Button, ButtonLink, ButtonRow } from '../components/ds'
 import { useIndexWait } from '../lib/wordIndex'
 import { useBackTo } from '../lib/trail'
 
@@ -23,6 +24,7 @@ function Detail({ id }: { id: number }) {
   const links = useAsync(() => api.sentenceWords(id), [id])
   useIndexWait(links.data && !links.data.indexed ? { ...links.data, pending: Math.max(1, links.data.pending) } : undefined, links.reload)
   const [note, setNote] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<unknown>(null)
   const toast = useToast()
@@ -44,12 +46,14 @@ function Detail({ id }: { id: number }) {
       <div className="sentence-actions">
       <ButtonLink variant="primary" to={`/practice?sentence=${s.id}`}>Practise sentence</ButtonLink>
       <Button onClick={async () => { try { await navigator.clipboard.writeText(window.location.href); toast({ text: 'Sentence link copied' }) } catch { toast({ text: 'Copy the link from your address bar' }) } }}>Copy link</Button>
+      <Button onClick={() => setEditing(true)}><Pencil aria-hidden="true" />Edit</Button>
       <DeckPicker sentenceIds={() => [s.id]} onDone={detail.reload} />
-      </div></section>
+      </div>
+      {editing && <SentenceEditor sentence={s} onSaved={updated => detail.set({ source, sentence: updated })} onClose={() => setEditing(false)} />}
+      </section>
       {source.media ? <SentenceAudio sentence={s} source={source} /> : <p className="meta">This sentence has no source audio.</p>}
       {s.image && <img className="sentence-image" src={s.image} alt="Original source capture" />}
       <WordsIn links={links.data} />
-      <ReadingEditor sentence={s} onSaved={updated => detail.set({ source, sentence: updated })} />
       <TranslationEditor key={s.id} sentence={s} onSaved={updated => detail.set({ source, sentence: updated })} />
       <section className="sentence-section"><h2>Notes</h2><form className="sentence-notes" onSubmit={async e => {
         e.preventDefault(); setSaving(true); setSaveError(null)
@@ -91,28 +95,6 @@ function AlsoIn({ links, furigana }: { links: SentenceWords | undefined; furigan
       <Link to={`/sentences/${x.id}`} lang="ja"><Furigana text={x.text} pairs={x.furigana} show={furigana} lookup={false} /></Link>
       <span className="meta">{x.source_title || 'Untitled'} · shares <span lang="ja">{shared.map((w) => w.lemma).join('、')}</span></span>
     </div>)}</div>
-  </section>
-}
-
-function ReadingEditor({ sentence: s, onSaved }: { sentence: Sentence; onSaved: (s: Sentence) => void }) {
-  const [draft, setDraft] = useState<[string, string][] | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<unknown>(null)
-  const save = async (pairs: [string, string][]) => {
-    setBusy(true); setError(null)
-    try { onSaved(await api.updateSentence(s.id, { reading_overrides: pairs })); setDraft(null) }
-    catch (err) { setError(err) } finally { setBusy(false) }
-  }
-  if (!s.furigana.length) return null
-  return <section className="sentence-section"><div className="sentence-section-head"><h2>Readings</h2>
-    {draft === null && <Button onClick={() => setDraft(s.furigana.map(p => [...p]))}>Edit readings</Button>}
-  </div><p className="meta">{s.reading_overrides.length ? 'Your saved readings are used for this sentence.' : 'Readings are generated automatically. Correct ambiguous words here.'}</p>
-  {draft !== null && <form className="sentence-notes" onSubmit={e => { e.preventDefault(); void save(draft) }}>
-    <div className="reading-fields">{draft.map(([surface, reading], i) => <label key={i}><span lang="ja">{surface}</span><Input lang="ja" value={reading} required maxLength={100} onChange={e => setDraft(draft.map((p, j) => j === i ? [p[0], e.target.value] : p))} /></label>)}</div>
-    <ButtonRow><Button variant="primary" disabled={busy}>{busy ? 'Saving…' : 'Save readings'}</Button><Button type="button" variant="ghost" disabled={busy} onClick={() => setDraft(null)}>Cancel</Button></ButtonRow>
-  </form>}
-  {s.reading_overrides.length > 0 && <Button variant="ghost" disabled={busy} onClick={() => void save([])}>Reset to automatic</Button>}
-  {error != null && <ErrorNotice error={error} />}
   </section>
 }
 

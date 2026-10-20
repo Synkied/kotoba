@@ -9,29 +9,45 @@
 .lesson-files-pending li > span:first-child { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .lesson-card .source-card-body { padding-right: 0; }
 .lesson-card[data-done] h3 { font-weight: 400; }
-.lesson-card .btn[aria-pressed='true'] { background: var(--ink); color: var(--on-ink); }
+/* a lesson card: a band of 萌葱 across its top, its tile beside the title, what it holds in dyed counts */
+.source-card.lesson-card { grid-template-rows: auto 1fr auto; padding-top: var(--s-4); }
+.lesson-card::after { content: ''; position: absolute; inset: -1px -1px auto; height: 4px; background: var(--dye); pointer-events: none; }
+.lesson-card[data-done]::after { background: var(--rule-strong); }
+.lesson-card-head { display: flex; align-items: flex-start; gap: var(--s-3); min-width: 0; }
+.lesson-card-head h3 { padding-top: 4px; min-width: 0; }
+.lesson-card .source-card-foot { gap: var(--s-1); }
+/* dyed cards take a breath of their dye under the pointer */
+.source-card[data-dye]:hover { background: color-mix(in srgb, var(--dye-wash) 70%, var(--paper)); }
 /* folders: a path back up, folder cards on the shelf, and drag-and-drop targets */
 .lessons-page { position: relative; min-height: 60vh; }
-.lesson-path { margin-bottom: var(--s-3); }
-.lesson-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); margin-bottom: var(--s-5); }
+/* where you are: the path back up with the open folder named large, its menu, then how to move things */
+.lesson-where { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); min-height: var(--control-h); margin-bottom: var(--s-2); }
+.lesson-where[data-top] { margin-top: calc(-1 * var(--s-3)); }
+.lesson-where .lesson-drag-hint { margin: 0; min-height: 0; }
+.lesson-where .grow { flex: 1; }
 .lesson-path ol { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1); list-style: none; margin: 0; padding: 0; min-width: 0; }
 .lesson-path li { display: inline-flex; align-items: center; gap: var(--s-1); min-width: 0; }
 .lesson-path li > svg { width: 14px; height: 14px; color: var(--ink-3); flex: none; }
-.lesson-path button.link { font: inherit; font-weight: 700; text-decoration: none; padding: 2px var(--s-1); overflow-wrap: anywhere; text-align: left; }
-.lesson-path button.link:not([aria-current]) { font-weight: 400; text-decoration: underline; text-underline-offset: 3px; }
-.lesson-tools .btn[aria-pressed='true'] { background: var(--ink); color: var(--on-ink); }
+.lesson-path button.link { display: inline-flex; align-items: center; gap: var(--s-2); font: inherit; font-size: var(--t-sub); color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; padding: 2px var(--s-1); overflow-wrap: anywhere; text-align: left; }
+.lesson-path button.link[aria-current] { font-size: var(--t-fig); font-weight: var(--w-medium); color: var(--ink); text-decoration: none; line-height: 1.3; }
+.lesson-path button.link[aria-current] .kind-tile { width: 28px; height: 28px; }
 /* a folder or a step of the path taking a drop reverses to ink, like the file drop zone;
    a lesson taking one shows where the dragged lesson lands: a rule in the gutter before it */
 .lesson-path button[data-drop], .folder-card[data-drop] { background: var(--ink); color: var(--on-ink); }
 .folder-card[data-drop] .meta { color: inherit; }
+.folder-card[data-drop]::after { background: var(--ink); }
 .lesson-card[data-drop]::before { content: ''; position: absolute; top: 0; bottom: 0; left: calc(var(--gutter) / -2 - 1.5px); width: 3px; background: var(--ink); pointer-events: none; }
 .source-card[data-dragging] { opacity: .45; }
 .source-card[draggable='true'] { cursor: grab; }
 .source-card[draggable='true']:active { cursor: grabbing; }
-.folder-card { grid-template-rows: auto; border-width: var(--frame); }
+/* a folder card is cut like a file folder: a tab of 藍 on its shoulder, a rule of it along the top */
+.folder-cards { row-gap: calc(var(--gutter) + 8px); padding-top: 8px; }
+/* sources.css comes later in the cascade, so these name the card twice */
+.source-card.folder-card { grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto; align-items: center; column-gap: var(--s-3); border-top: 2px solid var(--dye); }
+.folder-card::after { content: ''; position: absolute; left: -1px; bottom: 100%; width: 5.5rem; height: 8px; background: var(--dye); clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 100%, 0 100%); pointer-events: none; }
 .folder-card .source-card-body { padding-right: var(--s-6); }
-.folder-card h3 .inline-icon { width: 16px; height: 16px; vertical-align: -2px; }
-.folder-card:has(.lesson-arrange) { grid-template-rows: 1fr auto; }
+.source-card.folder-card:has(.lesson-arrange) { grid-template-rows: 1fr auto; }
+.folder-card .lesson-arrange { grid-column: 1 / -1; }
 /* pinning a folder or a file: a quiet pin until it's pinned, then a filled one */
 .btn.card-pin { color: var(--ink-3); }
 .btn.card-pin[aria-pressed='true'] { color: var(--ink); }
@@ -54,6 +70,7 @@
 .material-row[draggable='true'] { cursor: grab; }
 .material-row[data-drop]::before { content: ''; position: absolute; left: 0; right: 0; top: -2px; height: 3px; background: var(--ink); pointer-events: none; }
 .material-icon { width: 18px; height: 18px; flex: none; }
+.material-row > .kind-tile { width: 28px; height: 28px; }
 .material-main { display: grid; min-width: 0; flex: 1; gap: 2px; }
 .material-name { font-weight: 700; overflow-wrap: anywhere; color: inherit; text-decoration: none; }
 a.material-name:hover { text-decoration: underline; text-underline-offset: 3px; }
@@ -84,9 +101,17 @@ a.material-name:hover { text-decoration: underline; text-underline-offset: 3px; 
 .lessons-drop-hint svg { width: 32px; height: 32px; }
 .lessons-drop-hint span { color: var(--ink-2); font-size: var(--t-s); }
 @media (pointer: coarse) {
-  .lesson-tools .btn, .lesson-arrange .btn, .lesson-arrange .chip-select, .material-arrange .btn, .material-arrange .chip-select { min-height: 44px; }
+  .lesson-where .btn, .lesson-arrange .btn, .lesson-arrange .chip-select, .material-arrange .btn, .material-arrange .chip-select { min-height: 44px; }
   .lesson-path button.link { min-height: 44px; }
   .material-row .check { width: 24px; height: 24px; }
 }
 .page-head .btn[aria-pressed='true'] { background: var(--ink); color: var(--on-ink); }
 .inline-icon { width: 14px; height: 14px; margin-right: var(--s-1); vertical-align: -2px; }
+@media (max-width: 760px) {
+  /* narrow: the path gets the whole line, the open folder below it, then its menu and Arrange */
+  .lesson-where .lesson-path { flex-basis: 100%; }
+  .lesson-path li:has([aria-current]) { flex-basis: 100%; }
+  .lesson-path li:has([aria-current]) > svg { display: none; }
+  .lesson-path button.link[aria-current] { font-size: var(--t-l); padding-left: 0; }
+  .lesson-where .lesson-drag-hint { display: none; }
+}

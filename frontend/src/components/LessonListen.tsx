@@ -1,4 +1,4 @@
-import { AudioLines, FileText, ListEnd, LoaderCircle, Pause, Play, Quote, Repeat1, SkipBack, SkipForward } from 'lucide-react'
+import { AudioLines, FileText, Film, ListEnd, LoaderCircle, Pause, Play, Quote, Repeat1, SkipBack, SkipForward } from 'lucide-react'
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type Lesson, type LessonFile, type Sentence, type Source } from '../lib/api'
@@ -6,6 +6,7 @@ import { Furigana } from './Furigana'
 import { ReadingAids, Translation, useAids } from './ReadingAids'
 import { ErrorNotice, shortcutBlocked, useAction, useAsync, usePref } from './ui'
 import { Button, ButtonLink, Select } from './ds'
+import { KindTile } from './Kind'
 
 /** Something to listen to: a recording kept with the lesson (its transcript is the source
  *  made from it, once transcribed) or a linked source that has audio of its own. */
@@ -61,8 +62,15 @@ export function Listen({ l, tracks, onChange, controlRef, onQuote }: {
   return (
     <section className="listen" aria-label="Listen">
       <div className="listen-head">
-        <AudioLines aria-hidden="true" />
-        {tracks.length > 1 ? <>
+        <KindTile dye="media" icon={track.video ? Film : AudioLines} size="small" />
+        {tracks.length > 1 && tracks.length <= 12 ? <>
+          {/* a few recordings: each one a numbered key, the one playing named beside them */}
+          <div className="listen-tracks" role="group" aria-label="Recordings">
+            {tracks.map((t, n) => <button key={t.key} type="button" className="num" aria-pressed={t.key === track.key} title={t.name} lang="ja"
+              aria-label={t.name} onClick={() => setKey(t.key)}>{n + 1}</button>)}
+          </div>
+          <h2 className="listen-name" lang="ja">{track.name}</h2>
+        </> : tracks.length > 1 ? <>
           <label className="listen-pick"><span className="sr">Recording</span>
             <Select lang="ja" value={track.key} onChange={e => setKey(e.target.value)}>
               {tracks.map(t => <option key={t.key} value={t.key}>{t.name}</option>)}

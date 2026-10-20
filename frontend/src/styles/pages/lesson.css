@@ -117,6 +117,8 @@
 /* a note read in place: its own page, ruled off from the next */
 .lesson-note { display: grid; gap: var(--s-2); min-width: 0; padding-bottom: var(--s-3); border-bottom: 1px solid var(--rule); }
 .lesson-note > header { display: flex; align-items: center; gap: var(--s-1); min-width: 0; }
+/* reading a long note, its title and its Edit / Open in Notes stay pinned to the top of what scrolls */
+.lesson-note:not([data-editing]) > header { position: sticky; top: 0; z-index: 1; margin: calc(-1 * var(--s-1)) 0; padding: var(--s-1) 0; background: var(--paper); }
 .lesson-note > header h3 { flex: 1; min-width: 0; font-size: var(--t-m); overflow-wrap: anywhere; }
 .lesson-note-read { cursor: text; }
 .lesson-note .note-markdown { line-height: 1.7; overflow-wrap: anywhere; }
@@ -168,6 +170,7 @@
   .lesson-side > .listen { min-height: 0; }
   .lesson-side .listen-script { min-height: 0; }
   .notebook-page { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+  .lesson-note:not([data-editing]) > header { top: calc(-1 * var(--s-3)); }
 }
 @media (max-width: 1000px) {
   /* narrow: one column, the listening panel first, your notes under it, the worksheet last (phones show PDFs poorly inline) */
@@ -187,3 +190,48 @@
 .lesson-rename { flex: 1 1 24rem; min-width: 0; }
 .lesson-rename > label { flex: 1; min-width: 0; }
 .lesson-rename .input { width: 100%; font-size: var(--t-m); font-weight: 600; }
+
+/* the head: where it's kept above, then the lesson's tile, its title with what it holds,
+   and the few things you do to it: pin, mark done, and the rest under ⋯ */
+.lesson-crumbs ol { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1); margin: 0 0 var(--s-2); padding: 0; list-style: none; font-size: var(--t-s); }
+.lesson-crumbs li { display: inline-flex; align-items: center; gap: var(--s-1); min-width: 0; }
+.lesson-crumbs li > svg { width: 13px; height: 13px; color: var(--ink-3); flex: none; }
+.lesson-crumbs a { color: var(--ink-2); text-underline-offset: 3px; overflow-wrap: anywhere; }
+.lesson-crumbs a:hover { color: var(--ink); }
+.page-head.lesson-head { flex-wrap: nowrap; align-items: center; gap: var(--s-4); }
+.lesson-heading { display: grid; gap: var(--s-1); flex: 1; min-width: 0; }
+.lesson-heading h1 { display: block; line-height: 1.25; }
+.lesson-heading p { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); margin: 0; }
+.lesson-actions { display: flex; align-items: center; gap: var(--s-2); flex: none; }
+.lesson-head .lesson-rename { flex: 1; }
+.lesson-folder[role='group'] { padding: var(--s-2) var(--s-3); background: var(--dye-folder-wash); border: var(--frame) solid var(--rule-strong); }
+.lesson-folder .folder-field { color: var(--ink); font-weight: var(--w-medium); }
+/* the recordings, each a numbered key; the one playing is set in its dye */
+.listen-tracks { display: flex; flex: none; border: var(--frame) solid var(--rule-strong); }
+.listen-tracks button {
+  min-width: 30px; height: 28px; padding: 0 var(--s-2); border: 0; background: transparent; color: var(--ink-2);
+  font: 500 var(--t-s)/1 var(--font); font-variant-numeric: tabular-nums; cursor: pointer;
+  transition: background-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+.listen-tracks button + button { border-left: 1px solid var(--rule-strong); }
+.listen-tracks button:hover { background: var(--wash); color: var(--ink); }
+.listen-tracks button[aria-pressed='true'] { background: var(--dye-media); color: var(--on-dye-media); font-weight: 700; }
+.listen-tracks button:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; position: relative; }
+.listen-head .listen-name { flex: 1; font-size: var(--t-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* the notebook's tabs carry their kinds' dyes; the open one is ruled in its dye */
+.notebook-tabs [role='tab'] .kind-tile { width: 20px; height: 20px; }
+.notebook-tabs [role='tab'] .kind-tile svg { width: 12px; height: 12px; }
+.notebook-tabs [role='tab'][aria-selected='true'] { box-shadow: inset 0 -3px 0 var(--dye); }
+.lesson-file-row .kind-tile { width: 22px; height: 22px; }
+@media (max-width: 760px) {
+  .page-head.lesson-head { flex-wrap: wrap; gap: var(--s-3); }
+  .lesson-head > .kind-tile { width: 36px; height: 36px; }
+  .lesson-heading { flex-basis: calc(100% - 36px - var(--s-3)); }
+  .lesson-actions { width: 100%; }
+  .lesson-actions > .btn.primary { flex: 1; }
+  .lesson-actions .menu { margin-left: auto; }
+  .notebook-tabs [role='tab'] { padding: 0 var(--s-3); gap: var(--s-1); }
+}
+@media (pointer: coarse) {
+  .listen-tracks button { min-width: 44px; height: 44px; }
+}

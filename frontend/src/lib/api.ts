@@ -248,6 +248,8 @@ export const api = {
     req<Page<Sentence>>('sentences' + qs({ limit: 200, ...p })),
   sentence: (id: number) => req<Sentence>(`sentences/${id}`),
   updateSentence: (id: number, data: Partial<Pick<Sentence, 'text' | 'note' | 'reading_overrides' | 'translations'>>) => req<Sentence>(`sentences/${id}`, json('PATCH', data)),
+  /** the readings kotoba would give a text, for a sentence being edited */
+  furigana: (text: string, signal?: AbortSignal) => req<{ furigana: [string, string][] }>('furigana' + qs({ text }), { signal }),
   translate: (id: number, force = false) => req<Sentence>(`sentences/${id}/translate`, json('POST', { force })),
   language: () => req<Language>('translation?quick=1'),
   translation: () => req<TranslationStatus>('translation'),

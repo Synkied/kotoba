@@ -66,6 +66,18 @@ class SentenceDetailTests(TestCase):
         self.assertEqual(response.json()['reading_overrides'], [])
         self.assertIn(['時', 'とき'], response.json()['furigana'])
 
+    def test_text_readings_and_translation_in_one_save(self):
+        text = 'その時、三人で帰りました。'
+        pairs = self.client.get('/api/furigana', {'text': text}).json()['furigana']
+        self.assertEqual(pairs, romanize.furigana(text))
+        pairs = [[k, 'とき' if k == '時' else r] for k, r in pairs]
+        response = self.client.patch(self.url, {'text': text, 'reading_overrides': pairs, 'translations': {'en': 'Then three of us went home.'}},
+                                     content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['text'], text)
+        self.assertEqual(response.json()['furigana'], pairs)
+        self.assertEqual(response.json()['translations'], {'en': 'Then three of us went home.'})
+
 
 @override_settings(MEDIA_ROOT=tempfile.mkdtemp())
 class KeptTakeTests(TestCase):
