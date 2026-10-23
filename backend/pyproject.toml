@@ -12,6 +12,10 @@ dependencies = [
     "fugashi>=1.5.2",
     "unidic-lite>=1.0.8",
     "waitress>=3.0.2",
+    # yt-dlp passes for a browser with it when it fetches YouTube subtitles (YouTube refuses plain requests)
+    "curl-cffi>=0.11",
+    # yt-dlp's plugin for the token server in compose.yaml; keep it at the server image's version
+    "bgutil-ytdlp-pot-provider==2.0.2",
 ]
 
 [project.optional-dependencies]

@@ -147,8 +147,8 @@ export type HeardChannel = {
 }
 export type YouTube = {
   enabled: boolean
-  tool: { installed: boolean; version: string | null; installing: boolean; error: string; js: string | null; note: string | null; updated: string }
-  worker: { busy: boolean; doing: string; error: string; paused_until: number | null }
+  tool: { installed: boolean; version: string | null; installing: boolean; error: string; js: string | null; pot: string | null; note: string | null; updated: string }
+  worker: { busy: boolean; doing: string; channel: number | null; error: string; paused_until: number | null }
   channels: HeardChannel[]; found: { videos: number; lines: number }; lines: number
 }
 /** A word by its dictionary key, whether it's in your sentences (word) or not */

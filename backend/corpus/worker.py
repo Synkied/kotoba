@@ -9,7 +9,6 @@ import random
 import threading
 import time
 import traceback
-from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 
 from django.db import close_old_connections, transaction
@@ -22,17 +21,18 @@ from . import heard, ytdlp
 from .models import Channel, Line, Video
 
 REFRESH = timedelta(hours=12)
-PARALLEL = 2            # videos looked at once; YouTube doesn't like more
-BATCH = 10
-PACE = (1.0, 2.5)       # seconds of rest before each video, so a channel doesn't look like a scraper
+BATCH = 4               # videos read between looks at new channels and searches, so those don't wait long
+PACE = (3.0, 5.0)       # seconds of rest before each video's details, so a channel doesn't look like a scraper
+SUBS_GAP = 65           # seconds between subtitle downloads: YouTube refuses more than about one a minute
+                        # from an address, for hours. Only videos with human-made subtitles need one.
 BACKOFF = (600, 7200)   # when YouTube says too many requests: wait 10 minutes, doubling up to 2 hours
 SEARCH_SIZE = 20        # videos a "Find more" looks at
 
 _lock = threading.Lock()
 _thread = None
 _tools = {"state": "", "error": ""}   # installing yt-dlp: "", "installing", "failed"
-state = {"doing": "", "error": "", "last_sweep": 0.0, "last_update": 0.0, "updated": "",
-         "paused_until": 0.0, "backoff": 0}
+state = {"doing": "", "channel": None, "error": "", "last_sweep": 0.0, "last_update": 0.0, "updated": "",
+         "paused_until": 0.0, "backoff": 0, "last_subs": 0.0}
 
 
 def paused() -> float:
@@ -107,10 +107,10 @@ def _run():
         if time.time() - state["last_sweep"] > 86400:
             heard.sweep()
             state["last_sweep"] = time.time()
-        state.update(doing="", error="")
+        state.update(doing="", channel=None, error="")
     except Exception as e:  # noqa: BLE001 - shown in Add-ons; the next kick tries again
         traceback.print_exc()
-        state.update(doing="", error=str(e)[:500])
+        state.update(doing="", channel=None, error=str(e)[:500])
     finally:
         close_old_connections()
 
@@ -146,7 +146,7 @@ def _channels() -> bool:
     ch = _due_channels().order_by("checked_at", "id").first()
     if not ch:
         return False
-    state["doing"] = f"Reading the video list of {ch}"
+    state.update(doing=f"Reading the video list of {ch}", channel=ch.id)
     try:
         title, entries = ytdlp.listing(ch.url)
         if title and not ch.title:
@@ -161,71 +161,67 @@ def _channels() -> bool:
         ch.error = str(e)
     ch.checked_at = timezone.now()
     ch.save(update_fields=["title", "error", "checked_at"])
+    state["channel"] = None
     return True
-
-
-def _look(video_id: int):
-    """One video: its details and, when it has human-made Japanese subtitles, their cues."""
-    if PACE[1]:
-        time.sleep(random.uniform(*PACE))
-    v, meta = Video.objects.get(pk=video_id), None
-    try:
-        meta = ytdlp.info(v.yt_id)
-        track = ytdlp.japanese_track(meta)
-        return v, meta, ytdlp.subtitles(track) if track else None, None
-    except ytdlp.YtError as e:
-        return v, meta, None, e
-
-
-def _look_in_pool(video_id: int):
-    close_old_connections()
-    try:
-        return _look(video_id)
-    finally:
-        close_old_connections()
 
 
 def _videos() -> bool:
-    batch = list(_waiting_videos().values_list("id", flat=True)[:BATCH])
+    """The next few videos, one at a time, each saved as soon as it's read. At YouTube's first
+    "too many requests" the rest wait: asking again straight away only makes the rest longer."""
+    batch = list(_waiting_videos()[:BATCH])
     if not batch:
         return False
     left = Video.objects.filter(subs=Video.Subs.WAITING).count()
-    state["doing"] = f"Reading subtitles: {left} video{'s' if left != 1 else ''} to go"
-    if PARALLEL > 1:
-        with ThreadPoolExecutor(PARALLEL) as pool:
-            results = list(pool.map(_look_in_pool, batch))
-    else:
-        results = [_look(v) for v in batch]
-    if any(err and err.kind == "throttled" for _, _, _, err in results):
-        _throttled()  # those stay waiting; they're read again once the rest is over
-        results = [r for r in results if not (r[3] and r[3].kind == "throttled")]
-    else:
-        state["backoff"] = 0
-    for v, meta, cues, err in results:
-        if meta:
-            v.title = (meta.get("title") or v.title)[:300]
-            v.uploader = (meta.get("channel") or meta.get("uploader") or "")[:200]
-            v.duration = meta.get("duration") or v.duration
-            up = meta.get("upload_date") or ""
-            if len(up) == 8:
-                v.published = date(int(up[:4]), int(up[4:6]), int(up[6:]))
-        if err:
-            v.subs = Video.Subs.MEMBERS if err.kind in ("members", "gone") else Video.Subs.FAILED
-            v.error = str(err)
-            if err.kind == "gone":
-                v.gone_at = timezone.now()
-        elif not cues:
-            v.subs, v.error = Video.Subs.NONE, ""
+    for v in batch:
+        state["doing"] = f"Reading subtitles: {left} video{'s' if left != 1 else ''} to go"
+        if PACE[1]:
+            time.sleep(random.uniform(*PACE))
+        try:
+            meta = ytdlp.look(v.yt_id)
+            lang, cues = ytdlp.japanese_track(meta), None
+            if lang:
+                wait = SUBS_GAP - (time.time() - state["last_subs"])
+                if wait > 0:
+                    state["doing"] = f"Reading subtitles: {left} video{'s' if left != 1 else ''} to go, one a minute"
+                    time.sleep(wait)
+                state["last_subs"] = time.time()
+                cues = ytdlp.subtitles(meta, lang)
+        except ytdlp.YtError as e:
+            if e.kind == "throttled":
+                _throttled()  # this one and the rest stay waiting; they're read once the rest is over
+                return True
+            _save(v, None, None, e)
         else:
-            v.subs, v.error = Video.Subs.OK, ""
-            with transaction.atomic():
-                v.lines.filter(sentence__isnull=True).delete()
-                Line.objects.bulk_create([Line(video=v, position=i, start=s, end=e, text=t) for i, (s, e, t) in enumerate(cues)],
-                                         ignore_conflicts=True)
-        v.save()
-        if cues:
-            heard.index_lines(v.lines.all())  # here, not in the pool: MeCab isn't shared across threads
+            _save(v, meta, cues, None)
+        state["backoff"] = 0
+        left -= 1
     return True
+
+
+def _save(v: Video, meta: dict | None, cues: list | None, err: ytdlp.YtError | None):
+    if meta:
+        v.title = (meta.get("title") or v.title)[:300]
+        v.uploader = (meta.get("channel") or meta.get("uploader") or "")[:200]
+        v.duration = meta.get("duration") or v.duration
+        up = meta.get("upload_date") or ""
+        if len(up) == 8:
+            v.published = date(int(up[:4]), int(up[4:6]), int(up[6:]))
+    if err:
+        v.subs = Video.Subs.MEMBERS if err.kind in ("members", "gone") else Video.Subs.FAILED
+        v.error = str(err)
+        if err.kind == "gone":
+            v.gone_at = timezone.now()
+    elif not cues:
+        v.subs, v.error = Video.Subs.NONE, ""
+    else:
+        v.subs, v.error = Video.Subs.OK, ""
+        with transaction.atomic():
+            v.lines.filter(sentence__isnull=True).delete()
+            Line.objects.bulk_create([Line(video=v, position=i, start=s, end=e, text=t) for i, (s, e, t) in enumerate(cues)],
+                                     ignore_conflicts=True)
+    v.save()
+    if cues:
+        heard.index_lines(v.lines.all())
 
 
 def _index() -> bool:

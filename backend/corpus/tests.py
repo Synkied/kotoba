@@ -1,3 +1,4 @@
+import json
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -35,10 +36,22 @@ class ParsingCase(TestCase):
             ytdlp.normalize("https://example.com/@x")
 
     def test_only_human_japanese_subtitles_count(self):
-        meta = {"subtitles": {"en": [{"ext": "json3", "url": "e"}], "ja": [{"ext": "vtt", "url": "v"}, {"ext": "json3", "url": "j"}]},
+        meta = {"subtitles": {"en": [{"ext": "json3", "url": "e"}], "ja-JP": [{"ext": "json3", "url": "p"}],
+                              "ja": [{"ext": "vtt", "url": "v"}, {"ext": "json3", "url": "j"}]},
                 "automatic_captions": {"ja": [{"ext": "json3", "url": "auto"}]}}
-        self.assertEqual(ytdlp.japanese_track(meta), "j")
+        self.assertEqual(ytdlp.japanese_track(meta), "ja")
         self.assertIsNone(ytdlp.japanese_track({"automatic_captions": meta["automatic_captions"]}))
+
+    def test_subtitles_are_the_track_yt_dlp_saved(self):
+        def run(args, timeout=0):
+            self.assertEqual(json.loads(Path(args[args.index("--load-info-json") + 1]).read_text()), {"title": "x"})
+            Path(args[args.index("-o") + 1]).with_name(f"subs.{args[args.index('--sub-langs') + 1]}.json3").write_text(json.dumps(
+                {"events": [{"tStartMs": 0, "dDurationMs": 1000, "segs": [{"utf8": "猫です"}]}]}))
+            return ""
+        with patch.object(ytdlp, "run", run):
+            self.assertEqual(ytdlp.subtitles({"title": "x"}, "ja"), [(0.0, 1.0, "猫です")])
+        with patch.object(ytdlp, "run", lambda a, t=0: ""), self.assertRaises(ytdlp.YtError):
+            ytdlp.subtitles({"title": "x"}, "ja")
 
     def test_errors_say_what_kind(self):
         self.assertEqual(ytdlp._error("ERROR: [youtube] abc: This video is available to this channel's members on level: x").kind, "members")
@@ -177,13 +190,14 @@ class HeardCase(TestCase):
         meta = {"ccc": {"title": "With", "channel": "Ken", "upload_date": "20260102", "subtitles": {"ja": [{"ext": "json3", "url": "u"}]}},
                 "ddd": {"title": "Without", "channel": "Ken", "automatic_captions": {"ja": []}}}
 
-        def info(yt_id):
+        def look(yt_id):
             if yt_id == "eee":
                 raise ytdlp.YtError("Join this channel to get access to members-only content", "members")
             return meta[yt_id]
         with patch.object(ytdlp, "listing", lambda url: ("Ken", [{"id": i * 11, "title": ""} for i in "cde"])), \
-                patch.object(ytdlp, "info", lambda yt: info(yt[0] * 3)), patch.object(ytdlp, "subtitles", lambda url: subs), \
-                patch.object(worker, "_update_due", lambda: False), patch.object(worker, "PARALLEL", 1), \
+                patch.object(ytdlp, "look", lambda yt: look(yt[0] * 3)), patch.object(ytdlp, "subtitles", lambda m, lang: subs), \
+                patch.object(worker, "SUBS_GAP", 0), \
+                patch.object(worker, "_update_due", lambda: False), \
                 patch.object(worker, "PACE", (0, 0)):
             worker._run()
         ch.refresh_from_db()
@@ -199,7 +213,7 @@ class ThrottleCase(TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
-        for p in (patch.object(translate, "_SETTINGS", Path(tmp.name) / "settings.json"), patch.object(worker, "PARALLEL", 1),
+        for p in (patch.object(translate, "_SETTINGS", Path(tmp.name) / "settings.json"),
                   patch.object(worker, "PACE", (0, 0)), patch.object(worker, "_update_due", lambda: False),
                   patch.dict(worker.state, {"paused_until": 0.0, "backoff": 0})):
             p.start()
@@ -208,21 +222,39 @@ class ThrottleCase(TestCase):
 
     def test_too_many_requests_leaves_videos_waiting_and_rests(self):
         ch = Channel.objects.create(kind="channel", url="u", checked_at=timezone.now())
-        for i in "fg":
+        for i in "fgh":
             Video.objects.create(yt_id=i * 11).channels.add(ch)
+        asked = []
 
-        def info(yt_id):
+        def look(yt_id):
+            asked.append(yt_id[0])
             if yt_id[0] == "g":
-                raise ytdlp.YtError("HTTP Error 429: Too Many Requests", "throttled")
+                raise ytdlp._error("ERROR: Unable to download video subtitles for 'ja': HTTP Error 429: Too Many Requests")
             return {"title": "x"}
-        with patch.object(ytdlp, "info", info):
+        with patch.object(ytdlp, "look", look):
             worker._run()
-        self.assertEqual(dict(Video.objects.values_list("yt_id", "subs")), {"f" * 11: "none", "g" * 11: "waiting"})
+        self.assertEqual(dict(Video.objects.values_list("yt_id", "subs")), {"f" * 11: "none", "g" * 11: "waiting", "h" * 11: "waiting"})
+        self.assertEqual(asked, ["f", "g"])  # h isn't asked for straight after YouTube said no
         self.assertGreater(worker.paused(), 0)
         self.assertEqual(worker.state["backoff"], 600)
-        with patch.object(ytdlp, "info", info):
+        with patch.object(ytdlp, "look", look):
             worker._run()  # still resting: nothing asked
         self.assertEqual(Video.objects.get(yt_id="g" * 11).subs, "waiting")
+
+    def test_subtitle_downloads_are_a_minute_apart_and_only_for_human_ones(self):
+        ch = Channel.objects.create(kind="channel", url="u", checked_at=timezone.now())
+        for i in "pqr":
+            Video.objects.create(yt_id=i * 11).channels.add(ch)
+        human = {"subtitles": {"ja": [{"ext": "json3", "url": "j"}]}}
+        slept, downloads = [], []
+        with patch.object(ytdlp, "look", lambda yt: {} if yt[0] == "q" else human), \
+                patch.object(ytdlp, "subtitles", lambda m, lang: downloads.append(lang) or [(0.0, 1.0, "猫です")]), \
+                patch.object(worker.time, "sleep", slept.append), patch.dict(worker.state, {"last_subs": 0.0}):
+            worker._run()
+        self.assertEqual(downloads, ["ja", "ja"])  # q has none to download
+        self.assertEqual(len(slept), 1)  # before r's: p's was the first in a long while
+        self.assertAlmostEqual(slept[0], worker.SUBS_GAP, delta=2)
+        self.assertEqual(dict(Video.objects.values_list("yt_id", "subs")), {"p" * 11: "ok", "q" * 11: "none", "r" * 11: "ok"})
 
 
 class RestartCase(TestCase):

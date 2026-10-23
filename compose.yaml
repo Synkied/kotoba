@@ -26,8 +26,17 @@ services:
       KOTOBA_LLM_URL: ${KOTOBA_LLM_URL:-http://host.docker.internal:11434/v1}
       TZ: ${TZ:-UTC}
       KOTOBA_DATA: /data  # the volume, whatever .env says for local runs
+      KOTOBA_POT_URL: http://pot:4416
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+  # Heard on YouTube: the proof-of-origin tokens YouTube wants before it hands over subtitles.
+  # Reached by kotoba only; it isn't published on this machine (it has no access control).
+  # Keep the tag at the version of bgutil-ytdlp-pot-provider in backend/pyproject.toml.
+  pot:
+    image: brainicism/bgutil-ytdlp-pot-provider:2.0.2
+    restart: unless-stopped
+    init: true
 
   voicevox:
     profiles: [voicevox]

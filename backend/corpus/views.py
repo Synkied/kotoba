@@ -45,8 +45,8 @@ def status(request):
     return Response({
         "enabled": heard.enabled(),
         "tool": {"installed": ytdlp.available(), "version": ytdlp.version(), "installing": tools["state"] == "installing",
-                 "error": tools["error"], "js": js[0] if js else None, "note": ytdlp.environ_note(), "updated": worker.state["updated"]},
-        "worker": {"busy": worker.busy(), "doing": worker.state["doing"], "error": worker.state["error"],
+                 "error": tools["error"], "js": js[0] if js else None, "note": ytdlp.environ_note(), "pot": ytdlp.pot(), "updated": worker.state["updated"]},
+        "worker": {"busy": worker.busy(), "doing": worker.state["doing"], "channel": worker.state["channel"], "error": worker.state["error"],
                    "paused_until": worker.paused() or None},
         "channels": [_channel_json(c, s) for c in channels],
         "found": {"videos": searched.filter(subs=Video.Subs.OK).distinct().count(),

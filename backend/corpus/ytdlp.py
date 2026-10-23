@@ -3,16 +3,21 @@ within days, so kotoba fetches its release build once and updates it on its own 
 A yt-dlp on the PATH is used when there's none in the data folder.
 
 YouTube now wants a JavaScript runtime for its players. deno, node or bun on the PATH is used;
-failing those, kotoba fetches deno (Linux only) next to yt-dlp."""
+failing those, kotoba fetches deno (Linux only) next to yt-dlp.
+
+YouTube also refuses subtitle downloads ("too many requests") without a proof-of-origin token,
+what a browser sends. The bgutil plugin (a Python dependency) asks a small token server for one:
+compose.yaml runs it next to kotoba, at KOTOBA_POT_URL (127.0.0.1:4416 when unset)."""
 
 import json
+import os
 import platform
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
-import urllib.error
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -23,6 +28,7 @@ TOOLS = settings.DATA_DIR / "tools"
 YTDLP_URL = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp"
 DENO_URL = "https://github.com/denoland/deno/releases/latest/download/deno-{arch}-unknown-linux-gnu.zip"
 TIMEOUT = 90
+POT_URL = os.environ.get("KOTOBA_POT_URL", "").rstrip("/")
 
 
 class YtError(Exception):
@@ -145,6 +151,8 @@ def run(args: list, timeout: int = TIMEOUT) -> str:
         raise YtError("yt-dlp isn't installed. Turn YouTube listening on in Add-ons.")
     js = js_runtime()
     extra = ["--js-runtimes", f"{js[0]}:{js[1]}"] if js else []
+    if POT_URL:
+        extra += ["--extractor-args", f"youtubepot-bgutilhttp:base_url={POT_URL}"]
     try:
         out = subprocess.run([*cmd, "--ignore-config", "--no-progress", *extra, *args],
                              capture_output=True, text=True, timeout=timeout)
@@ -207,20 +215,36 @@ def search(query: str, n: int = 20) -> list[dict]:
             for e in data.get("entries") or [] if e.get("id") and len(e["id"]) == 11]
 
 
-def info(yt_id: str) -> dict:
+def look(yt_id: str) -> dict:
+    """A video's details, the addresses of its subtitles among them."""
     return _json(["--skip-download", f"https://www.youtube.com/watch?v={yt_id}"])
 
 
 def japanese_track(meta: dict) -> str | None:
-    """The address of a video's human-made Japanese subtitles, as json3; None without them
+    """The language code of a video's human-made Japanese subtitles; None without them
     (YouTube's automatic captions don't count)."""
     tracks = meta.get("subtitles") or {}
     for lang in sorted(tracks, key=lambda l: (l != "ja", l)):
-        if lang == "ja" or lang.startswith("ja-"):
-            for t in tracks[lang]:
-                if t.get("ext") == "json3" and t.get("url"):
-                    return t["url"]
+        if (lang == "ja" or lang.startswith("ja-")) and any(t.get("ext") == "json3" for t in tracks[lang]):
+            return lang
     return None
+
+
+def subtitles(meta: dict, lang: str) -> list[tuple[float, float, str]]:
+    """The cues of one of the video's subtitle tracks, from the details look() gave. yt-dlp
+    downloads them itself, passing for a browser (curl_cffi), as YouTube refuses plain requests."""
+    with tempfile.TemporaryDirectory() as tmp:
+        info = Path(tmp) / "info.json"
+        info.write_text(json.dumps(meta), "utf-8")
+        run(["--load-info-json", str(info), "--skip-download", "--write-subs", "--sub-langs", re.escape(lang),
+             "--sub-format", "json3", "-o", str(Path(tmp) / "subs.%(ext)s")])
+        found = list(Path(tmp).glob("subs.*.json3"))
+        if not found:
+            raise YtError("yt-dlp didn't save the subtitles.")
+        try:
+            return parse_json3(json.loads(found[0].read_text("utf-8")))
+        except ValueError as e:
+            raise YtError(f"Couldn't read the subtitles: {e}")
 
 
 _NOISE = re.compile(r"^[\s\[\(（【［]*(音楽|拍手|笑|笑い|music|applause|laughter)[\]\)）】］\s]*$", re.I)
@@ -251,16 +275,6 @@ def parse_json3(data: dict) -> list[tuple[float, float, str]]:
     return out
 
 
-def subtitles(url: str) -> list[tuple[float, float, str]]:
-    try:
-        with urllib.request.urlopen(url, timeout=60) as r:
-            return parse_json3(json.loads(r.read().decode("utf-8")))
-    except urllib.error.HTTPError as e:
-        raise YtError(f"Couldn't read the subtitles: {e}", "throttled" if e.code == 429 else "other")
-    except (OSError, ValueError) as e:
-        raise YtError(f"Couldn't read the subtitles: {e}")
-
-
 # --- audio -----------------------------------------------------------------------------
 
 def audio(yt_id: str, folder: Path) -> Path:
@@ -285,8 +299,26 @@ def available() -> bool:
     return command() is not None
 
 
+_pot = {"at": 0.0, "value": None}
+
+
+def pot() -> str | None:
+    """The version of the token server answering, or None. Asked at most once a minute."""
+    if time.time() - _pot["at"] > 60:
+        try:
+            with urllib.request.urlopen(f"{POT_URL or 'http://127.0.0.1:4416'}/ping", timeout=2) as r:
+                _pot["value"] = str(json.loads(r.read()).get("version") or "?")
+        except (OSError, ValueError):
+            _pot["value"] = None
+        _pot["at"] = time.time()
+    return _pot["value"]
+
+
 def environ_note() -> str | None:
     """What's missing for YouTube to keep working, if anything."""
     if js_runtime() is None:
         return "No JavaScript runtime (deno or node): YouTube may refuse to play some videos."
+    if pot() is None:
+        return (f"No token server answers at {POT_URL or 'http://127.0.0.1:4416'}: YouTube soon refuses subtitle "
+                "downloads without one (see the README).")
     return None
