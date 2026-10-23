@@ -96,7 +96,7 @@ export type Note = { id: number; title: string; body: string; folder: number | n
 export type WordStatus = 'new' | 'practised' | 'known'
 /** A word in your sentences, as the dictionary lists it (読む for 読んでいました). tries/misses: its latest scored attempts. */
 export type WordRow = {
-  id: number; lemma: string; reading: string; romaji: string; entry: number | null; status: WordStatus; known_at: string | null
+  id: number; key: string; lemma: string; reading: string; romaji: string; entry: number | null; status: WordStatus; known_at: string | null
   sentences: number | null; sources: number | null; tries: number; misses: number; trouble: boolean
 }
 /** pending: sentences the word index still has to read */
@@ -122,6 +122,41 @@ export type SearchResults = {
   decks: { id: number; name: string; size: number }[]
   counts: { words: number; sentences: number; sources: number; lessons: number; decks: number }
 }
+/** Heard elsewhere: a subtitle line from a YouTube channel you follow. before/after: the lines either side */
+export type HeardVideo = { id: number; yt_id: string; title: string; uploader: string; url: string; source: number | null; gone: boolean; here: boolean }
+export type HeardLine = {
+  id: number; text: string; furigana: [string, string][]; start: number; end: number; position: number
+  spans: [number, number][]; sentence: number | null; video: HeardVideo
+  before?: string | null; after?: string | null
+  /** other words in it you don't know yet */
+  new?: number
+}
+export type HeardFinding =
+  | { state: 'searching'; error: string }
+  | { state: 'checking'; waiting: number; error: string }
+  | { state: 'done'; at: string; videos: number; subtitled: number; error: string }
+export type Heard = {
+  enabled: boolean; channels: number; finding: HeardFinding | null
+  reading: { busy: boolean; waiting: number; unread: number }
+  lines: HeardLine[]; total: number; videos: number
+}
+export type SubsState = 'waiting' | 'ok' | 'none' | 'members' | 'failed'
+export type HeardChannel = {
+  id: number; kind: 'channel' | 'playlist'; title: string; url: string; checked_at: string | null; error: string
+  videos: Record<SubsState, number>; lines: number
+}
+export type YouTube = {
+  enabled: boolean
+  tool: { installed: boolean; version: string | null; installing: boolean; error: string; js: string | null; note: string | null; updated: string }
+  worker: { busy: boolean; doing: string; error: string; paused_until: number | null }
+  channels: HeardChannel[]; found: { videos: number; lines: number }; lines: number
+}
+/** A word by its dictionary key, whether it's in your sentences (word) or not */
+export type Term = {
+  key: string; lemma: string; reading: string; romaji: string; entries: DictEntry[]; dictionary: DictionaryStatus['state']
+  word: { id: number; sentences: number; status: WordStatus } | null
+}
+export type HeardSearch = { enabled: boolean; total: number; terms: { key: string; lemma: string; reading: string; lines: number }[]; lines: HeardLine[] }
 export type NextSentence = { sentence: Sentence; word: WordRow; sentences: number; spans: [number, number][] }
 
 /** source/job: the library source transcribed from this recording, and how that's going */
@@ -222,7 +257,7 @@ export const api = {
   stats: () => req<Stats>('stats'),
   /** the word at `at`, or with `end` the selected stretch text[at:end] */
   lookup: (text: string, at: number, pairs: [string, string][], signal?: AbortSignal, end?: number) =>
-    req<{ word: Word | null; library: { id: number; sentences: number; status: WordStatus } | null; dictionary: DictionaryStatus }>('lookup' + qs({ text, at, end, ...(pairs.length ? { pairs: JSON.stringify(pairs) } : {}) }), { signal }),
+    req<{ word: Word | null; key: string | null; library: { id: number; sentences: number; status: WordStatus } | null; dictionary: DictionaryStatus }>('lookup' + qs({ text, at, end, ...(pairs.length ? { pairs: JSON.stringify(pairs) } : {}) }), { signal }),
   explain: (text: string, context: string, force = false, signal?: AbortSignal) =>
     req<Explanation>('explain', { ...json('POST', { text, context, force }), signal }),
   facets: () => req<Facets>('facets'),
@@ -284,6 +319,21 @@ export const api = {
   score: (pcm: Int16Array, expected: string) =>
     req<Score>('engine/score' + qs({ expected, final: 1 }), { method: 'POST', body: pcm.buffer as ArrayBuffer, headers: { 'Content-Type': 'application/octet-stream' } }),
   addons: () => req<Addons>('addons'),
+  youtube: () => req<YouTube>('youtube'),
+  setYouTube: (enabled: boolean) => req<YouTube>('youtube', json('PATCH', { enabled })),
+  updateYtDlp: () => req<{ updated: string; version: string | null }>('youtube/update', json('POST', {})),
+  follow: (url: string) => req<HeardChannel>('youtube/channels', json('POST', { url })),
+  refreshChannel: (id: number) => req<void>(`youtube/channels/${id}`, json('POST', {})),
+  unfollow: (id: number) => req<void>(`youtube/channels/${id}`, { method: 'DELETE' }),
+  heard: (key: string, offset = 0, limit = 5) => req<Heard>('youtube/heard' + qs({ key, offset, limit })),
+  heardCounts: (keys: string[], signal?: AbortSignal) => req<{ enabled: boolean; counts: Record<string, number> }>('youtube/counts' + qs({ keys: keys.join(',') }), { signal }),
+  findMore: (key: string) => req<{ finding: HeardFinding }>('youtube/find', json('POST', { key })),
+  heardSearch: (q: string, signal?: AbortSignal) => req<HeardSearch>('youtube/search' + qs({ q }), { signal }),
+  heardContext: (line: number, key?: string, radius = 6) => req<{ lines: HeardLine[] }>(`youtube/lines/${line}/context` + qs({ key, radius })),
+  /** fetch the video's audio from YouTube now (a few seconds the first time) */
+  heardAudio: (video: number) => req<{ ready: boolean }>(`youtube/videos/${video}/audio`, json('POST', {})),
+  keepLine: (line: number) => req<{ sentence: number; source: number; audio: string | null }>(`youtube/lines/${line}/keep`, json('POST', {})),
+  term: (key: string) => req<Term>(`dict/${encodeURIComponent(key)}`),
   transcriptions: (signal?: AbortSignal) => req<TranscriptionQueue>('transcriptions', { signal }),
   job: (id: number) => req<Job>(`jobs/${id}`),
   recordings: () => req<Recording[]>('recordings'),

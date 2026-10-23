@@ -180,6 +180,8 @@ function WordPopover({ text, pairs, at, end, root, x, y, onClose }: Open & { onC
   const [word, setWord] = useState<Word | null | undefined>(undefined)
   const [dict, setDict] = useState<DictionaryStatus | null>(null)
   const [library, setLibrary] = useState<{ id: number; sentences: number; status: WordStatus } | null>(null)
+  const [heard, setHeard] = useState<{ key: string; lines: number } | null>(null)
+  const [key, setKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pos, setPos] = useState<{ left: number; top: number } | 'sheet' | null>(null)
   const [playing, setPlaying] = useState<string | null>(null)
@@ -190,8 +192,12 @@ function WordPopover({ text, pairs, at, end, root, x, y, onClose }: Open & { onC
     const ctl = new AbortController()
     let timer = 0
     const load = () => api.lookup(text, at, pairs, ctl.signal, end).then((r) => {
-      setWord(r.word); setDict(r.dictionary); setLibrary(r.library); setError(null)
+      setWord(r.word); setDict(r.dictionary); setLibrary(r.library); setKey(end == null ? r.key : null); setError(null)
       if (r.dictionary.state === 'downloading') timer = window.setTimeout(load, 2500)
+      else if (r.key && end == null) {
+        const key = r.key
+        api.heardCounts([key], ctl.signal).then((c) => setHeard(c.counts[key] ? { key, lines: c.counts[key] } : null), () => {})
+      }
     }, (e) => { if (!ctl.signal.aborted) setError(e instanceof Error ? e.message : String(e)) })
     load()
     return () => { ctl.abort(); window.clearTimeout(timer) }
@@ -249,6 +255,9 @@ function WordPopover({ text, pairs, at, end, root, x, y, onClose }: Open & { onC
     </Button>
   )
 
+  // the word's own page: yours when your sentences have it, else its dictionary page
+  const page = library ? `/words/${library.id}` : key ? `/dict/${encodeURIComponent(key)}` : null
+
   return createPortal(
     <div ref={box} className="word-pop" role="dialog" aria-label={word ? `${word.surface}: meaning and readings` : 'Word lookup'}
       tabIndex={-1} lang="en" style={pos === 'sheet' ? undefined : pos ?? { visibility: 'hidden' }} onClick={(e) => e.stopPropagation()}>
@@ -257,7 +266,11 @@ function WordPopover({ text, pairs, at, end, root, x, y, onClose }: Open & { onC
         {/* the word stays in view; only its meanings scroll */}
         <div className="word-pop-top">
         <div className="word-head">
-          <span className="word-surface" lang="ja"><Furigana text={word.surface} pairs={word.furigana} lookup={false} /></span>
+          {page ? (
+            <Link className="word-surface" lang="ja" to={page} onClick={close} title="Open its word page">
+              <Furigana text={word.surface} pairs={word.furigana} lookup={false} />
+            </Link>
+          ) : <span className="word-surface" lang="ja"><Furigana text={word.surface} pairs={word.furigana} lookup={false} /></span>}
           {listenButton(word.reading || word.surface, `Listen to ${word.surface}`)}
         </div>
         <p className="word-reading"><span lang="ja">{word.reading}</span> <span className="word-romaji">{word.romaji}</span></p>
@@ -268,10 +281,17 @@ function WordPopover({ text, pairs, at, end, root, x, y, onClose }: Open & { onC
         </div>
         <div className="word-pop-body">
         {end != null && <Explanation text={word.surface} context={text} auto />}
-        {library && <p className="word-library">
+        {library ? <p className="word-library">
           <Link to={`/words/${library.id}`} onClick={close}>
             {library.sentences === 1 ? 'In 1 of your sentences' : `In ${library.sentences} of your sentences`}
             {library.status !== 'new' && ` · ${library.status}`}
+          </Link>
+        </p> : page && word.entries.length > 0 && <p className="word-library">
+          <Link to={page} onClick={close}>Word page</Link> <span className="meta">not in your sentences yet</span>
+        </p>}
+        {heard && <p className="word-heard">
+          <Link to={library ? `/words/${library.id}#heard` : `/dict/${encodeURIComponent(heard.key)}`} onClick={close}>
+            Heard in {heard.lines === 1 ? '1 line' : `${heard.lines.toLocaleString()} lines`} on YouTube
           </Link>
         </p>}
         {end != null && !word.entries.length ? null : word.entries.length ? <Entries entries={word.entries} /> : <p className="meta">{

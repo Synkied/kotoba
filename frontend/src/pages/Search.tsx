@@ -1,10 +1,11 @@
 import { BookOpen, Layers, Search as SearchIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { api, type SearchResults } from '../lib/api'
+import { api, type HeardSearch, type SearchResults } from '../lib/api'
 import { Furigana } from '../components/Furigana'
 import { SentenceText } from '../components/SentenceText'
 import { ListenSentence, WordPlates } from '../components/WordBits'
+import { HeardList } from '../components/Heard'
 import { ErrorNotice, SearchBox, Skeleton, usePref, PageHome } from '../components/ui'
 import { ButtonLink, EmptyState, Plate } from '../components/ds'
 
@@ -54,17 +55,20 @@ export default function SearchPage() {
   const q = params.get('q') ?? ''
   const [furigana] = usePref('furigana', true)
   const [state, setState] = useState<{ q: string; data?: SearchResults; error?: unknown }>({ q: '' })
+  const [heard, setHeard] = useState<{ q: string; data: HeardSearch } | null>(null)
   useEffect(() => {
     if (!q.trim()) return
     const ctl = new AbortController()
     const t = window.setTimeout(() => {
       api.search(q, ctl.signal).then((data) => setState({ q, data }), (error) => { if (!ctl.signal.aborted) setState({ q, error }) })
+      api.heardSearch(q, ctl.signal).then((data) => setHeard({ q, data }), () => {}) // optional: the library answers on its own
     }, 200)
     return () => { ctl.abort(); window.clearTimeout(t) }
   }, [q])
   const data = q.trim() ? state.data : undefined
+  const h = q.trim() && heard?.q === q ? heard.data : undefined
   const c = data?.counts
-  const total = c ? c.words + c.sentences + c.sources + c.lessons + c.decks : 0
+  const total = c ? c.words + c.sentences + c.sources + c.lessons + c.decks + (h?.total ?? 0) : 0
   const enc = encodeURIComponent(q.trim())
 
   return (
@@ -110,6 +114,10 @@ export default function SearchPage() {
             </div>
           </li>)}</ul>
         </Group>}
+        {h && h.lines.length > 0 && <Group title="Heard on YouTube" count={h.total} dye="media"
+          all={h.terms[0] ? `/dict/${encodeURIComponent(h.terms[0].key)}#heard` : undefined} allLabel={h.terms[0] && `All with ${h.terms[0].lemma}`}>
+          <HeardList lines={h.lines} />
+        </Group>}
         {data.sources.length > 0 && <Group title="Sources" count={c!.sources}>
           <ul className="search-list">{data.sources.map((s) => <li key={s.id}>
             <Link to={`/sources/${s.id}`} lang={s.title === 'Untitled' ? undefined : 'ja'}>{s.title}</Link>
@@ -132,11 +140,13 @@ export default function SearchPage() {
   )
 }
 
-function Group({ title, count, all, children }: { title: string; count: number; all?: string; children: React.ReactNode }) {
+function Group({ title, count, all, allLabel, dye, children }: {
+  title: string; count: number; all?: string; allLabel?: string; dye?: string; children: React.ReactNode
+}) {
   return (
     <section className="search-group" aria-label={title}>
-      <div className="day-head"><h2>{title}</h2><span className="meta num">{count}</span>
-        <span className="grow" />{all && count > 0 && <Link to={all}>See all {count}</Link>}</div>
+      <div className="day-head"><h2 className={dye ? 'date' : undefined} data-dye={dye}>{title}</h2><span className="meta num">{count.toLocaleString()}</span>
+        <span className="grow" />{all && count > 0 && <Link to={all} lang={allLabel ? 'ja' : undefined}>{allLabel ?? `See all ${count}`}</Link>}</div>
       {children}
     </section>
   )

@@ -1,0 +1,106 @@
+/* Heard on YouTube: a word said by native speakers, in the subtitled videos of channels you follow.
+   The line reads at full size between the lines either side of it, dimmed as practice dims its
+   neighbours; the video is a kraft tag keyed in persimmon, the dye of audio and video. The line
+   playing is the current row. */
+.heard { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-2); min-width: 0; margin-top: var(--s-6); }
+.heard-head { margin-bottom: 0; }
+.heard-head h2 { margin: 0; font-size: var(--t-m); }
+.heard-empty { margin: var(--s-2) 0 0; max-width: var(--measure); color: var(--ink-2); }
+.heard-status { margin: 0; }
+.heard-error { margin: 0; color: var(--accent-ink); }
+
+.heard-rows { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; }
+.heard-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-3) var(--s-4); align-items: start;
+  padding: var(--s-5) 0; border-bottom: var(--frame) solid var(--rule);
+  transition: background-color var(--t-state) var(--ease), box-shadow var(--t-state) var(--ease);
+}
+/* as the inbox cursor: the wash and the burgundy edge reach past the row, so the text never moves */
+.heard-row.now { background: var(--wash); box-shadow: -12px 0 0 var(--wash), 12px 0 0 var(--wash), -15px 0 0 var(--accent); }
+.heard-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; min-width: 0; }
+.heard-row .acts { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: var(--s-2); padding-top: var(--s-2); }
+
+/* the lines either side: one quiet line each, cut short rather than wrapped */
+.heard-near {
+  margin: 0; max-width: var(--measure); overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  font-size: var(--t-sub); line-height: 1.6; color: var(--ink-3);
+}
+.heard-body .sentence-text { padding-block: 2px; }
+
+.heard-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); margin-top: var(--s-2); }
+.heard-foot > .heard-tag { gap: 6px; min-width: 0; }
+.heard-tag::before { content: ''; width: 8px; height: 8px; flex: none; align-self: center; background: var(--dye); }
+.heard-tag a { max-width: 34em; flex: 0 1 auto; white-space: nowrap; }
+.heard-tag b { font-weight: 700; }
+.heard-tag svg { width: 12px; height: 12px; flex: none; align-self: center; opacity: .7; }
+
+/* fetching the video's audio: the speaker breathes until it plays */
+.heard-row .btn[aria-busy='true'] svg { animation: heard-fetch 1.1s var(--ease) infinite alternate; }
+@keyframes heard-fetch { from { opacity: 1; } to { opacity: .25; } }
+
+.heard-kept {
+  display: inline-flex; align-items: center; gap: 6px; height: var(--control-h-s); padding: 0 var(--s-3);
+  font-size: var(--t-sub); font-weight: var(--w-medium); color: var(--ink); text-decoration: none;
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+.heard-kept:hover { background: var(--ink); color: var(--on-ink); }
+.heard-kept svg { width: 16px; height: 16px; }
+
+/* what's said around it: a small transcript, time codes to play from, the line itself current */
+.heard-around { list-style: none; margin: 0 0 var(--s-1); padding: 0; display: grid; border-top: var(--frame) solid var(--rule); }
+.heard-around li {
+  display: grid; grid-template-columns: 3.5rem minmax(0, 1fr) auto; gap: var(--s-3); align-items: baseline;
+  padding: var(--s-2) var(--s-2) var(--s-2) 0; border-bottom: var(--frame) solid var(--rule);
+  font-size: var(--t-m); line-height: 1.8; color: var(--ink-2);
+}
+.heard-around li.here { color: var(--ink); font-size: var(--t-read); font-weight: var(--w-medium); line-height: 1.9; }
+.heard-around li.now { background: var(--wash); box-shadow: inset 3px 0 0 var(--accent); }
+.heard-around li.now .tc { color: var(--accent-ink); font-weight: 700; }
+.heard-around .tc {
+  padding: 0 0 0 var(--s-2); border: 0; background: none; cursor: pointer; text-align: left;
+  font: 400 var(--t-s)/1 var(--font); font-variant-numeric: tabular-nums; color: var(--ink-3);
+}
+.heard-around .tc:hover, .heard-around .tc:focus-visible { color: var(--ink); text-decoration: underline; }
+.heard-around-text { min-width: 0; overflow-wrap: anywhere; line-break: strict; }
+.heard-around-keep { opacity: 0; transition: opacity var(--t-fast) var(--ease); }
+.heard-around li:hover .heard-around-keep, .heard-around li:focus-within .heard-around-keep { opacity: 1; }
+@media (hover: none) { .heard-around-keep { opacity: 1; } }
+
+.heard-more { display: flex; align-items: center; gap: var(--s-3); padding-top: var(--s-4); }
+
+@media (max-width: 760px) {
+  .heard-row { grid-template-columns: minmax(0, 1fr); }
+  .heard-row .acts { justify-content: flex-start; padding-top: 0; }
+  .heard-row.now { box-shadow: -12px 0 0 var(--wash), 12px 0 0 var(--wash), -15px 0 0 var(--accent); }
+  .heard-near { white-space: normal; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
+  .heard-tag a { max-width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .heard-row .btn[aria-busy='true'] svg { animation: none; opacity: .5; }
+  .heard-row { transition: none; }
+}
+
+/* in the word lookup sheet: where else it's heard */
+.word-heard { margin: 0; font-size: var(--t-s); }
+.word-heard a { display: inline-flex; align-items: center; gap: 6px; }
+.word-heard a::before { content: ''; width: 8px; height: 8px; background: var(--dye-media); flex: none; }
+
+/* Add-ons: the channels followed */
+.heard-channels { list-style: none; margin: 0; padding: 0; display: grid; border-top: var(--frame) solid var(--rule); }
+.heard-channel {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-1) var(--s-4); align-items: center;
+  padding: var(--s-3) 0; border-bottom: var(--frame) solid var(--rule);
+}
+.heard-channel-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s-2); min-width: 0; font-weight: 700; overflow-wrap: anywhere; }
+.heard-channel-name a { color: inherit; }
+.heard-channel .meta { grid-column: 1; margin: 0; }
+.heard-channel .acts { grid-column: 2; grid-row: 1 / span 3; display: flex; gap: var(--s-1); }
+/* how far its subtitles have been read: ink for lines read, quiet for skipped, hairline for to go */
+.heard-progress { grid-column: 1; display: flex; height: 6px; max-width: 24rem; box-shadow: inset 0 0 0 1px var(--rule-strong); }
+.heard-progress i { display: block; height: 100%; }
+.heard-progress .ok { background: var(--ink); }
+.heard-progress .skipped { background: var(--ink-3); opacity: .45; }
+.heard-follow { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; }
+.heard-follow .input { flex: 1 1 18rem; min-width: 0; }
+.heard-tool { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); }
+.addon .meta.failed { color: var(--accent-ink); }

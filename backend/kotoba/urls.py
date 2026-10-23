@@ -27,6 +27,7 @@ def spa(request, rest=""):
 urlpatterns = [
     path("api/", include("speech.urls")),
     path("api/", include("library.urls")),
+    path("api/", include("corpus.urls")),
     re_path(r"^files/(?P<path>.*)$", serve, {"document_root": settings.MEDIA_ROOT}),
     re_path(r"^(?P<rest>.*)$", spa),
 ]

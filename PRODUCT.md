@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-Django + Django REST Framework + SQLite (runs on an always-on Raspberry Pi, reached over Tailscale), React + TypeScript (Vite) frontend. jp-shadow-cut's engine is merged into the backend (`speech/`): Whisper transcription and live scoring run in kotoba itself, on a GPU when there is one, as optional install extras. One install, one Docker image.
+Django + Django REST Framework + SQLite (runs on the learner's desktop, which has the GPU, reached from phone and tablet over Tailscale; it isn't always on), React + TypeScript (Vite) frontend. jp-shadow-cut's engine is merged into the backend (`speech/`): Whisper transcription and live scoring run in kotoba itself, on a GPU when there is one, as optional install extras. One install, one Docker image.
 
 ## Users
 
@@ -22,7 +22,7 @@ kotoba (言葉) is the hub that turns everything a learner collects in Japanese 
 
 - The sentence, tied to its source, is the unit of everything. Every sentence remembers where it came from (the screenshot it was read off, or the seconds of audio it was spoken in) and every attempt at saying it.
 - Shadowing native audio, not just TTS. Media is cut into timed sentences so the learner repeats the real speaker and is scored against it.
-- Local and private. OCR and speech recognition run on the user's own machines; nothing goes to a cloud service.
+- Local and private. OCR and speech recognition run on the user's own machines; nothing goes to a cloud service. The one exception is opt-in: Heard on YouTube, off until it's turned on in Add-ons.
 
 ## Operating Context
 
@@ -39,9 +39,10 @@ kotoba (言葉) is the hub that turns everything a learner collects in Japanese 
 - Recordings: jp-shadow-cut's cleanup editor, rebuilt in the hub. Cut retakes, fillers, repeats and pauses from your own takes, render a clean take, and turn what's kept into practice sentences.
 - Markdown notes live in Library folders beside files and lessons. A note can link several collected sources with compact references while keeping its own freeform text. Typing @ in a note finds a source and leaves a `[@title](/sources/id)` reference, which also links that source to the note. A lesson's notes are these same Markdown notes, read and written in place on the lesson page.
 - Data model: Source → Sentence (text, reading, source span) → Deck; Attempt (scores) per sentence.
-- No network calls to third-party services, no telemetry, no CDN assets; fonts are system or self-hosted.
+- No network calls to third-party services, no telemetry, no CDN assets; fonts are system or self-hosted. Opt-in add-ons say what leaves the machine: an API translator (sentences), and Heard on YouTube (channel lists, subtitles, a searched word, a video's audio; never your sentences).
 - Light and dark follow the system setting.
-- Undecided: SRS algorithm, Anki export, URL import (yt-dlp).
+- Heard on YouTube (`corpus/`): the human-made Japanese subtitles of channels the learner follows are read into a corpus kept apart from their sentences (its own tables; never in the inbox, word list or review). A word page plays the lines with that word, the easiest to follow first; keeping one makes it a sentence, in one source per video with the video's audio. Automatic captions don't count.
+- Undecided: SRS algorithm, Anki export, importing a single video URL as a source.
 
 ## Brand Commitments
 

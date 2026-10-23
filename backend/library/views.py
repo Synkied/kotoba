@@ -410,9 +410,11 @@ def facets(request):
 
 @api_view(["GET"])
 def stats(request):
+    from corpus import worker
     from speech import jobs
     jobs.kick()   # the app polls this: a cheap moment to pick up waiting uploads
     words.kick()  # and sentences the word index hasn't read
+    worker.kick() # and channels due a look (kotoba isn't always on, so no schedule)
     now = timezone.now()
     return Response({
         "inbox": Source.objects.filter(status=Source.Status.INBOX).count(),
@@ -457,7 +459,7 @@ def lookup(request):
             return Response({"error": "end must be a character offset"}, status=400)
     else:
         word = dictionary.lookup(text, at, pairs)
-    return Response({"word": word, "library": _in_library(word), "dictionary": dictionary.status()})
+    return Response({"word": word, "key": _key(word), "library": _in_library(word), "dictionary": dictionary.status()})
 
 
 @api_view(["POST"])
@@ -467,14 +469,20 @@ def dictionary_fetch(request):
     return Response(dictionary.status())
 
 
-def _in_library(word):
-    """The looked-up word in the word index, when your sentences have it: {id, sentences, status}."""
+def _key(word):
+    """The looked-up word's key, as the word index files it (j:<JMdict id>, or m:<form>/<reading>)."""
     if not word:
         return None
     form, reading = (word["lemma"], word["lemma_reading"]) if word["lemma"] else (word["surface"], word["reading"])
     head = dictionary.headword(form, reading) if word["entries"] else None
-    key = f"j:{head['id']}" if head else f"m:{form}/{romanize._hira(reading or '')}"
-    found = words.with_counts(Word.objects.filter(key=key)).first()
+    return f"j:{head['id']}" if head else f"m:{form}/{romanize._hira(reading or '')}"
+
+
+def _in_library(word):
+    """The looked-up word in the word index, when your sentences have it: {id, sentences, status}."""
+    if not word:
+        return None
+    found = words.with_counts(Word.objects.filter(key=_key(word))).first()
     return {"id": found.id, "sentences": found.sentences, "status": words.status(found)} if found else None
 
 
@@ -598,7 +606,7 @@ def review(request):
 
 def _word_row(w, checked=None) -> dict:
     tries = checked.get(w.id, []) if checked is not None else []
-    return {"id": w.id, "lemma": w.lemma, "reading": w.reading, "romaji": dictionary._romaji(w.reading) if w.reading else "",
+    return {"id": w.id, "key": w.key, "lemma": w.lemma, "reading": w.reading, "romaji": dictionary._romaji(w.reading) if w.reading else "",
             "entry": w.entry, "status": words.status(w), "known_at": w.known_at,
             "sentences": getattr(w, "sentences", None), "sources": getattr(w, "sources", None),
             "tries": len(tries), "misses": tries.count(False), "trouble": words.troubled(tries) if tries else False}

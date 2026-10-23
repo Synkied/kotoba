@@ -48,6 +48,10 @@ With an API, sentences leave your machine; the Add-ons page says so. `KOTOBA_LLM
 
 Phone and tablet access: `tailscale serve --bg 8780`, then `KOTOBA_HOSTS=<pi>.<tailnet>.ts.net`. The microphone needs HTTPS, which tailscale serve provides.
 
+### Heard on YouTube
+
+A word's page can play the word as native speakers say it, from YouTube channels you follow: turn it on in **Add-ons** (kotoba fetches yt-dlp into the data folder, plus deno when there's no JavaScript runtime, and keeps yt-dlp up to date itself), then follow a channel (`https://www.youtube.com/@name`) or a playlist. Only human-made Japanese subtitles count, not automatic captions. Subtitles are read in the background (a few hundred videos take a while; when YouTube asks for a rest, kotoba waits and carries on), and channels are looked at again every 12 hours kotoba runs. **Find more** on a word searches YouTube for it once. A video's audio is fetched the first time one of its lines plays and kept 30 days; **Keep** makes a line one of your sentences, in the inbox, with the video's audio. Off, nothing goes to YouTube.
+
 ## Bring in what you have
 
 ```bash

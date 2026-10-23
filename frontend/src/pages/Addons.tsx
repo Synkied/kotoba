@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Check, Cloud, HardDrive, Pencil, Plus, Trash2 } from 'lucide-react'
-import { api, type Addons, type TranslationStatus, type Translator, type TranslatorCheck, type TranslatorDraft, type TranslatorKind } from '../lib/api'
+import { Link, useLocation } from 'react-router-dom'
+import { Check, Cloud, HardDrive, Pencil, Plus, RotateCw, Trash2 } from 'lucide-react'
+import { api, type HeardChannel, type YouTube, type Addons, type TranslationStatus, type Translator, type TranslatorCheck, type TranslatorDraft, type TranslatorKind } from '../lib/api'
 import { setLanguage } from '../components/ReadingAids'
 import { ErrorNotice, Skeleton, dayLabel, clock, useAction, PageHome } from '../components/ui'
 import { CopyButton } from './Library'
@@ -69,6 +69,8 @@ export default function AddonsPage() {
 
         <TranslationAddon />
 
+        <YouTubeAddon />
+
         <Addon dot={ocr} name="Screen captures" by="screen-ocr">
           <p className="meta">Press a hotkey and drag over text on screen: the text and its screenshot land in the inbox, queued offline when kotoba isn't reachable. It runs on the computer you read on.</p>
           <Install cmds={['make ocr-client', `screen-ocr --server ${window.location.origin}`]} />
@@ -78,14 +80,123 @@ export default function AddonsPage() {
   )
 }
 
-function Addon({ dot, name, by, children }: { dot: [Dot, string]; name: string; by: string; children: React.ReactNode }) {
+function Addon({ dot, name, by, id, children }: { dot: [Dot, string]; name: string; by: string; id?: string; children: React.ReactNode }) {
   return (
-    <div className="addon">
+    <div className="addon" id={id}>
       <span className={'dot ' + dot[0]} aria-hidden="true" />
       <h2>{name} <span className="meta" style={{ fontWeight: 400 }}>{by}</span></h2>
       <span className="meta addon-state">{dot[1]}</span>
       <div className="addon-body">{children}</div>
     </div>
+  )
+}
+
+const num = (n: number) => n.toLocaleString()
+
+/** YouTube listening: the channels you follow, read for their human-made Japanese subtitles so a
+ *  word page can play the word as native speakers say it. Polled while something is being read. */
+function YouTubeAddon() {
+  const [y, setY] = useState<YouTube | null>(null)
+  const [error, setError] = useState<unknown>(null)
+  const [busy, setBusy] = useState(false)
+  const [url, setUrl] = useState('')
+  const [updating, setUpdating] = useState(false)
+  const loc = useLocation()
+  const load = (p: Promise<unknown> = Promise.resolve()) => {
+    setBusy(true); setError(null)
+    return p.then(() => api.youtube()).then(setY, setError).finally(() => setBusy(false))
+  }
+  useEffect(() => { load() }, [])
+  const active = !!y && (y.worker.busy || y.tool.installing || y.channels.some((c) => c.videos.waiting > 0 || !c.checked_at))
+  useEffect(() => {
+    if (!active) return
+    const t = window.setTimeout(() => api.youtube().then(setY, () => {}), 3000)
+    return () => window.clearTimeout(t)
+  }, [active, y])
+  const ready = !!y
+  useEffect(() => {
+    if (ready && loc.hash === '#youtube') document.getElementById('youtube')?.scrollIntoView({ block: 'start' })
+  }, [ready, loc.hash])
+  if (!y) return error ? <ErrorNotice error={error} /> : null
+
+  const t = y.tool
+  const okVideos = y.channels.reduce((n, c) => n + c.videos.ok, 0) + y.found.videos
+  const dot: [Dot, string] = !y.enabled ? ['off', 'Off'] : t.installing ? ['warn', 'Fetching yt-dlp…'] : !t.installed ? ['off', t.error || 'yt-dlp is missing']
+    : y.worker.paused_until ? ['warn', `YouTube asked for a rest; reading again at ${clock(new Date(y.worker.paused_until * 1000).toISOString())}`]
+    : y.worker.error ? ['off', y.worker.error] : y.worker.busy ? ['warn', y.worker.doing || 'Reading…']
+      : y.lines ? ['ok', `${num(y.lines)} lines from ${num(okVideos)} videos`] : ['warn', 'Follow a channel to begin']
+  const follow = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!url.trim()) return
+    await load(api.follow(url.trim()).then(() => setUrl('')))
+  }
+  return (
+    <Addon id="youtube" dot={dot} name="Heard on YouTube" by="yt-dlp">
+      <p className="meta">Hear your words said by native speakers. kotoba reads the Japanese subtitles of the YouTube channels you follow (only ones written by people, not automatic captions), and a word’s page plays the lines it’s in, the easiest to follow first. Keep a line and it’s one of your sentences, with its audio.</p>
+      <p className="meta"><b>This asks YouTube</b> for a channel’s videos and their subtitles when you follow it (and twice a day after), for search results when you press Find more on a word, and for a video’s audio when you first play one of its lines. Nothing about your sentences is sent.</p>
+      {!y.enabled ? (
+        <div><Button variant="primary" size="small" disabled={busy} aria-busy={busy} onClick={() => load(api.setYouTube(true))}>Turn on</Button></div>
+      ) : <>
+        <ul className="heard-channels" aria-label="Channels you follow">
+          {y.channels.map((c) => <ChannelRow key={c.id} c={c} onChange={() => load()} />)}
+          {(y.found.videos > 0) && <li className="heard-channel">
+            <span className="heard-channel-name">Found with Find more</span>
+            <p className="meta num">{num(y.found.videos)} videos with Japanese subtitles · {num(y.found.lines)} lines</p>
+          </li>}
+        </ul>
+        <form className="heard-follow" onSubmit={follow} aria-label="Follow a channel">
+          <Input type="url" inputMode="url" spellCheck={false} value={url} onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://www.youtube.com/@channel, or a playlist" aria-label="Channel or playlist address" disabled={!t.installed} />
+          <Button variant="primary" size="small" disabled={busy || !url.trim() || !t.installed} aria-busy={busy}><Plus aria-hidden="true" />Follow</Button>
+        </form>
+        <div className="heard-tool meta">
+          <span className="num">{t.installed ? `yt-dlp ${t.version ?? ''}` : t.installing ? 'Fetching yt-dlp…' : 'yt-dlp isn’t here yet'}{t.js && ` · ${t.js}`}</span>
+          {t.installed && <Button type="button" variant="ghost" size="small" disabled={updating} aria-busy={updating}
+            onClick={async () => { setUpdating(true); try { await load(api.updateYtDlp()) } finally { setUpdating(false) } }}>{updating ? 'Updating…' : 'Update now'}</Button>}
+          {t.updated && <span>{t.updated}</span>}
+          {t.note && <span>{t.note}</span>}
+          <span className="grow" />
+          <Button type="button" variant="ghost" size="small" disabled={busy} onClick={() => load(api.setYouTube(false))}>Turn off</Button>
+        </div>
+        {t.error && <p className="meta failed">{t.error}</p>}
+      </>}
+      {error != null && <ErrorNotice error={error} />}
+    </Addon>
+  )
+}
+
+/** One channel followed: how far its subtitles have been read, and what was skipped and why. */
+function ChannelRow({ c, onChange }: { c: HeardChannel; onChange: () => void }) {
+  const [busy, setBusy] = useState(false)
+  const v = c.videos
+  const all = v.ok + v.none + v.members + v.failed + v.waiting
+  const skipped = v.none + v.members + v.failed
+  const act = (p: Promise<unknown>) => { setBusy(true); p.then(onChange).finally(() => setBusy(false)) }
+  const why = [v.none && `${num(v.none)} without human subtitles`, v.members && `${num(v.members)} members-only or private`,
+    v.failed && `${num(v.failed)} couldn’t be read`].filter(Boolean).join(' · ')
+  return (
+    <li className="heard-channel">
+      <span className="heard-channel-name"><a href={c.url} target="_blank" rel="noreferrer">{c.title || c.url}</a>
+        {c.kind === 'playlist' && <span className="meta">playlist</span>}</span>
+      {!c.checked_at ? <p className="meta">Reading its video list…</p> : <>
+        <p className="meta num">
+          {num(v.ok)} of {num(all)} videos with Japanese subtitles · {num(c.lines)} lines
+          {v.waiting > 0 && <> · <b>{num(v.waiting)} still to read</b></>}
+        </p>
+        {all > 0 && <div className="heard-progress" role="img" aria-label={`${num(v.ok + skipped)} of ${num(all)} videos read`}>
+          <i className="ok" style={{ width: `${(v.ok / all) * 100}%` }} /><i className="skipped" style={{ width: `${(skipped / all) * 100}%` }} />
+        </div>}
+        {why && <p className="meta">Skipped: {why}</p>}
+      </>}
+      {c.error && <p className="meta failed">{c.error}</p>}
+      <span className="acts">
+        <Button type="button" variant="ghost" size="small" icon disabled={busy} aria-label={`Look for new videos on ${c.title || 'this channel'}`} title="Look for new videos now"
+          onClick={() => act(api.refreshChannel(c.id))}><RotateCw aria-hidden="true" /></Button>
+        <Button type="button" variant="ghost" size="small" icon disabled={busy} aria-label={`Stop following ${c.title || c.url}`} title="Stop following"
+          onClick={() => { if (window.confirm(`Stop following ${c.title || c.url}? Its lines go too; the ones you kept stay in your sentences.`)) act(api.unfollow(c.id)) }}>
+          <Trash2 aria-hidden="true" /></Button>
+      </span>
+    </li>
   )
 }
 

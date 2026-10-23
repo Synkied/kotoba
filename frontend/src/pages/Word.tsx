@@ -8,6 +8,7 @@ import { SentenceText } from '../components/SentenceText'
 import { fmtTime } from '../components/SourcePanel'
 import { Stamps } from '../components/Stamp'
 import { Entries } from '../components/WordLookup'
+import { HeardSection } from '../components/Heard'
 import { IndexNotice, KnownButton, ListenSentence, WordPlates } from '../components/WordBits'
 import { useIndexWait } from '../lib/wordIndex'
 import { ErrorNotice, Skeleton, useAsync, usePref } from '../components/ui'
@@ -64,6 +65,7 @@ function Detail({ id }: { id: number }) {
             <p>It was in sentences that have since gone or been archived. It stays here because you marked it known.</p>
           </EmptyState> : <BySource sentences={w.sentence_list} furigana={furigana} />}
           {w.more > 0 && <p className="meta">And {plural(w.more, 'more sentence')}.</p>}
+          <HeardSection termKey={w.key} lemma={w.lemma} />
         </section>
 
         <aside className="word-page-aside">
@@ -113,7 +115,7 @@ function BySource({ sentences, furigana }: { sentences: WordSentence[]; furigana
   </section>)}</>
 }
 
-function Say({ text, label }: { text: string; label: string }) {
+export function Say({ text, label }: { text: string; label: string }) {
   const [voice] = usePref<string>('voice', 'browser')
   const [playing, setPlaying] = useState(false)
   useEffect(() => () => { if (playing) stopAudio() }, [playing])

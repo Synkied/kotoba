@@ -23,6 +23,7 @@ import TranscriptionsPage from './pages/Transcriptions'
 import SentencesPage from './pages/Sentences'
 import WordsPage, { NextSentencesPage } from './pages/Words'
 import WordPage from './pages/Word'
+import DictPage from './pages/Dict'
 import SearchPage, { GlobalSearch } from './pages/Search'
 import DesignPage from './pages/Design'
 import { EmptyState, buttonClass } from './components/ds'
@@ -125,6 +126,7 @@ function Shell() {
             <Route path="/words" element={<WordsPage />} />
             <Route path="/words/next" element={<NextSentencesPage />} />
             <Route path="/words/:id" element={<WordPage />} />
+            <Route path="/dict/:key" element={<DictPage />} />
             <Route path="/sentences/:id" element={<SentencePage />} />
             <Route path="/sources/:id" element={<SourcePage />} />
             <Route path="/decks" element={<DecksPage />} />
