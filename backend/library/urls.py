@@ -1,7 +1,7 @@
 from django.urls import path
 from rest_framework.routers import SimpleRouter
 
-from . import views, lessons, notes
+from . import accounts, views, lessons, notes
 
 router = SimpleRouter(trailing_slash=False)
 router.register("sources", views.SourceViewSet, basename="source")
@@ -13,6 +13,13 @@ router.register("lesson-folders", lessons.LessonFolderViewSet, basename="lesson-
 router.register("notes", notes.NoteViewSet, basename="note")
 
 urlpatterns = [
+    path("account", accounts.account),
+    path("account/signin", accounts.signin),
+    path("account/signout", accounts.signout),
+    path("account/signup", accounts.signup),
+    path("account/password", accounts.password),
+    path("account/token", accounts.token),
+    path("health", accounts.health),
     path("lessons/arrange", lessons.arrange_lessons),
     path("lessons/<int:pk>/files/<int:fid>", lessons.lesson_file),
     path("captures", views.captures),               # screen-ocr --server pushes here

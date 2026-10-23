@@ -6,8 +6,9 @@ from unittest.mock import patch
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from library import dictionary, translate, words
+from library import dictionary, words
 from library.models import Sentence, Source, Word
+from library.testing import SignedIn
 from library.tests_words import JMDICT
 
 from . import heard, worker, ytdlp
@@ -60,7 +61,7 @@ class ParsingCase(TestCase):
         self.assertEqual((e.kind, str(e)), ("gone", "Video unavailable. This video has been removed by the uploader"))
 
 
-class HeardCase(TestCase):
+class HeardCase(SignedIn):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -77,15 +78,17 @@ class HeardCase(TestCase):
         super().tearDownClass()
 
     def setUp(self):
+        super().setUp()
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.dir = Path(tmp.name)
-        for p in (patch.object(translate, "_SETTINGS", self.dir / "settings.json"), patch.object(heard, "AUDIO", self.dir / "heard"),
+        for p in (patch.object(heard, "AUDIO", self.dir / "heard"),
                   patch.object(worker, "kick", lambda: None), patch.object(words, "kick", lambda: None)):
             p.start()
             self.addCleanup(p.stop)
-        heard.set_enabled(True)
+        heard.set_enabled(self.user, True)
         self.channel = Channel.objects.create(kind="channel", url="https://www.youtube.com/@a/videos", title="A")
+        self.channel.followers.add(self.user)
         self.v1 = self._video("aaaaaaaaaaa", ["猫が好きです。", "犬も猫も本を読む。", "図書館で本を読む。"])
         self.v2 = self._video("bbbbbbbbbbb", ["本を読む。", "猫と犬と本。"])
 
@@ -108,8 +111,8 @@ class HeardCase(TestCase):
 
     def test_easiest_lines_first_and_one_per_video_before_a_second(self):
         for lemma in ("猫", "読む"):
-            Word.objects.create(key=self._key(lemma), lemma=lemma, known_at=timezone.now())
-        out = heard.lines_for(Term.objects.get(lemma="本"), 0, 10)
+            Word.objects.create(owner=self.user, key=self._key(lemma), lemma=lemma, known_at=timezone.now())
+        out = heard.lines_for(Term.objects.get(lemma="本"), self.user, 0, 10)
         # every other word known first; then v1's best (one new word, 9 characters, the earlier
         # line of the two that tie), before either video's second
         self.assertEqual([(l["text"], l["new"]) for l in out["lines"]],
@@ -123,15 +126,15 @@ class HeardCase(TestCase):
         self.v2.gone_at = timezone.now()
         self.v2.save()
         term = Term.objects.get(lemma="本")
-        self.assertEqual(heard.lines_for(term)["total"], 2)
+        self.assertEqual(heard.lines_for(term, self.user)["total"], 2)
         heard.AUDIO.mkdir()
         (heard.AUDIO / "bbbbbbbbbbb.weba").write_bytes(b"x")
-        self.assertEqual(heard.lines_for(term)["total"], 4)
+        self.assertEqual(heard.lines_for(term, self.user)["total"], 4)
 
     def test_heard_endpoint_and_off(self):
         r = self.client.get("/api/youtube/heard", {"key": self._key("猫")}).json()
         self.assertEqual((r["enabled"], r["total"], r["channels"]), (True, 3, 1))
-        heard.set_enabled(False)
+        heard.set_enabled(self.user, False)
         r = self.client.get("/api/youtube/heard", {"key": self._key("猫")}).json()
         self.assertEqual((r["enabled"], r["lines"]), (False, []))
         self.assertEqual(self.client.post("/api/youtube/channels", {"url": "@b"}, content_type="application/json").status_code, 409)
@@ -143,24 +146,24 @@ class HeardCase(TestCase):
             return folder / f"{yt_id}.weba"
         later, sooner = self.v1.lines.get(position=2), self.v1.lines.get(position=0)
         with patch.object(ytdlp, "audio", fake_audio), \
-                patch.object(heard, "give_source_audio", lambda v: heard._give_source_audio(v.id)):  # no thread
+                patch.object(heard, "give_source_audio", lambda v, s: heard._give_source_audio(v.id, s.id)):  # no thread
             r = self.client.post(f"/api/youtube/lines/{later.id}/keep").json()
             self.client.post(f"/api/youtube/lines/{sooner.id}/keep")
         src = Source.objects.get(pk=r["source"])
         self.assertEqual((src.kind, src.status, src.title), ("audio", "inbox", "Video a"))
         self.assertEqual([s.text for s in src.sentences.order_by("position")], ["猫が好きです。", "図書館で本を読む。"])
         self.assertEqual(src.sentences.get(text="図書館で本を読む。").start, 6.0)
-        self.assertEqual(src.media.name, "media/youtube-aaaaaaaaaaa.weba")
+        self.assertEqual(src.media.name, f"media/youtube-aaaaaaaaaaa-{src.id}.weba")
         self.assertTrue(Path(src.media.path).exists())
         # a kept line is yours now: it's not offered again, and keeping it twice changes nothing
-        self.assertNotIn(later.id, heard.ranked(Term.objects.get(lemma="本")))
+        self.assertNotIn(later.id, heard.ranked(Term.objects.get(lemma="本"), self.user))
         self.assertEqual(self.client.post(f"/api/youtube/lines/{later.id}/keep").json()["sentence"], r["sentence"])
         self.assertEqual(Sentence.objects.count(), 2)
 
     def test_unfollowing_keeps_what_you_kept(self):
         line = self.v1.lines.get(position=0)
         with patch.object(heard, "give_source_audio"):
-            heard.keep(line)
+            heard.keep(line, self.user)
         self.assertEqual(self.client.delete(f"/api/youtube/channels/{self.channel.id}").status_code, 204)
         self.assertEqual(list(Video.objects.values_list("yt_id", flat=True)), ["aaaaaaaaaaa"])  # its source holds it
         self.assertEqual(Sentence.objects.get().text, "猫が好きです。")
@@ -209,16 +212,14 @@ class HeardCase(TestCase):
         self.assertTrue(Term.objects.filter(lemma="猫").exists())
 
 
-class ThrottleCase(TestCase):
+class ThrottleCase(SignedIn):
     def setUp(self):
-        tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(tmp.cleanup)
-        for p in (patch.object(translate, "_SETTINGS", Path(tmp.name) / "settings.json"),
-                  patch.object(worker, "PACE", (0, 0)), patch.object(worker, "_update_due", lambda: False),
+        super().setUp()
+        for p in (patch.object(worker, "PACE", (0, 0)), patch.object(worker, "_update_due", lambda: False),
                   patch.dict(worker.state, {"paused_until": 0.0, "backoff": 0})):
             p.start()
             self.addCleanup(p.stop)
-        heard.set_enabled(True)
+        heard.set_enabled(self.user, True)
 
     def test_too_many_requests_leaves_videos_waiting_and_rests(self):
         ch = Channel.objects.create(kind="channel", url="u", checked_at=timezone.now())
@@ -257,18 +258,18 @@ class ThrottleCase(TestCase):
         self.assertEqual(dict(Video.objects.values_list("yt_id", "subs")), {"p" * 11: "ok", "q" * 11: "none", "r" * 11: "ok"})
 
 
-class RestartCase(TestCase):
+class RestartCase(SignedIn):
     """kotoba stopped halfway through fetching something."""
 
     def setUp(self):
+        super().setUp()
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.dir = Path(tmp.name)
-        for p in (patch.object(translate, "_SETTINGS", self.dir / "settings.json"),
-                  patch.dict(worker._tools, {"state": "", "error": ""})):
-            p.start()
-            self.addCleanup(p.stop)
-        heard.set_enabled(True)
+        p = patch.dict(worker._tools, {"state": "", "error": ""})
+        p.start()
+        self.addCleanup(p.stop)
+        heard.set_enabled(self.user, True)
 
     def test_a_cut_short_install_is_fetched_again(self):
         asked = []

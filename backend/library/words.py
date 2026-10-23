@@ -9,6 +9,8 @@ its UniDic dictionary form. Particles, auxiliaries, punctuation and numbers aren
 Sentences are read in a background thread (kick()), so saving one never waits for it; a
 sentence whose text changes is read again, and everything is when the engine changes (the
 reading engine, or the dictionary arriving).
+
+Each user has their own words, made from their own sentences: what one knows, another may not.
 """
 
 import math
@@ -141,14 +143,16 @@ def segment(text: str) -> list:
 # --- keeping the index -------------------------------------------------------------
 
 def index(sentence: Sentence, stamp: str | None = None) -> None:
-    """Read one sentence's words into the index."""
+    """Read one sentence's words into its owner's index."""
     found = segment(sentence.text)
     stamp = stamp or engine()
+    owner = Source.objects.filter(pk=sentence.source_id).values_list("owner", flat=True).first()
     with transaction.atomic():
-        known = {w.key: w for w in Word.objects.filter(key__in={f["key"] for f in found})}
+        known = {w.key: w for w in Word.objects.filter(owner=owner, key__in={f["key"] for f in found})}
         for f in found:
             if f["key"] not in known:
-                known[f["key"]] = Word.objects.create(key=f["key"], lemma=f["lemma"], reading=f["reading"], entry=f["entry"])
+                known[f["key"]] = Word.objects.create(owner_id=owner, key=f["key"], lemma=f["lemma"], reading=f["reading"],
+                                                      entry=f["entry"])
         WordUse.objects.filter(sentence=sentence).delete()
         WordUse.objects.bulk_create([WordUse(word=known[f["key"]], sentence=sentence, start=f["start"], end=f["end"],
                                              surface=f["surface"]) for f in found])
@@ -156,8 +160,8 @@ def index(sentence: Sentence, stamp: str | None = None) -> None:
         Sentence.objects.filter(pk=sentence.pk, text=sentence.text).update(words_engine=stamp)
 
 
-def pending() -> int:
-    return Sentence.objects.exclude(words_engine=engine()).count()
+def pending(user) -> int:
+    return Sentence.objects.of(user).exclude(words_engine=engine()).count()
 
 
 def index_pending(limit: int | None = None) -> int:
@@ -203,8 +207,10 @@ def kick() -> None:
 
 # --- what the index tells -----------------------------------------------------------
 
-def live_uses():
-    return WordUse.objects.exclude(sentence__source__status=Source.Status.ARCHIVED)
+def live_uses(user=None):
+    """Where words stand in sentences that aren't archived: a user's, or everyone's."""
+    uses = WordUse.objects.of(user) if user is not None else WordUse.objects.all()
+    return uses.exclude(sentence__source__status=Source.Status.ARCHIVED)
 
 
 def with_counts(qs):
@@ -243,14 +249,14 @@ def _unit_spans(units: list, text: str) -> list:
 RECENT = 8  # how many of a word's latest checks count
 
 
-def checks(word_ids=None, since=None) -> dict:
-    """How each word went when you said it: {word id: [ok, …]} over its latest scored attempts,
-    newest first. A word counts as missed when any part of it was missed or unclear."""
-    attempts = Attempt.objects.exclude(units=[]).select_related("sentence").order_by("-created_at")
+def checks(user, word_ids=None) -> dict:
+    """How each of the user's words went when they said it: {word id: [ok, …]} over its latest
+    scored attempts, newest first. A word counts as missed when any part of it was missed or unclear."""
+    attempts = Attempt.objects.of(user).exclude(units=[]).select_related("sentence").order_by("-created_at")
     if word_ids is not None:
         attempts = attempts.filter(sentence__word_uses__word__in=word_ids).distinct()
     uses = defaultdict(list)
-    q = WordUse.objects.all() if word_ids is None else WordUse.objects.filter(word__in=word_ids)
+    q = WordUse.objects.of(user) if word_ids is None else WordUse.objects.of(user).filter(word__in=word_ids)
     for u in q.values("sentence_id", "word_id", "start", "end"):
         uses[u["sentence_id"]].append(u)
     out = defaultdict(list)
@@ -279,7 +285,9 @@ def related(sentence: Sentence, limit: int = 6) -> list:
     mine = {u.word_id: u.word for u in sentence.word_uses.select_related("word")}
     if not mine:
         return []
-    total = max(1, Sentence.objects.exclude(source__status=Source.Status.ARCHIVED).count())
+    # its words are its owner's, so the sentences sharing them are too
+    total = max(1, Sentence.objects.filter(source__owner=sentence.source.owner_id)
+                .exclude(source__status=Source.Status.ARCHIVED).count())
     df = dict(live_uses().filter(word__in=mine).values("word").annotate(n=Count("sentence", distinct=True))
               .values_list("word", "n"))
     cap = max(3, total * 0.05)
@@ -298,13 +306,13 @@ def related(sentence: Sentence, limit: int = 6) -> list:
     return [(found[sid], sorted((mine[w] for w in shared[sid]), key=lambda w: -weight[w.id])) for sid in ranked if sid in found]
 
 
-def next_sentences(limit: int = 20) -> list:
+def next_sentences(user, limit: int = 20) -> list:
     """Sentences you're one word away from: every other word in them is known or practised.
     The new word that's in the most of your sentences comes first. [(sentence, word, its sentences)]"""
     passed = live_uses().filter(word=OuterRef("pk"), sentence__last__gte=srs.PASS)
-    familiar = set(Word.objects.filter(Q(known_at__isnull=False) | Exists(passed)).values_list("id", flat=True))
+    familiar = set(Word.objects.of(user).filter(Q(known_at__isnull=False) | Exists(passed)).values_list("id", flat=True))
     words = defaultdict(set)
-    for sid, wid in live_uses().filter(sentence__last__isnull=True).values_list("sentence_id", "word_id"):
+    for sid, wid in live_uses(user).filter(sentence__last__isnull=True).values_list("sentence_id", "word_id"):
         words[sid].add(wid)
     one = {sid: next(iter(ws - familiar)) for sid, ws in words.items() if len(ws - familiar) == 1 and len(ws) > 1}
     if not one:

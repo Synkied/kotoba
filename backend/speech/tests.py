@@ -2,21 +2,23 @@ import json
 from unittest.mock import patch
 from urllib.parse import urlencode
 
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase
+
+from library.testing import SignedIn
 
 
-class TranscriptionQueueTests(TestCase):
+class TranscriptionQueueTests(SignedIn):
     @patch("speech.views.jobs.kick")
     @patch("speech.views.jobs.can_transcribe", return_value=False)
     @patch("speech.views.jobs.current")
     def test_queue_includes_uploads_and_editor_work_without_duplicates(self, current, can_transcribe, kick):
         from library.models import Source
 
-        waiting = Source.objects.create(kind="audio", title="Waiting upload", job="waiting")
-        running = Source.objects.create(kind="video", title="Running upload", job="running")
-        editor = Source.objects.create(kind="audio", title="Editor recording")
-        Source.objects.create(kind="audio", title="Finished")
-        Source.objects.create(kind="audio", title="Failed", job="failed")
+        waiting = Source.objects.create(owner=self.user, kind="audio", title="Waiting upload", job="waiting")
+        running = Source.objects.create(owner=self.user, kind="video", title="Running upload", job="running")
+        editor = Source.objects.create(owner=self.user, kind="audio", title="Editor recording")
+        Source.objects.create(owner=self.user, kind="audio", title="Finished")
+        Source.objects.create(owner=self.user, kind="audio", title="Failed", job="failed")
         current.return_value = [
             {"id": 3, "kind": "render", "source": editor.id, "title": editor.title, "state": "running", "progress": None},
             {"id": 2, "kind": "transcribe", "source": editor.id, "title": editor.title, "state": "queued", "progress": None},
@@ -38,7 +40,7 @@ class TranscriptionQueueTests(TestCase):
         self.assertEqual(self.client.get("/api/transcriptions").json(), {"items": [], "can_transcribe": True})
 
 
-class PracticeRecordingTests(SimpleTestCase):
+class PracticeRecordingTests(SignedIn):
     @patch("speech.views.engine.whisper_installed", return_value=True)
     @patch("speech.views.engine.whisper_key", return_value=("small", "cpu", "int8"))
     @patch("speech.views.engine.score", return_value=({"said": "こんにちは"}, 200))
@@ -82,8 +84,9 @@ class NonSpeechCleanupTests(SimpleTestCase):
         self.assertFalse(any(reason == 'pause' for _, _, reason in cuts))
 
 
-class KokoroLoadTests(SimpleTestCase):
+class KokoroLoadTests(SignedIn):
     def setUp(self):
+        super().setUp()
         from speech import engine
         self.engine = engine
         self.addCleanup(engine._kokoro.update, dict(engine._kokoro))

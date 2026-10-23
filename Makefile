@@ -8,6 +8,9 @@ VOICEVOX ?= 0
 OCR_DIR  ?= $(or $(XDG_DATA_HOME),$(HOME)/.local/share)/screen-ocr
 OCR_SRC  ?= ../screen_ocr
 JPCUT_DIR ?= ../jp-shadow-cut
+# The account a command works for (adduser, claim-data, imports, translate); the only one when empty
+NAME     ?=
+AS       = $(if $(NAME),--user "$(NAME)")
 
 UV       = cd backend && uv run
 SYNC     = $(foreach e,$(EXTRAS),--extra $(e)) $(if $(filter 1,$(GPU)),--extra gpu)
@@ -15,8 +18,9 @@ COMPOSE  = KOTOBA_PORT=$(PORT) GPU=$(GPU) $(if $(filter 1,$(VOICEVOX)),COMPOSE_P
            docker compose -f compose.yaml $(if $(filter 1,$(GPU)),-f compose.gpu.yaml)
 
 .DEFAULT_GOAL := help
-.PHONY: help install build migrate run dev dev-api dev-web check import-ocr import-jpcut dictionary transcribe translate \
-        ocr-client docker-build up down logs status shell docker-refresh-readings docker-import-ocr clean
+.PHONY: help install build migrate run dev dev-api dev-web check adduser claim-data import-ocr import-jpcut dictionary transcribe \
+        translate ocr-client docker-build up down logs status shell docker-adduser docker-claim-data docker-refresh-readings \
+        docker-import-ocr clean
 
 help: ## List the targets
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  \033[1m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -55,11 +59,17 @@ check: ## Type-check, lint and run Django's checks
 	cd frontend && npx tsc -b && npm run lint
 	$(UV) python manage.py check
 
+adduser: ## Make an account: make adduser NAME=you (STAFF=1: may use the translator set in .env)
+	$(UV) python manage.py adduser "$(NAME)" $(if $(filter 1,$(STAFF)),--staff)
+
+claim-data: ## Give the library from before accounts to one account, once: make claim-data NAME=you
+	$(UV) python manage.py claim_data $(NAME)
+
 import-ocr: ## Import screen_ocr's history (OCR_DIR=... to override)
-	$(UV) python manage.py import_screen_ocr --dir "$(OCR_DIR)"
+	$(UV) python manage.py import_screen_ocr --dir "$(OCR_DIR)" $(AS)
 
 import-jpcut: ## Import jp-shadow-cut's recordings, cuts and scripts (JPCUT_DIR=...)
-	$(UV) python manage.py import_jpcut "$(abspath $(JPCUT_DIR))"
+	$(UV) python manage.py import_jpcut "$(abspath $(JPCUT_DIR))" $(AS)
 
 dictionary: ## Download the dictionary for word lookups now (otherwise the first lookup fetches it)
 	$(UV) python manage.py fetch_dictionary
@@ -68,7 +78,7 @@ transcribe: ## Transcribe waiting uploads now, with progress (the server also do
 	$(UV) python manage.py transcribe
 
 translate: ## Translate sentences that have none yet (TO=fr for another language)
-	$(UV) python manage.py translate $(if $(TO),--to $(TO))
+	$(UV) python manage.py translate $(if $(TO),--to $(TO)) $(AS)
 
 ocr-client: ## Install the screen-ocr capture client on this computer (needs uv and Tesseract)
 	uv tool install --force "screen-ocr[desktop] @ $(if $(findstring ://,$(OCR_SRC)),$(OCR_SRC),file://$(abspath $(OCR_SRC)))"
@@ -95,11 +105,17 @@ status: ## Show what's running
 shell: ## Open a shell in the container
 	$(COMPOSE) exec kotoba sh
 
+docker-adduser: ## Make an account in the container: make docker-adduser NAME=you (STAFF=1)
+	$(COMPOSE) exec kotoba python manage.py adduser "$(NAME)" $(if $(filter 1,$(STAFF)),--staff)
+
+docker-claim-data: ## Give the container's library from before accounts to one account: NAME=you
+	$(COMPOSE) exec kotoba python manage.py claim_data $(NAME)
+
 docker-refresh-readings: ## Refresh the readings for sentences in the container (also done on start when they change)
 	$(COMPOSE) exec kotoba python manage.py refresh_readings
 
 docker-import-ocr: ## Import screen_ocr's history into the container
-	$(COMPOSE) run --rm -v "$(OCR_DIR):/ocr:ro" kotoba python manage.py import_screen_ocr --dir /ocr
+	$(COMPOSE) run --rm -v "$(OCR_DIR):/ocr:ro" kotoba python manage.py import_screen_ocr --dir /ocr $(AS)
 
 clean: ## Remove build output and the backend virtualenv
 	rm -rf frontend/dist backend/.venv

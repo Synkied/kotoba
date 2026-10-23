@@ -17,6 +17,7 @@
 @import './components/note-markdown.css';
 @import './components/kind.css';
 
+@import './pages/account.css';
 @import './pages/addons.css';
 @import './pages/cleanup.css';
 @import './pages/collect.css';

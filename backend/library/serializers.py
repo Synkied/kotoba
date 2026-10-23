@@ -27,6 +27,31 @@ def clean_labels(value):
     return out[:MAX_LABELS]
 
 
+class Owned:
+    """For a serializer of a user's rows: what its fields can point at (a folder, a source, a
+    sentence) is limited to that user's own, and a row it makes is theirs. Needs the request in
+    its context to write; without one, related fields accept nothing."""
+
+    def _user(self):
+        request = self.context.get("request")
+        return request.user if request and request.user.is_authenticated else None
+
+    def get_fields(self):
+        fields = super().get_fields()
+        user = self._user()
+        for field in fields.values():
+            rel = getattr(field, "child_relation", field)
+            qs = getattr(rel, "queryset", None)
+            if qs is not None and hasattr(qs, "of"):
+                rel.queryset = qs.of(user) if user else qs.none()
+        return fields
+
+    def create(self, data):
+        if hasattr(self.Meta.model, "owner"):
+            data["owner"] = self._user()
+        return super().create(data)
+
+
 def take_url(a):
     return a.audio.url if a.audio else None
 
@@ -42,7 +67,7 @@ class StampSerializer(serializers.ModelSerializer):
         return take_url(a)
 
 
-class SentenceSerializer(serializers.ModelSerializer):
+class SentenceSerializer(Owned, serializers.ModelSerializer):
     source_kind = serializers.CharField(source="source.kind", read_only=True)
     source_title = serializers.SerializerMethodField()
     has_audio = serializers.SerializerMethodField()
@@ -101,7 +126,7 @@ class SentenceSerializer(serializers.ModelSerializer):
         return [{"id": d.id, "name": d.name} for d in s.decks.all()]
 
 
-class SourceSerializer(serializers.ModelSerializer):
+class SourceSerializer(Owned, serializers.ModelSerializer):
     sentences = SentenceSerializer(many=True, read_only=True)
     image = serializers.SerializerMethodField()
     media = serializers.SerializerMethodField()
@@ -127,7 +152,7 @@ class SourceSerializer(serializers.ModelSerializer):
         return clean_labels(value)
 
 
-class DeckSerializer(serializers.ModelSerializer):
+class DeckSerializer(Owned, serializers.ModelSerializer):
     size = serializers.IntegerField(read_only=True)
     due = serializers.IntegerField(read_only=True)
     practised = serializers.IntegerField(read_only=True)
@@ -141,7 +166,7 @@ class DeckSerializer(serializers.ModelSerializer):
         return " ".join(value.split())
 
 
-class AttemptSerializer(serializers.ModelSerializer):
+class AttemptSerializer(Owned, serializers.ModelSerializer):
     audio = serializers.SerializerMethodField()
 
     class Meta:

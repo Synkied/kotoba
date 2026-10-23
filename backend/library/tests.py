@@ -1,9 +1,10 @@
 import tempfile
 from pathlib import Path
 
-from django.test import TestCase, SimpleTestCase, override_settings
+from django.test import SimpleTestCase, override_settings
 from . import romanize
 from .models import Attempt, Sentence, Source
+from .testing import SignedIn
 
 
 class ContextReadingsTests(SimpleTestCase):
@@ -33,9 +34,10 @@ class ContextReadingsTests(SimpleTestCase):
         self.assertEqual([p[1] for p in pairs if p[0] == '時'], ['じ', 'とき'])
 
 
-class SentenceDetailTests(TestCase):
+class SentenceDetailTests(SignedIn):
     def setUp(self):
-        self.source = Source.objects.create(kind='text', text='三時です。その時帰ります。')
+        super().setUp()
+        self.source = Source.objects.create(owner=self.user, kind='text', text='三時です。その時帰ります。')
         self.sentence = Sentence.objects.create(source=self.source, text=self.source.text)
         self.url = f'/api/sentences/{self.sentence.id}'
 
@@ -80,9 +82,10 @@ class SentenceDetailTests(TestCase):
 
 
 @override_settings(MEDIA_ROOT=tempfile.mkdtemp())
-class KeptTakeTests(TestCase):
+class KeptTakeTests(SignedIn):
     def setUp(self):
-        source = Source.objects.create(kind='text', text='三時です。')
+        super().setUp()
+        source = Source.objects.create(owner=self.user, kind='text', text='三時です。')
         self.sentence = Sentence.objects.create(source=source, text=source.text)
         out = self.client.post('/api/attempts', {'sentence': self.sentence.id, 'model': 'tts', 'overall': 60,
                                                  'accuracy': 60, 'clarity': 60, 'fluency': 60}, content_type='application/json')
@@ -114,11 +117,11 @@ class KeptTakeTests(TestCase):
         self.assertFalse(path.exists())
 
 
-class UntranslatableTests(TestCase):
+class UntranslatableTests(SignedIn):
     def test_bare_numbers_translate_as_themselves(self):
         from unittest import mock
         from . import translate
-        source = Source.objects.create(kind='text', text='1\nこれ、ご主人ですか。')
+        source = Source.objects.create(owner=self.user, kind='text', text='1\nこれ、ご主人ですか。')
         number = Sentence.objects.create(source=source, text='1', position=0,
                                          translations={'en': 'Is this your husband?'})
         Sentence.objects.create(source=source, text='これ、ご主人ですか。', position=1)
@@ -132,7 +135,7 @@ class UntranslatableTests(TestCase):
             self.assertFalse(translate.untranslatable(text), text)
 
 
-class LabelTests(TestCase):
+class LabelTests(SignedIn):
     def test_clean_labels_splits_commas(self):
         from .serializers import clean_labels
         self.assertEqual(clean_labels(["minna no nihongo, lesson 18"]), ["minna no nihongo", "lesson 18"])
@@ -140,7 +143,7 @@ class LabelTests(TestCase):
         self.assertEqual(clean_labels(["a", "A, b,,"]), ["a", "b"])
 
     def test_bulk_add_label_splits_and_respects_limit(self):
-        s = Source.objects.create(kind="text", text="x", labels=["drama"])
+        s = Source.objects.create(owner=self.user, kind="text", text="x", labels=["drama"])
         r = self.client.post("/api/sources/bulk", {"ids": [s.id], "add_label": "lesson 18, minna"}, content_type="application/json")
         self.assertEqual(r.status_code, 200)
         s.refresh_from_db()
@@ -151,7 +154,7 @@ class LabelTests(TestCase):
         self.assertEqual(len(s.labels), 3)
 
     def test_patch_labels_splits(self):
-        s = Source.objects.create(kind="text", text="x")
+        s = Source.objects.create(owner=self.user, kind="text", text="x")
         r = self.client.patch(f"/api/sources/{s.id}", {"labels": ["a, b"]}, content_type="application/json")
         self.assertEqual(r.json()["labels"], ["a", "b"])
 
@@ -163,11 +166,12 @@ class LabelTests(TestCase):
         self.assertEqual(r.json()["folder"], "")
 
 
-class SentenceListFilterTests(TestCase):
+class SentenceListFilterTests(SignedIn):
     def setUp(self):
+        super().setUp()
         from django.utils import timezone
-        audio = Source.objects.create(kind='audio', status='kept', text='a')
-        text = Source.objects.create(kind='text', status='archived', text='b')
+        audio = Source.objects.create(owner=self.user, kind='audio', status='kept', text='a')
+        text = Source.objects.create(owner=self.user, kind='text', status='archived', text='b')
         self.heard = Sentence.objects.create(source=audio, text='聞きました。', last=80, due=timezone.now())
         self.fresh = Sentence.objects.create(source=audio, text='見ました。', position=1)
         self.read = Sentence.objects.create(source=text, text='読みました。')

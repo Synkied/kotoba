@@ -70,7 +70,7 @@ def _work_left() -> bool:
 def kick() -> None:
     """Start the worker if the add-on is on and something is due. Cheap to call often."""
     global _thread
-    if not heard.enabled():
+    if not heard.anyone_enabled():
         return
     if ytdlp.missing() and not _tools["state"]:
         install_tools()  # the first fetch was cut short (kotoba stopped halfway); it starts reading once done
@@ -100,7 +100,7 @@ def _run():
                 state["updated"] = ytdlp.update()
             except Exception as e:  # noqa: BLE001 - the old one still works, most days
                 state["updated"] = f"Couldn't update: {e}"[:300]
-        while heard.enabled() and not paused():
+        while heard.anyone_enabled() and not paused():
             if _searches() or _channels() or _videos() or _index():
                 continue
             break
@@ -216,7 +216,7 @@ def _save(v: Video, meta: dict | None, cues: list | None, err: ytdlp.YtError | N
     else:
         v.subs, v.error = Video.Subs.OK, ""
         with transaction.atomic():
-            v.lines.filter(sentence__isnull=True).delete()
+            v.lines.filter(sentences=None).delete()
             Line.objects.bulk_create([Line(video=v, position=i, start=s, end=e, text=t) for i, (s, e, t) in enumerate(cues)],
                                      ignore_conflicts=True)
     v.save()

@@ -42,7 +42,7 @@ def engine_score(request):
         return Response({"error": f"clip longer than {engine.MAX_CLIP_S}s"}, status=413)
     q = request.query_params
     res, status = engine.score(request.body, q.get("expected", ""), q.get("final") == "1", _key(request, query_only=True),
-                               busy=lambda: next((j["title"] for j in jobs.current() if j["state"] == "running"),
+                               busy=lambda: next((j["title"] for j in jobs.current(request.user) if j["state"] == "running"),
                                                  "another clip"))
     return Response(res, status=status)
 
@@ -60,7 +60,7 @@ def engine_tts(request):
     try:
         text = q.get("text", "")
         # a saved sentence is read as its furigana show, corrections included
-        sentence = Sentence.objects.filter(pk=q["sentence"], text=text.strip()).first() \
+        sentence = Sentence.objects.of(request.user).filter(pk=q["sentence"], text=text.strip()).first() \
             if q.get("sentence", "").isdigit() else None
         wav = engine.tts(text, q.get("voice", ""), q.get("speed", 1), sentence and sentence.furigana)
     except ValueError as e:
@@ -88,16 +88,17 @@ def addons(request):
     jobs.kick()
     key = engine.whisper_key()
     tts = engine.tts_status()
-    last = (Source.objects.filter(kind=Source.Kind.CAPTURE).order_by("-created_at")
+    mine = Source.objects.of(request.user)
+    last = (mine.filter(kind=Source.Kind.CAPTURE).order_by("-created_at")
             .values_list("created_at", flat=True).first())
     return Response({
         "whisper": engine.status(key),
         "ffmpeg": shutil.which("ffmpeg") is not None,
         "voices": {"count": len(tts["voices"]), "kokoro": tts["kokoro"], "kokoro_error": tts["kokoro_error"],
                    "voicevox": tts["voicevox"], "voicevox_url": tts["voicevox_url"]},
-        "queue": {"waiting": Source.objects.filter(job__in=[Source.Job.WAITING, Source.Job.RUNNING]).count(),
-                  "failed": Source.objects.filter(job=Source.Job.FAILED).count(),
-                  "jobs": jobs.current()},
+        "queue": {"waiting": mine.filter(job__in=[Source.Job.WAITING, Source.Job.RUNNING]).count(),
+                  "failed": mine.filter(job=Source.Job.FAILED).count(),
+                  "jobs": jobs.current(request.user)},
         "screen_ocr": {"last_capture": last},
         "dictionary": dictionary.status(),
     })
@@ -107,7 +108,7 @@ def addons(request):
 
 @api_view(["GET"])
 def job(request, job_id):
-    j = jobs.get(job_id)
+    j = jobs.get_for(job_id, request.user)
     if not j:
         return Response({"error": "that job is gone (the server restarted?)"}, status=404)
     return Response(j.to_json())
@@ -115,17 +116,17 @@ def job(request, job_id):
 
 @api_view(["GET"])
 def job_list(request):
-    return Response(jobs.current())
+    return Response(jobs.current(request.user))
 
 
 @api_view(["GET"])
 def transcriptions(request):
     """Active editor transcriptions and persisted uploads, including waiting ones."""
     jobs.kick()
-    active = sorted((j for j in jobs.current() if j["kind"] == "transcribe"),
+    active = sorted((j for j in jobs.current(request.user) if j["kind"] == "transcribe"),
                     key=lambda j: j["id"])
     represented = {j["source"] for j in active}
-    uploads = Source.objects.filter(job__in=[Source.Job.WAITING, Source.Job.RUNNING]).order_by("created_at", "id")
+    uploads = Source.objects.of(request.user).filter(job__in=[Source.Job.WAITING, Source.Job.RUNNING]).order_by("created_at", "id")
     items = [{"source": j["source"], "title": j["title"], "state": j["state"],
               "progress": j["progress"]} for j in active]
     items.extend({"source": s.id, "title": str(s),
@@ -136,8 +137,8 @@ def transcriptions(request):
 
 # ---------------------------------------------------------------- recording editor
 
-def _recorded(pk):
-    s = get_object_or_404(Source, pk=pk)
+def _recorded(request, pk):
+    s = get_object_or_404(Source.objects.of(request.user), pk=pk)
     if s.kind not in RECORDED or not s.media:
         return None
     return s
@@ -151,7 +152,7 @@ def _no_media():
 def recordings(request):
     """Audio/video sources with where they are in the editor."""
     out = []
-    qs = (Source.objects.filter(kind__in=RECORDED).exclude(media="")
+    qs = (Source.objects.of(request.user).filter(kind__in=RECORDED).exclude(media="")
           .exclude(status=Source.Status.ARCHIVED).select_related("cleanup").order_by("-created_at"))
     for s in qs[:300]:
         c = getattr(s, "cleanup", None)
@@ -165,7 +166,7 @@ def recordings(request):
 
 @api_view(["GET"])
 def source_cleanup(request, pk):
-    s = _recorded(pk)
+    s = _recorded(request, pk)
     if not s:
         return _no_media()
     return Response(cleanup.payload(cleanup.get(s)))
@@ -173,7 +174,7 @@ def source_cleanup(request, pk):
 
 @api_view(["POST"])
 def source_analyze(request, pk):
-    s = _recorded(pk)
+    s = _recorded(request, pk)
     if not s:
         return _no_media()
     try:
@@ -187,7 +188,7 @@ def source_analyze(request, pk):
 
 @api_view(["PUT"])
 def source_cuts(request, pk):
-    s = _recorded(pk)
+    s = _recorded(request, pk)
     if not s:
         return _no_media()
     cuts = _clean_cuts(request.data.get("cuts"))
@@ -214,7 +215,7 @@ def _clean_cuts(raw):
 
 @api_view(["PUT"])
 def source_script(request, pk):
-    s = _recorded(pk)
+    s = _recorded(request, pk)
     if not s:
         return _no_media()
     text = str(request.data.get("text") or "").strip()
@@ -227,7 +228,7 @@ def source_script(request, pk):
 
 @api_view(["POST"])
 def source_render(request, pk):
-    s = _recorded(pk)
+    s = _recorded(request, pk)
     if not s:
         return _no_media()
     cuts = _clean_cuts(request.data.get("cuts"))
@@ -240,7 +241,7 @@ def source_render(request, pk):
 
 @api_view(["GET"])
 def source_peaks(request, pk):
-    s = get_object_or_404(Source, pk=pk)
+    s = get_object_or_404(Source.objects.of(request.user), pk=pk)
     if not s.media:
         return Response({"error": "This source has no audio."}, status=400)
     c = cleanup.get(s)
@@ -255,7 +256,7 @@ def source_peaks(request, pk):
 @api_view(["GET"])
 def source_clean(request, pk):
     from library.views import ranged_file
-    s = _recorded(pk)
+    s = _recorded(request, pk)
     c = getattr(s, "cleanup", None) if s else None
     if not c or not c.clean:
         return Response({"error": "not rendered yet"}, status=404)

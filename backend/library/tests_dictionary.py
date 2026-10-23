@@ -3,7 +3,9 @@ import tempfile
 from pathlib import Path
 from unittest import mock
 
-from django.test import SimpleTestCase, override_settings
+from django.test import override_settings
+
+from .testing import SignedIn
 
 from . import dictionary
 
@@ -27,7 +29,7 @@ JMDICT = ['{\n', '"version": "3.6.2",\n', '"dictDate": "2026-10-05",\n', '"tags"
           _word(6, [], ["アイスクリーム"], "ice cream") + "\n", "]\n", "}\n"]
 
 
-class DictionaryCase(SimpleTestCase):
+class DictionaryCase(SignedIn):
     """A small JMdict, indexed into a scratch data directory."""
     databases = {"default"}  # the lookup API also asks the word index
     @classmethod
@@ -92,8 +94,7 @@ class LookupTests(DictionaryCase):
         self.assertEqual(self.client.get("/api/lookup", {"text": "図書館", "at": 1, "pairs": "{"}).status_code, 200)
 
 
-class MissingDictionaryTests(SimpleTestCase):
-    databases = {"default"}
+class MissingDictionaryTests(SignedIn):
     def test_reading_without_dictionary_and_download_started(self):
         with tempfile.TemporaryDirectory() as tmp, override_settings(DATA_DIR=Path(tmp)), \
                 mock.patch.object(dictionary.threading, "Thread") as thread:

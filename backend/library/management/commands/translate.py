@@ -1,24 +1,27 @@
 from django.core.management.base import BaseCommand, CommandError
 from library import translate
+from library.accounts import command_user
 from library.models import Sentence, Source
 
 
 class Command(BaseCommand):
-    help = "Translate sentences that have no translation yet, with the configured LLM."
+    help = "Translate a user's sentences that have no translation yet, with their translator."
 
     def add_arguments(self, parser):
+        parser.add_argument("--user", help="whose sentences (default: the only user)")
         parser.add_argument("--to", help="language code (default: the one chosen in Add-ons)")
         parser.add_argument("--source", type=int, help="only this source")
         parser.add_argument("--force", action="store_true", help="translate again, replacing existing ones")
 
-    def handle(self, *args, to=None, source=None, force=False, **options):
-        lang = to or translate.language()
+    def handle(self, *args, user=None, to=None, source=None, force=False, **options):
+        user = command_user(user)
+        lang = to or translate.language(user)
         if lang not in translate.LANGUAGES:
             raise CommandError(f"Unknown language {lang!r}. Use one of: {', '.join(translate.LANGUAGES)}")
-        st = translate.status()
+        st = translate.status(user)
         if not st["ready"]:
             raise CommandError(st["error"])
-        qs = Sentence.objects.exclude(source__status=Source.Status.ARCHIVED).select_related("source")
+        qs = Sentence.objects.of(user).exclude(source__status=Source.Status.ARCHIVED).select_related("source")
         if source:
             qs = qs.filter(source_id=source)
         if not force:

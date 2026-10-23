@@ -28,7 +28,7 @@ _ids = itertools.count(1)
 class Job:
     def __init__(self, kind, source, fn=None):
         self.id = next(_ids)
-        self.kind, self.source_id, self.title = kind, source.id, str(source)
+        self.kind, self.source_id, self.title, self.owner_id = kind, source.id, str(source), source.owner_id
         self.fn = fn
         self.state = "queued"
         self.log, self.error, self.result, self.duration = [], None, None, None
@@ -75,10 +75,15 @@ def get(job_id):
     return _jobs.get(job_id)
 
 
-def current():
-    """Running and queued editor jobs, newest first."""
+def get_for(job_id, user):
+    j = _jobs.get(job_id)
+    return j if j and j.owner_id == user.id else None
+
+
+def current(user=None):
+    """Running and queued editor jobs, newest first: a user's, or everyone's."""
     return [j.to_json() for j in sorted(_jobs.values(), key=lambda j: -j.id)
-            if j.state in ("queued", "running")]
+            if j.state in ("queued", "running") and (user is None or j.owner_id == user.id)]
 
 
 def for_source(source_id):

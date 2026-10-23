@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
@@ -6,6 +7,19 @@ from django.utils import timezone
 import unicodedata
 
 from . import romanize
+
+
+class OwnedQuerySet(models.QuerySet):
+    """Rows belong to one user, directly (owner) or through what they hang from (source__owner):
+    Model.objects.of(user) is what that user may see and change."""
+
+    def of(self, user):
+        return self.filter(**{self.model.OWNER: user})
+
+
+def owner_field():
+    # nullable: rows from before accounts stay unowned until `manage.py claim_data` gives them to someone
+    return models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE, related_name="+")
 
 
 def fold(text: str) -> str:
@@ -36,6 +50,10 @@ class Source(models.Model):
         RUNNING = "running"
         FAILED = "failed"
 
+    OWNER = "owner"
+    owner = owner_field()
+    objects = OwnedQuerySet.as_manager()
+
     kind = models.CharField(max_length=10, choices=Kind.choices)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.INBOX)
     title = models.CharField(max_length=200, blank=True)
@@ -59,6 +77,9 @@ class Source(models.Model):
 class Sentence(models.Model):
     """One practisable line, tied to where it came from: a span of the source's audio,
     or the screenshot it was read off."""
+
+    OWNER = "source__owner"
+    objects = OwnedQuerySet.as_manager()
 
     source = models.ForeignKey(Source, related_name="sentences", on_delete=models.CASCADE)
     position = models.PositiveIntegerField(default=0)
@@ -106,6 +127,10 @@ class Sentence(models.Model):
 
 
 class Deck(models.Model):
+
+    OWNER = "owner"
+    owner = owner_field()
+    objects = OwnedQuerySet.as_manager()
     name = models.CharField(max_length=120)
     description = models.TextField(blank=True)
     folder = models.CharField(max_length=80, blank=True)  # decks with the same folder are listed together
@@ -117,6 +142,9 @@ class Deck(models.Model):
 
 
 class DeckItem(models.Model):
+
+    OWNER = "deck__owner"
+    objects = OwnedQuerySet.as_manager()
     deck = models.ForeignKey(Deck, on_delete=models.CASCADE, related_name="items")
     sentence = models.ForeignKey(Sentence, on_delete=models.CASCADE)
     position = models.PositiveIntegerField(default=0)
@@ -133,6 +161,9 @@ class Attempt(models.Model):
         NATIVE = "native"
         TTS = "tts"
         NONE = "none"
+
+    OWNER = "sentence__source__owner"
+    objects = OwnedQuerySet.as_manager()
 
     sentence = models.ForeignKey(Sentence, related_name="attempts", on_delete=models.CASCADE)
     created_at = models.DateTimeField(default=timezone.now)
@@ -160,7 +191,11 @@ class Word(models.Model):
     """A word as the dictionary lists it (読む, not 読んで), found in your sentences by the
     word index. Words link sentences across sources; marking one known is yours to do."""
 
-    key = models.CharField(max_length=120, unique=True)  # j:<JMdict id>, or m:<form>/<reading> when it isn't listed
+    OWNER = "owner"
+    owner = owner_field()
+    objects = OwnedQuerySet.as_manager()
+
+    key = models.CharField(max_length=120)  # j:<JMdict id>, or m:<form>/<reading> when it isn't listed
     lemma = models.CharField(max_length=100)
     reading = models.CharField(max_length=100, blank=True)  # hiragana
     entry = models.PositiveIntegerField(null=True, blank=True)  # JMdict id
@@ -170,6 +205,7 @@ class Word(models.Model):
 
     class Meta:
         ordering = ["lemma"]
+        constraints = [models.UniqueConstraint(fields=["owner", "key"], name="one_word_per_key")]
 
     def save(self, *args, **kwargs):
         roman = romanize.romanize(self.reading) if self.reading else ""
@@ -182,6 +218,9 @@ class Word(models.Model):
 
 class WordUse(models.Model):
     """Where a word stands in a sentence: sentence.text[start:end] is `surface` (読んでいました)."""
+
+    OWNER = "word__owner"
+    objects = OwnedQuerySet.as_manager()
 
     word = models.ForeignKey(Word, related_name="uses", on_delete=models.CASCADE)
     sentence = models.ForeignKey(Sentence, related_name="word_uses", on_delete=models.CASCADE)
@@ -196,6 +235,10 @@ class WordUse(models.Model):
 class LessonFolder(models.Model):
     """A shelf for lessons, as deep as you like: Minna no Nihongo › Book 1 › Lessons 1–12.
     Folders and lessons keep the order you arrange them in; pinned ones show at the top too."""
+
+    OWNER = "owner"
+    owner = owner_field()
+    objects = OwnedQuerySet.as_manager()
 
     name = models.CharField(max_length=80)
     parent = models.ForeignKey("self", related_name="children", null=True, blank=True, on_delete=models.CASCADE)
@@ -213,6 +256,10 @@ class LessonFolder(models.Model):
 class Lesson(models.Model):
     """Material to study: a worksheet, a textbook chapter, a lesson's recordings, with the
     sources practised from it. Done lessons go to the archive; pinned ones stay at hand."""
+
+    OWNER = "owner"
+    owner = owner_field()
+    objects = OwnedQuerySet.as_manager()
 
     title = models.CharField(max_length=200)
     notes = models.TextField(blank=True)
@@ -233,6 +280,10 @@ class Lesson(models.Model):
 class Material(models.Model):
     """A file kept in a folder as it is, not part of any lesson: a textbook PDF, a track,
     a scan. Recordings are transcribed only when asked; pinned ones show at the top too."""
+
+    OWNER = "owner"
+    owner = owner_field()
+    objects = OwnedQuerySet.as_manager()
 
     folder = models.ForeignKey(LessonFolder, related_name="materials", null=True, blank=True, on_delete=models.SET_NULL)
     file = models.FileField(upload_to="materials/")
@@ -255,6 +306,9 @@ class LessonFile(models.Model):
     """A file in a lesson: one uploaded with it, as it came, or one of the folder's materials,
     linked rather than copied. A linked file stays in its folder when the lesson goes."""
 
+    OWNER = "lesson__owner"
+    objects = OwnedQuerySet.as_manager()
+
     lesson = models.ForeignKey(Lesson, related_name="files", on_delete=models.CASCADE)
     file = models.FileField(upload_to="lessons/", blank=True)
     material = models.ForeignKey(Material, related_name="lesson_files", null=True, blank=True, on_delete=models.CASCADE)
@@ -270,6 +324,10 @@ class LessonFile(models.Model):
 class Note(models.Model):
     """A freeform Markdown page kept in the local library. Sources mentioned in the body as
     [@title](/sources/12) are linked to it as well."""
+
+    OWNER = "owner"
+    owner = owner_field()
+    objects = OwnedQuerySet.as_manager()
 
     title = models.CharField(max_length=200, default="Untitled")
     body = models.TextField(blank=True)
@@ -292,6 +350,10 @@ class Explanation(models.Model):
     """What a selected stretch of Japanese means in its context, as a translator explained it
     into one language. Kept so the same question doesn't cost a second call; Ask again replaces it."""
 
+    OWNER = "owner"
+    owner = owner_field()
+    objects = OwnedQuerySet.as_manager()
+
     lang = models.CharField(max_length=8)
     text = models.TextField()
     context = models.TextField(blank=True)
@@ -301,4 +363,12 @@ class Explanation(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["lang", "text", "context"], name="one_explanation_per_question")]
+        constraints = [models.UniqueConstraint(fields=["owner", "lang", "text", "context"], name="one_explanation_per_question")]
+
+
+class Profile(models.Model):
+    """What each user sets up: the language translations go into, their translators (API keys
+    included, never sent back to the browser), whether YouTube listening is on."""
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile")
+    settings = models.JSONField(default=dict, blank=True)

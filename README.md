@@ -29,15 +29,36 @@ make dev                # hot reload: open http://localhost:5173
 
 `make` lists every target. The Add-ons page shows what is installed and what's missing.
 
+### Accounts
+
+Everyone signs in, and each account has its own library: sources, sentences, decks, words, lessons, notes, translators and the YouTube channels it follows. Make the first account, then sign in at kotoba's address:
+
+```bash
+make adduser NAME=you STAFF=1        # make docker-adduser NAME=you STAFF=1 under Docker
+```
+
+`KOTOBA_SIGNUP=1` in `.env` lets anyone who reaches kotoba make an account from the sign-in page; otherwise accounts are made with `make adduser`. Staff accounts (`STAFF=1`) may use the translator set in `.env`, which spends the server's own credits; other accounts add their own on the Add-ons page. On a server, put kotoba behind an HTTPS proxy and set `KOTOBA_HTTPS=1`.
+
+**Upgrading from before accounts**: your library is still there, belonging to nobody until you claim it, once:
+
+```bash
+make adduser NAME=you STAFF=1
+make claim-data NAME=you             # make docker-claim-data NAME=you under Docker
+```
+
+That gives that account every source, deck, word, lesson and note from before, the translators and settings from the old `settings.json`, and the YouTube channels you followed.
+
+Screen-ocr and scripts sign in with the account's capture key (Account page), sent as `Authorization: Token <key>`. Commands that work on a library (`make import-ocr`, `make import-jpcut`, `make translate`) take `NAME=you` when there's more than one account.
+
 **Settings** go in a `.env` file at the top of the repository: `cp .env.example .env`, uncomment what you need, then `make up` again (or restart `make run`). Docker and local runs both read it, and it stays out of git and out of the image. Every variable below can go there.
 
 Whisper picks its model by itself: large-v3 on a GPU, large-v3-turbo (int8) on a CPU. Override it with `KOTOBA_WHISPER_MODEL`, `KOTOBA_WHISPER_DEVICE` and `KOTOBA_WHISPER_COMPUTE`. A VOICEVOX or AivisSpeech engine is found at `KOTOBA_VOICEVOX` (default `http://127.0.0.1:50021`).
 
 ### Translations
 
-Sentences can show a translation (turn it on with the language chip under any sentence; pick the language on the Add-ons page). An LLM does the translating, with the neighbouring lines as context. Set one up on the **Add-ons** page: choose Ollama, llama.cpp, Claude or any OpenAI-compatible API, fill in its address, key and model, Test it, and save. Keep as many as you like and pick the one in use. Keys are stored in `settings.json` in the data folder (readable only by you) and are never sent back to the browser.
+Sentences can show a translation (turn it on with the language chip under any sentence; pick the language on the Add-ons page). An LLM does the translating, with the neighbouring lines as context. Set one up on the **Add-ons** page: choose Ollama, llama.cpp, Claude or any OpenAI-compatible API, fill in its address, key and model, Test it, and save. Keep as many as you like and pick the one in use. Keys are stored with your account in kotoba's database and are never sent back to the browser.
 
-The variables below describe one more translator, "From the environment", which is used until you pick another. It is local by default:
+The variables below describe one more translator, "From the environment", which staff accounts use until they pick another. It is local by default:
 
 - **Ollama** (the default, at `http://127.0.0.1:11434/v1`): `ollama pull qwen2.5:7b`. Under Docker, let Ollama listen beyond localhost (`OLLAMA_HOST=0.0.0.0`); the container reaches it at `host.docker.internal`.
 - **llama.cpp**: `llama-server -m model.gguf --port 8080` with `KOTOBA_LLM_URL=http://127.0.0.1:8080/v1`.
@@ -46,7 +67,7 @@ The variables below describe one more translator, "From the environment", which 
 
 With an API, sentences leave your machine; the Add-ons page says so. `KOTOBA_LLM_MODEL` can stay empty for a local server: kotoba uses the first model it lists. Nothing is translated until you ask: each sentence has a Translate button once the translation toggle is on, and a source page has Translate all, which first says whether it will use API credits or this computer. `make translate` (or `make translate TO=fr`) does every sentence at once. A translation can be corrected by hand on the sentence's page.
 
-Phone and tablet access: `tailscale serve --bg 8780`, then `KOTOBA_HOSTS=<pi>.<tailnet>.ts.net`. The microphone needs HTTPS, which tailscale serve provides.
+Phone and tablet access: `tailscale serve --bg 8780`, then `KOTOBA_HOSTS=<pi>.<tailnet>.ts.net`. The microphone needs HTTPS, which tailscale serve provides. Sign in on each device; it stays signed in for six months.
 
 ### Heard on YouTube
 
@@ -57,7 +78,7 @@ A word's page can play the word as native speakers say it, from YouTube channels
 ```bash
 make import-ocr         # screen_ocr's history.db (make docker-import-ocr for the container)
 make import-jpcut       # jp-shadow-cut's recordings, with their transcriptions, scripts and edited cuts
-make ocr-client         # install the screen-ocr capture client, then: screen-ocr --server http://localhost:8780
+make ocr-client         # install the screen-ocr capture client, then: screen-ocr --server http://localhost:8780 (it needs your capture key; see Accounts)
 ```
 
 Uploaded audio and video are transcribed in the background. `make transcribe` does the waiting ones now, with progress in the terminal.

@@ -11,7 +11,8 @@ services:
     image: kotoba
     restart: unless-stopped
     ports:
-      # localhost only: kotoba has no accounts. Reach it from a phone with `tailscale serve`.
+      # localhost only: reach it from a phone with `tailscale serve`, or put an HTTPS proxy in front
+      # on a server (KOTOBA_HTTPS=1). Everyone signs in; see KOTOBA_SIGNUP in .env.example.
       - "127.0.0.1:${KOTOBA_PORT:-8780}:8780"
     volumes:
       - kotoba-data:/data

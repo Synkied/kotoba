@@ -1,6 +1,9 @@
 """What the corpus tells about a word: its lines, the easiest to follow first, each with the line
 before and after it; the video's audio, fetched from YouTube the first time one of its lines is
-played; and keeping a line, which makes it one of your sentences (one source per video)."""
+played; and keeping a line, which makes it one of your sentences (one source per video).
+
+The corpus is shared; each user hears the lines of the channels they follow (videos(user)),
+except the ones they kept, and keeps lines into their own library."""
 
 import os
 import shutil
@@ -15,7 +18,7 @@ from django.db.models import Count, Exists, OuterRef, Q
 from django.utils import timezone
 
 from library import romanize, srs, translate, words
-from library.models import Sentence, Source, Word
+from library.models import Profile, Sentence, Source, Word
 
 from . import ytdlp
 from .models import Channel, Line, Term, TermUse, Video
@@ -28,13 +31,35 @@ CANDIDATES = 3000       # how many of a common word's lines are ranked
 
 # --- turned on or not ------------------------------------------------------------------
 
-def enabled() -> bool:
-    return bool(translate._load().get("youtube", {}).get("enabled"))
+def enabled(user) -> bool:
+    return bool(translate._load(user).get("youtube", {}).get("enabled"))
 
 
-def set_enabled(on: bool):
-    data = translate._load()
-    translate._save({**data, "youtube": {**data.get("youtube", {}), "enabled": bool(on)}})
+def set_enabled(user, on: bool):
+    data = translate._load(user)
+    translate._save(user, {**data, "youtube": {**data.get("youtube", {}), "enabled": bool(on)}})
+
+
+def anyone_enabled() -> bool:
+    """Whether YouTube may be asked anything at all: someone has the add-on on."""
+    return Profile.objects.filter(settings__youtube__enabled=True).exists()
+
+
+def videos(user):
+    """The videos a user hears lines from: those of the channels they follow, searches included."""
+    return Video.objects.filter(channels__followers=user)
+
+
+def kept(user, line_ids) -> dict:
+    """{line id: the user's sentence it became}, for the lines they kept."""
+    return dict(Line.sentences.through.objects.filter(line__in=line_ids, sentence__source__owner=user)
+                .values_list("line_id", "sentence_id"))
+
+
+def video_sources(user, video_ids) -> dict:
+    """{video id: the user's source its kept lines went into}."""
+    return dict(Video.sources.through.objects.filter(video__in=video_ids, source__owner=user)
+                .values_list("video_id", "source_id"))
 
 
 # --- reading lines into terms ------------------------------------------------------------
@@ -67,10 +92,10 @@ def tidy() -> None:
 
 # --- a word's lines -----------------------------------------------------------------------
 
-def familiar() -> set:
+def familiar(user) -> set:
     """Keys of the words you know: marked known, or said well in a sentence."""
     passed = words.live_uses().filter(word=OuterRef("pk"), sentence__last__gte=srs.PASS)
-    return set(Word.objects.filter(Q(known_at__isnull=False) | Exists(passed)).values_list("key", flat=True))
+    return set(Word.objects.of(user).filter(Q(known_at__isnull=False) | Exists(passed)).values_list("key", flat=True))
 
 
 def _length_cost(n: int) -> tuple:
@@ -78,11 +103,11 @@ def _length_cost(n: int) -> tuple:
     return (0 if 8 <= n <= 40 else 1, abs(n - 20))
 
 
-def ranked(term: Term, know: set | None = None) -> list:
+def ranked(term: Term, user, know: set | None = None) -> list:
     """Line ids for a term, the easiest first: fewest other words you don't know yet, a length
     that's easy to repeat, and one line per video before a second from any of them."""
-    know = familiar() if know is None else know
-    uses = (TermUse.objects.filter(term=term, line__sentence__isnull=True)
+    know = familiar(user) if know is None else know
+    uses = (TermUse.objects.filter(term=term, line__video__in=videos(user)).exclude(line__sentences__source__owner=user)
             .values_list("line_id", "line__video_id", "line__video__gone_at", "line__video__yt_id")
             .order_by("line_id")[:CANDIDATES * 2])
     here = {p.stem for p in AUDIO.iterdir()} if AUDIO.exists() else set()
@@ -107,13 +132,19 @@ def ranked(term: Term, know: set | None = None) -> list:
     return order + later
 
 
-def line_json(line: Line, key: str | None = None, spans=None, know: set | None = None, neighbours=None) -> dict:
+def mine(user, lines) -> tuple[dict, dict]:
+    """What line_json needs to know of the user's own: the lines they kept, their videos' sources."""
+    return kept(user, [l.id for l in lines]), video_sources(user, {l.video_id for l in lines})
+
+
+def line_json(line: Line, own: tuple[dict, dict], key: str | None = None, spans=None, know: set | None = None,
+              neighbours=None) -> dict:
     v = line.video
     out = {"id": line.id, "text": line.text, "furigana": line.furigana, "start": line.start, "end": line.end,
            "position": line.position, "spans": spans if spans is not None else [],
-           "sentence": line.sentence_id,
+           "sentence": own[0].get(line.id),
            "video": {"id": v.id, "yt_id": v.yt_id, "title": v.title, "uploader": v.uploader, "url": v.url(line.start),
-                     "source": v.source_id, "gone": v.gone_at is not None, "here": audio_path(v) is not None}}
+                     "source": own[1].get(v.id), "gone": v.gone_at is not None, "here": audio_path(v) is not None}}
     if neighbours is not None:
         before, after = neighbours
         out["before"] = before.text if before else None
@@ -131,9 +162,9 @@ def spans_for(term_key: str, line_ids) -> dict:
     return out
 
 
-def lines_for(term: Term, offset: int = 0, limit: int = 5) -> dict:
-    know = familiar()
-    order = ranked(term, know)
+def lines_for(term: Term, user, offset: int = 0, limit: int = 5) -> dict:
+    know = familiar(user)
+    order = ranked(term, user, know)
     page = order[offset:offset + limit]
     found = Line.objects.select_related("video").prefetch_related("uses__term").in_bulk(page)
     near = defaultdict(dict)
@@ -145,33 +176,36 @@ def lines_for(term: Term, offset: int = 0, limit: int = 5) -> dict:
         for n in Line.objects.filter(q):
             near[n.video_id][n.position] = n
     spans = spans_for(term.key, page)
+    own = mine(user, found.values())
     out = []
     for lid in page:
         ln = found[lid]
-        out.append(line_json(ln, term.key, spans[lid], know,
+        out.append(line_json(ln, own, term.key, spans[lid], know,
                              (near[ln.video_id].get(ln.position - 1), near[ln.video_id].get(ln.position + 1))))
     videos = Line.objects.filter(id__in=order).values("video").distinct().count() if order else 0
     return {"lines": out, "total": len(order), "videos": videos}
 
 
-def context(line: Line, radius: int = 6, term_key: str | None = None) -> list:
+def context(line: Line, user, radius: int = 6, term_key: str | None = None) -> list:
     """The lines around one, in order."""
     around = list(Line.objects.filter(video=line.video, position__gte=line.position - radius,
                                       position__lte=line.position + radius).select_related("video"))
     spans = spans_for(term_key, [l.id for l in around]) if term_key else {}
-    return [line_json(l, spans=spans.get(l.id, [])) for l in around]
+    own = mine(user, around)
+    return [line_json(l, own, spans=spans.get(l.id, [])) for l in around]
 
 
-def counts(keys) -> dict:
+def counts(keys, user) -> dict:
     """{key: lines you could hear it in}, for keys in the corpus."""
-    return dict(TermUse.objects.filter(term__key__in=keys, line__sentence__isnull=True, line__video__gone_at__isnull=True)
+    return dict(TermUse.objects.filter(term__key__in=keys, line__video__in=videos(user), line__video__gone_at__isnull=True)
+                .exclude(line__sentences__source__owner=user)
                 .values("term__key").annotate(n=Count("line", distinct=True)).values_list("term__key", "n"))
 
 
 # --- hearing a line ----------------------------------------------------------------------
 
 _locks: dict[int, threading.Lock] = defaultdict(threading.Lock)
-_failed: dict[int, str] = {}   # video id -> why its audio couldn't be fetched, for a kept line
+_failed: dict[int, str] = {}   # source id -> why its video's audio couldn't be fetched, for a kept line
 
 
 def audio_path(video: Video) -> Path | None:
@@ -220,74 +254,73 @@ def sweep() -> int:
 
 # --- keeping a line ------------------------------------------------------------------------
 
-def audio_state(video: Video) -> str | None:
+def audio_state(video: Video, source_id: int) -> str | None:
     """'fetching' while a kept video's audio is on its way, 'failed: …', or None."""
-    if video.id in _failed:
-        return f"failed: {_failed[video.id]}"
+    if source_id in _failed:
+        return f"failed: {_failed[source_id]}"
     return "fetching" if _locks[video.id].locked() else None
 
 
-def _give_source_audio(video_id: int):
-    """Copy the video's audio into its source, fetching it first if need be."""
+def _give_source_audio(video_id: int, source_id: int):
+    """Copy the video's audio into the source its lines were kept in, fetching it first if need be."""
     try:
-        video = Video.objects.select_related("source").get(pk=video_id)
-        src = video.source
+        video = Video.objects.get(pk=video_id)
+        src = Source.objects.filter(pk=source_id).first()
         if not src or src.media:
             return
         cached = fetch(video)
-        name = f"media/youtube-{video.yt_id}{cached.suffix}"
+        name = f"media/youtube-{video.yt_id}-{src.id}{cached.suffix}"  # each user's source has its own copy
         dest = Path(settings.MEDIA_ROOT) / name
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(cached, dest)
         Source.objects.filter(pk=src.pk).update(media=name, duration=video.duration)
-        _failed.pop(video_id, None)
+        _failed.pop(source_id, None)
     except Exception as e:  # noqa: BLE001 - shown on the word page; keeping again retries
-        _failed[video_id] = str(e)[:300]
+        _failed[source_id] = str(e)[:300]
 
 
-def _in_background(video_id: int):
+def _in_background(video_id: int, source_id: int):
     close_old_connections()
     try:
-        _give_source_audio(video_id)
+        _give_source_audio(video_id, source_id)
     finally:
         close_old_connections()
 
 
-def give_source_audio(video: Video):
+def give_source_audio(video: Video, source: Source):
     """The kept video's source gets the audio: at once when it's here, else once it's fetched."""
-    _failed.pop(video.id, None)
+    _failed.pop(source.id, None)
     if audio_path(video):
-        _give_source_audio(video.id)
+        _give_source_audio(video.id, source.id)
     else:
-        threading.Thread(target=_in_background, args=(video.id,), daemon=True, name=f"audio-{video.yt_id}").start()
+        threading.Thread(target=_in_background, args=(video.id, source.id), daemon=True, name=f"audio-{video.yt_id}").start()
 
 
-def keep(line: Line) -> Sentence:
-    """Make a line one of your sentences: in the video's own source (made the first time, in the
-    inbox), timed against the video's audio, which is fetched in the background."""
+def keep(line: Line, user) -> Sentence:
+    """Make a line one of the user's sentences: in the video's source of theirs (made the first
+    time, in the inbox), timed against the video's audio, which is fetched in the background."""
     with transaction.atomic():
-        line = Line.objects.select_related("video__source", "sentence__source").get(pk=line.pk)
-        if line.sentence:
-            if not line.sentence.source.media:
-                give_source_audio(line.video)  # it failed last time
-            return line.sentence
+        line = Line.objects.select_related("video").get(pk=line.pk)
         video = line.video
-        src = video.source
+        done = line.sentences.filter(source__owner=user).select_related("source").first()
+        if done:
+            if not done.source.media:
+                give_source_audio(video, done.source)  # it failed last time
+            return done
+        src = video.sources.filter(owner=user).first()
         if src is None:
-            src = Source.objects.create(kind=Source.Kind.AUDIO, status=Source.Status.INBOX,
+            src = Source.objects.create(owner=user, kind=Source.Kind.AUDIO, status=Source.Status.INBOX,
                                         title=(video.title or video.yt_id)[:200], duration=video.duration)
-            video.source = src
-            video.save(update_fields=["source"])
+            video.sources.add(src)
         sentence = Sentence.objects.create(source=src, text=line.text, start=line.start, end=line.end, position=0)
         ordered = sorted(src.sentences.all(), key=lambda s: (s.start is None, s.start or 0, s.id))
         for i, s in enumerate(ordered):
             if s.position != i:
                 Sentence.objects.filter(pk=s.pk).update(position=i)
         Source.objects.filter(pk=src.pk).update(text="\n".join(s.text for s in ordered))
-        line.sentence = sentence
-        line.save(update_fields=["sentence"])
+        line.sentences.add(sentence)
     if not src.media:
-        give_source_audio(video)
+        give_source_audio(video, src)
     words.kick()
     return sentence
 

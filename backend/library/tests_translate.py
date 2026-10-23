@@ -1,14 +1,13 @@
 import json
-import tempfile
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from pathlib import Path
 from unittest.mock import patch
 
-from django.test import TestCase, override_settings
+from django.test import override_settings
 
 from . import translate
 from .models import Explanation, Sentence, Source
+from .testing import SignedIn
 
 
 class FakeLLM(BaseHTTPRequestHandler):
@@ -43,7 +42,9 @@ class FakeLLM(BaseHTTPRequestHandler):
         pass
 
 
-class TranslateTests(TestCase):
+class TranslateTests(SignedIn):
+    staff = True  # the translator from the environment is the fake server
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -59,14 +60,10 @@ class TranslateTests(TestCase):
         super().tearDownClass()
 
     def setUp(self):
+        super().setUp()
         FakeLLM.requests = []
         FakeLLM.strict = False
-        tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(tmp.cleanup)
-        settings_file = patch.object(translate, "_SETTINGS", Path(tmp.name) / "settings.json")  # not the real data dir
-        settings_file.start()
-        self.addCleanup(settings_file.stop)
-        src = Source.objects.create(kind="text", text="", status="kept")
+        src = Source.objects.create(owner=self.user, kind="text", text="", status="kept")
         self.lines = [Sentence.objects.create(source=src, position=i, text=t)
                       for i, t in enumerate(["映画と本、どちらが好きですか。", "どちらが先ですか?", "映画です。"])]
 
@@ -153,7 +150,7 @@ class TranslateTests(TestCase):
 
         # renaming keeps the key; a new address without a new key drops it
         self.client.patch(f"/api/translation/translators/{t['id']}", {"kind": "openai", "name": "Mine", "url": url, "model": "m1"}, content_type="application/json")
-        self.assertEqual(translate._active()["key"], "sk-secret-1234567890")
+        self.assertEqual(translate._active(self.user)["key"], "sk-secret-1234567890")
         moved = self.client.patch(f"/api/translation/translators/{t['id']}", {"kind": "openai", "url": "http://127.0.0.1:9/v1", "model": "m1"},
                                   content_type="application/json").json()
         self.assertFalse(moved["key_set"])
@@ -176,7 +173,9 @@ class TranslateTests(TestCase):
         self.assertEqual(len(self.client.get("/api/translation").json()["translators"]), 1)  # testing saved nothing
 
 
-class ExplainTests(TestCase):
+class ExplainTests(SignedIn):
+    staff = True
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -192,13 +191,9 @@ class ExplainTests(TestCase):
         super().tearDownClass()
 
     def setUp(self):
+        super().setUp()
         FakeLLM.requests = []
         FakeLLM.strict = False
-        tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(tmp.cleanup)
-        settings_file = patch.object(translate, "_SETTINGS", Path(tmp.name) / "settings.json")
-        settings_file.start()
-        self.addCleanup(settings_file.stop)
         reply = patch.object(FakeLLM, "reply", "<think>hm</think>\n**Which one do you like?**\n\n- 「どちら」 asks which of two\n* 「が好き」: to like\n")
         reply.start()
         self.addCleanup(reply.stop)
@@ -238,3 +233,23 @@ class ExplainTests(TestCase):
         self.assertEqual(self.ask(text="あ" * 501).status_code, 400)
         with override_settings(LLM={"url": "http://127.0.0.1:9/v1", "model": "m", "key": ""}):
             self.assertEqual(self.ask(text="本").status_code, 503)
+
+
+class OwnTranslatorTests(SignedIn):
+    """Not staff: the translator from the environment, and the server's keys, aren't theirs to use."""
+
+    def test_no_translator_until_one_is_added(self):
+        src = Source.objects.create(owner=self.user, kind="text", text="本です。", status="kept")
+        s = Sentence.objects.create(source=src, text="本です。")
+        listing = self.client.get("/api/translation").json()
+        self.assertEqual((listing["translators"], listing["active"], listing["ready"]), ([], None, False))
+        self.assertEqual(self.client.get("/api/translation?quick=1").json()["translator"], None)
+        r = self.client.post(f"/api/sentences/{s.id}/translate", {}, content_type="application/json")
+        self.assertEqual(r.status_code, 503)
+        self.assertIn("No translator", r.json()["error"])
+        self.assertEqual(self.client.post("/api/explain", {"text": "本"}, content_type="application/json").status_code, 503)
+
+    def test_claude_needs_a_key_of_their_own(self):
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "sk-the-servers-own"}):
+            r = self.client.post("/api/translation/translators", {"kind": "anthropic"}, content_type="application/json")
+        self.assertEqual(r.status_code, 400)

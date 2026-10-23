@@ -12,6 +12,7 @@ from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 
 from .models import Lesson, LessonFile, LessonFolder, Material, Note, Source
+from .serializers import Owned
 from .views import AUDIO_EXT, IMAGE_EXT, VIDEO_EXT, ranged_file
 
 PDF_EXT = {".pdf"}
@@ -56,7 +57,7 @@ def chosen_materials(request):
     """The folder files picked for a lesson, in the order they were picked."""
     ids = [int(x) for x in request.data.getlist("materials") if str(x).isdigit()] if hasattr(request.data, "getlist") \
         else [int(x) for x in request.data.get("materials", [])]
-    found = Material.objects.in_bulk(ids)
+    found = Material.objects.of(request.user).in_bulk(ids)
     return [found[i] for i in ids if i in found]
 
 
@@ -69,7 +70,7 @@ def next_position(qs):
     return (qs.aggregate(m=Max("position"))["m"] or 0) + 1
 
 
-class LessonFolderSerializer(serializers.ModelSerializer):
+class LessonFolderSerializer(Owned, serializers.ModelSerializer):
     class Meta:
         model = LessonFolder
         fields = ["id", "name", "parent", "position", "pinned"]
@@ -91,12 +92,12 @@ class LessonFolderSerializer(serializers.ModelSerializer):
         return parent
 
     def create(self, data):
-        data["position"] = next_position(LessonFolder.objects.filter(parent=data.get("parent")))
+        data["position"] = next_position(LessonFolder.objects.of(self._user()).filter(parent=data.get("parent")))
         return super().create(data)
 
     def update(self, folder, data):
         if "parent" in data and data["parent"] != folder.parent:
-            data["position"] = next_position(LessonFolder.objects.filter(parent=data["parent"]))
+            data["position"] = next_position(LessonFolder.objects.of(self._user()).filter(parent=data["parent"]))
         return super().update(folder, data)
 
 
@@ -104,27 +105,30 @@ class LessonFolderViewSet(viewsets.ModelViewSet):
     """Every folder at once, flat: the tree is small, and the page builds it from the parents."""
 
     serializer_class = LessonFolderSerializer
-    queryset = LessonFolder.objects.all()
     http_method_names = ["get", "post", "patch", "delete"]
     pagination_class = None
+
+    def get_queryset(self):
+        return LessonFolder.objects.of(self.request.user)
 
     def perform_destroy(self, folder):
         """What the folder held moves up to its parent, after what's already there: deleting a
         folder never deletes a lesson or a file."""
+        user = self.request.user
         with transaction.atomic():
-            start = next_position(Lesson.objects.filter(folder=folder.parent))
+            start = next_position(Lesson.objects.of(user).filter(folder=folder.parent))
             for i, lesson in enumerate(folder.lessons.all()):
                 lesson.folder, lesson.position = folder.parent, start + i
                 lesson.save(update_fields=["folder", "position"])
-            start = next_position(Material.objects.filter(folder=folder.parent))
+            start = next_position(Material.objects.of(user).filter(folder=folder.parent))
             for i, item in enumerate(folder.materials.all()):
                 item.folder, item.position = folder.parent, start + i
                 item.save(update_fields=["folder", "position"])
-            start = next_position(Note.objects.filter(folder=folder.parent))
+            start = next_position(Note.objects.of(user).filter(folder=folder.parent))
             for i, note in enumerate(folder.notes.all()):
                 note.folder, note.position = folder.parent, start + i
                 note.save(update_fields=["folder", "position"])
-            start = next_position(LessonFolder.objects.filter(parent=folder.parent))
+            start = next_position(LessonFolder.objects.of(user).filter(parent=folder.parent))
             for i, child in enumerate(folder.children.all()):
                 child.parent, child.position = folder.parent, start + i
                 child.save(update_fields=["parent", "position"])
@@ -135,11 +139,12 @@ class LessonFolderViewSet(viewsets.ModelViewSet):
 def arrange_lessons(request):
     """{folder, folders, lessons, materials: [ids]}: put these in that folder (null: the top),
     in this order. Moving and reordering are the same thing."""
+    user = request.user
     folder_id = request.data.get("folder")
-    folder = get_object_or_404(LessonFolder, pk=folder_id) if folder_id is not None else None
-    folders = list(LessonFolder.objects.filter(pk__in=request.data.get("folders", [])))
-    lessons = list(Lesson.objects.filter(pk__in=request.data.get("lessons", [])))
-    materials = list(Material.objects.filter(pk__in=request.data.get("materials", [])))
+    folder = get_object_or_404(LessonFolder.objects.of(user), pk=folder_id) if folder_id is not None else None
+    folders = list(LessonFolder.objects.of(user).filter(pk__in=request.data.get("folders", [])))
+    lessons = list(Lesson.objects.of(user).filter(pk__in=request.data.get("lessons", [])))
+    materials = list(Material.objects.of(user).filter(pk__in=request.data.get("materials", [])))
     order = {"f": {int(x): i for i, x in enumerate(request.data.get("folders", []))},
              "l": {int(x): i for i, x in enumerate(request.data.get("lessons", []))},
              "m": {int(x): i for i, x in enumerate(request.data.get("materials", []))}}
@@ -162,7 +167,7 @@ def arrange_lessons(request):
     return Response(status=204)
 
 
-class LessonSerializer(serializers.ModelSerializer):
+class LessonSerializer(Owned, serializers.ModelSerializer):
     done = serializers.BooleanField(write_only=True, required=False)
     sources = serializers.PrimaryKeyRelatedField(many=True, required=False, queryset=Source.objects.all())
 
@@ -179,12 +184,12 @@ class LessonSerializer(serializers.ModelSerializer):
 
     def create(self, data):
         # a new lesson goes at the end of its folder
-        data["position"] = next_position(Lesson.objects.filter(folder=data.get("folder")))
+        data["position"] = next_position(Lesson.objects.of(self._user()).filter(folder=data.get("folder")))
         return super().create(data)
 
     def update(self, lesson, data):
         if "folder" in data and data["folder"] != lesson.folder:
-            data["position"] = next_position(Lesson.objects.filter(folder=data["folder"]))
+            data["position"] = next_position(Lesson.objects.of(self._user()).filter(folder=data["folder"]))
         if "done" in data:
             done = data.pop("done")
             if done != (lesson.done_at is not None):
@@ -207,7 +212,7 @@ class LessonSerializer(serializers.ModelSerializer):
         return out
 
 
-def transcribe(item, title):
+def transcribe(item, title, owner):
     """Copy a recording (a lesson file or a material) into the library as a source and queue
     it for transcription. A failed one is queued again. True when the source is new."""
     from speech import jobs
@@ -215,7 +220,7 @@ def transcribe(item, title):
     if source is None:
         kind = Source.Kind.VIDEO if file_kind(item.name) == "video" else Source.Kind.AUDIO
         # kept, not inbox: it was collected on purpose, there is nothing to triage
-        source = Source.objects.create(kind=kind, status=Source.Status.KEPT, job=Source.Job.WAITING, title=title[:200])
+        source = Source.objects.create(owner=owner, kind=kind, status=Source.Status.KEPT, job=Source.Job.WAITING, title=title[:200])
         with item.file.open("rb") as f:
             source.media.save(Path(item.name).name, File(f))
         item.source, made = source, True
@@ -236,7 +241,7 @@ class LessonViewSet(viewsets.ModelViewSet):
     pagination_class = None
 
     def get_queryset(self):
-        qs = Lesson.objects.prefetch_related("files__source", "files__material__source", "sources__sentences", "lesson_notes")
+        qs = Lesson.objects.of(self.request.user).prefetch_related("files__source", "files__material__source", "sources__sentences", "lesson_notes")
         p = self.request.query_params
         if self.action == "list":
             if p.get("state") == "done":
@@ -291,14 +296,14 @@ class LessonViewSet(viewsets.ModelViewSet):
         if file_kind(item.name) not in ("audio", "video"):
             return Response({"error": "Only recordings and videos can be transcribed."}, status=400)
         with transaction.atomic():
-            transcribe(stored(item), f"{lesson.title} · {Path(item.name).stem}")
+            transcribe(stored(item), f"{lesson.title} · {Path(item.name).stem}", request.user)
             lesson.sources.add(stored(item).source)
         return Response(self.get_serializer(self.get_queryset().get(pk=lesson.pk)).data)
 
 
 @api_view(["GET", "DELETE"])
 def lesson_file(request, pk, fid):
-    item = get_object_or_404(LessonFile.objects.select_related("material"), pk=fid, lesson_id=pk)
+    item = get_object_or_404(LessonFile.objects.of(request.user).select_related("material"), pk=fid, lesson_id=pk)
     if request.method == "DELETE":
         # taken out of the lesson; a folder file stays in its folder
         if not item.material_id:
@@ -313,7 +318,7 @@ def lesson_file(request, pk, fid):
     return resp
 
 
-class MaterialSerializer(serializers.ModelSerializer):
+class MaterialSerializer(Owned, serializers.ModelSerializer):
     class Meta:
         model = Material
         fields = ["id", "name", "folder", "position", "pinned", "size", "created_at"]
@@ -327,7 +332,7 @@ class MaterialSerializer(serializers.ModelSerializer):
 
     def update(self, item, data):
         if "folder" in data and data["folder"] != item.folder:
-            data["position"] = next_position(Material.objects.filter(folder=data["folder"]))
+            data["position"] = next_position(Material.objects.of(self._user()).filter(folder=data["folder"]))
         return super().update(item, data)
 
     def to_representation(self, item):
@@ -343,9 +348,11 @@ class MaterialViewSet(viewsets.ModelViewSet):
     the folder tree. POST is multipart: any number of files and the folder they go in."""
 
     serializer_class = MaterialSerializer
-    queryset = Material.objects.select_related("source").prefetch_related("lesson_files__lesson")
     http_method_names = ["get", "post", "patch", "delete"]
     pagination_class = None
+
+    def get_queryset(self):
+        return Material.objects.of(self.request.user).select_related("source").prefetch_related("lesson_files__lesson")
 
     def create(self, request):
         files = request.FILES.getlist("files")
@@ -357,10 +364,10 @@ class MaterialViewSet(viewsets.ModelViewSet):
             if not f.size:
                 return Response({"error": f"{f.name} is empty. Choose the original file again."}, status=400)
         folder_id = request.data.get("folder") or None
-        folder = get_object_or_404(LessonFolder, pk=folder_id) if folder_id else None
+        folder = get_object_or_404(LessonFolder.objects.of(request.user), pk=folder_id) if folder_id else None
         with transaction.atomic():
-            start = next_position(Material.objects.filter(folder=folder))
-            made = [Material.objects.create(folder=folder, file=f, name=Path(f.name).name[:200], size=f.size, position=start + i)
+            start = next_position(Material.objects.of(request.user).filter(folder=folder))
+            made = [Material.objects.create(owner=request.user, folder=folder, file=f, name=Path(f.name).name[:200], size=f.size, position=start + i)
                     for i, f in enumerate(files)]
         return Response(self.get_serializer(made, many=True).data, status=201)
 
@@ -387,5 +394,5 @@ class MaterialViewSet(viewsets.ModelViewSet):
             return Response({"error": "Choose recordings or videos to transcribe."}, status=400)
         with transaction.atomic():
             for item in items:
-                transcribe(item, Path(item.name).stem)
+                transcribe(item, Path(item.name).stem, request.user)
         return Response(self.get_serializer(self.get_queryset().filter(pk__in=[m.pk for m in items]), many=True).data)

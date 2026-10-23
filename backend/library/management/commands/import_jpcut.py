@@ -9,6 +9,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from library import ingest
+from library.accounts import command_user
 from library.models import Source
 from library.views import _make_sentences
 from speech import jpcut
@@ -26,8 +27,10 @@ class Command(BaseCommand):
         parser.add_argument("path", help="a recording, or a folder of them, e.g. ~/jp")
         parser.add_argument("--label", action="append", default=[])
         parser.add_argument("--status", default="inbox", choices=["inbox", "kept"])
+        parser.add_argument("--user", help="whose library they go into (default: the only user)")
 
-    def handle(self, *args, path, label, status, **kw):
+    def handle(self, *args, path, label, status, user=None, **kw):
+        self.user = command_user(user)
         p = Path(path).expanduser().resolve()
         if not p.exists():
             raise CommandError(f"{p} not found")
@@ -38,7 +41,7 @@ class Command(BaseCommand):
     def one(self, src, label, status):
         folder = src.parent / src.stem
         words = folder / f"{src.stem}.words.json"
-        if Source.objects.filter(title=src.stem.replace("_", " "), kind__in=["audio", "video"]).exists():
+        if Source.objects.of(self.user).filter(title=src.stem.replace("_", " "), kind__in=["audio", "video"]).exists():
             self.stdout.write(f"{src.name}: already here, skipped")
             return
         data = json.loads(words.read_text(encoding="utf-8")) if words.exists() else None
@@ -47,7 +50,7 @@ class Command(BaseCommand):
         labels = folder / f"{src.stem}_cuts.txt"
         with transaction.atomic():
             s = Source.objects.create(
-                kind="video" if src.suffix.lower() in VIDEO else "audio", status=status,
+                owner=self.user, kind="video" if src.suffix.lower() in VIDEO else "audio", status=status,
                 title=src.stem.replace("_", " "), labels=label[:3],
                 duration=data.get("duration") if data else None,
                 text="\n".join(r[2] for r in rows), job="" if data else Source.Job.WAITING)

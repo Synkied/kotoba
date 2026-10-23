@@ -1,7 +1,12 @@
 """Heard elsewhere: the subtitled lines of YouTube channels you follow, kept apart from your own
 sentences. A line becomes one of yours only when you keep it (corpus.keep), so the library, the
-word list and review never fill up with lines you didn't choose."""
+word list and review never fill up with lines you didn't choose.
 
+The corpus is shared: a channel, its videos and their lines are read once however many users
+follow it (YouTube hands out subtitles slowly). Each user sees the lines of the channels they
+follow, and keeping a line makes a sentence of their own."""
+
+from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
@@ -23,6 +28,7 @@ class Channel(models.Model):
     error = models.TextField(blank=True)
     added_at = models.DateTimeField(default=timezone.now)
     checked_at = models.DateTimeField(null=True, blank=True)  # its video list last read
+    followers = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="channels", blank=True)
 
     class Meta:
         ordering = ["added_at"]
@@ -48,7 +54,8 @@ class Video(models.Model):
     subs = models.CharField(max_length=10, choices=Subs.choices, default=Subs.WAITING, db_index=True)
     error = models.TextField(blank=True)
     gone_at = models.DateTimeField(null=True, blank=True)  # private or deleted since
-    source = models.OneToOneField(Source, null=True, blank=True, on_delete=models.SET_NULL, related_name="video")
+    # the sources its kept lines went into, one per user who kept one
+    sources = models.ManyToManyField(Source, related_name="heard_videos", blank=True)
     added_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
@@ -71,7 +78,8 @@ class Line(models.Model):
     end = models.FloatField()
     furigana = models.JSONField(default=list, blank=True)
     words_engine = models.CharField(max_length=80, blank=True, default="", db_index=True)
-    sentence = models.ForeignKey(Sentence, null=True, blank=True, on_delete=models.SET_NULL, related_name="heard_lines")
+    # the sentences it became, one per user who kept it
+    sentences = models.ManyToManyField(Sentence, related_name="heard_from", blank=True)
 
     class Meta:
         ordering = ["video", "position"]

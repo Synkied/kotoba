@@ -3,13 +3,14 @@ import tempfile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from unittest import mock
 
-from django.test import TestCase, override_settings
+from django.test import override_settings
 
 from .models import Lesson, LessonFolder, Material, Source
+from .testing import SignedIn
 
 
 @override_settings(MEDIA_ROOT=tempfile.mkdtemp())
-class LessonTests(TestCase):
+class LessonTests(SignedIn):
     def create(self, **data):
         return self.client.post("/api/lessons", data)
 
@@ -31,9 +32,9 @@ class LessonTests(TestCase):
         self.assertFalse(Lesson.objects.exists())
 
     def test_done_lessons_leave_the_current_list_unless_pinned(self):
-        study = Lesson.objects.create(title="Lesson 20")
-        done = Lesson.objects.create(title="Lesson 18")
-        reference = Lesson.objects.create(title="Verb forms")
+        study = Lesson.objects.create(owner=self.user, title="Lesson 20")
+        done = Lesson.objects.create(owner=self.user, title="Lesson 18")
+        reference = Lesson.objects.create(owner=self.user, title="Verb forms")
         for lesson, data in ((done, {"done": True}), (reference, {"done": True, "pinned": True})):
             self.assertEqual(self.client.patch(f"/api/lessons/{lesson.id}", data, content_type="application/json").status_code, 200)
         current = {l["title"] for l in self.client.get("/api/lessons").json()}
@@ -70,8 +71,8 @@ class LessonTests(TestCase):
         self.assertEqual(set(Lesson.objects.values_list("folder", flat=True)), {minna["id"]})
 
     def test_link_sources(self):
-        source = Source.objects.create(kind="text", text="こんにちは", status="kept", title="Dialogue")
-        lesson = Lesson.objects.create(title="Lesson 19")
+        source = Source.objects.create(owner=self.user, kind="text", text="こんにちは", status="kept", title="Dialogue")
+        lesson = Lesson.objects.create(owner=self.user, title="Lesson 19")
         response = self.client.patch(f"/api/lessons/{lesson.id}", {"sources": [source.id]}, content_type="application/json")
         self.assertEqual(response.json()["sources"], [{"id": source.id, "title": "Dialogue", "kind": "text", "status": "kept", "sentences": 0, "job": "", "media": None}])
         # and the source leads back to its lesson
@@ -99,7 +100,7 @@ class LessonTests(TestCase):
 
     @mock.patch("speech.jobs.kick")
     def test_files_live_in_folders_without_a_lesson(self, kick):
-        book = LessonFolder.objects.create(name="Book 1")
+        book = LessonFolder.objects.create(owner=self.user, name="Book 1")
         pdf = SimpleUploadedFile("Lesson 19.pdf", b"%PDF-1.4", content_type="application/pdf")
         track = SimpleUploadedFile("track 22.mp3", b"ID3audio", content_type="audio/mpeg")
         r = self.client.post("/api/materials", {"files": [pdf, track], "folder": book.id})
@@ -125,7 +126,7 @@ class LessonTests(TestCase):
         self.assertEqual(self.client.post("/api/materials", {"files": [page]}).status_code, 400)
 
     def test_a_lesson_made_from_folder_files_links_them(self):
-        book = LessonFolder.objects.create(name="Book 1")
+        book = LessonFolder.objects.create(owner=self.user, name="Book 1")
         pdf = SimpleUploadedFile("Lesson 19.pdf", b"%PDF-1.4", content_type="application/pdf")
         track = SimpleUploadedFile("track 22.mp3", b"ID3audio", content_type="audio/mpeg")
         made = self.client.post("/api/materials", {"files": [pdf, track], "folder": book.id}).json()
@@ -143,7 +144,7 @@ class LessonTests(TestCase):
         self.assertEqual(self.client.get(made[0]["url"]).status_code, 200)
 
     def test_folders_and_files_can_be_pinned(self):
-        book = LessonFolder.objects.create(name="Book 1")
+        book = LessonFolder.objects.create(owner=self.user, name="Book 1")
         pdf = SimpleUploadedFile("Kana chart.pdf", b"%PDF-1.4", content_type="application/pdf")
         made = self.client.post("/api/materials", {"files": [pdf], "folder": book.id}).json()
         self.assertFalse(made[0]["pinned"])

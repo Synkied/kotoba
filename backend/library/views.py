@@ -7,11 +7,13 @@ import re
 import wave
 from collections import defaultdict
 from datetime import datetime, timezone as dt_timezone
+from pathlib import Path
 
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import Avg, Count, Max, Q
-from django.http import FileResponse, HttpResponse, StreamingHttpResponse
+from django.conf import settings
+from django.http import FileResponse, Http404, HttpResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from PIL import Image, UnidentifiedImageError
@@ -50,6 +52,21 @@ def _search_filter(qs, q, prefix=""):
     return qs.filter(cond)
 
 
+def owned_file(request, path):
+    """A file from the data folder (/files/…), to the user whose capture or kept take it is."""
+    user = request.user
+    if not user.is_authenticated:
+        return HttpResponse(status=401)
+    if not (Source.objects.of(user).filter(Q(image=path) | Q(media=path)).exists()
+            or Attempt.objects.of(user).filter(audio=path).exists()):
+        raise Http404
+    root = Path(settings.MEDIA_ROOT).resolve()
+    full = (root / path).resolve()
+    if root not in full.parents or not full.is_file():
+        raise Http404
+    return ranged_file(request, str(full))
+
+
 def _make_sentences(source, rows):
     """rows: [text] or [(start, end, text)]"""
     source.sentences.all().delete()
@@ -65,7 +82,8 @@ class SourceViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "patch", "delete", "post"]
 
     def get_queryset(self):
-        qs = Source.objects.prefetch_related("sentences__attempts", "sentences__decks", "lessons")
+        user = self.request.user
+        qs = Source.objects.of(user).prefetch_related("sentences__attempts", "sentences__decks", "lessons")
         p = self.request.query_params
         if p.get("status"):
             qs = qs.filter(status=p["status"])
@@ -77,7 +95,7 @@ class SourceViewSet(viewsets.ModelViewSet):
             qs = qs.filter(labels__icontains=f'"{p["label"]}"')
         if p.get("q"):
             q = p["q"]
-            ids = _search_filter(Sentence.objects.all(), q).values("source_id")
+            ids = _search_filter(Sentence.objects.of(user), q).values("source_id")
             qs = qs.filter(Q(id__in=ids) | Q(title__icontains=q) | Q(text__icontains=q))
         return qs
 
@@ -120,7 +138,7 @@ class SourceViewSet(viewsets.ModelViewSet):
 def bulk(request):
     """{ids, status?, category?, labels?, add_label?, delete?}"""
     ids = [int(i) for i in request.data.get("ids", [])]
-    qs = Source.objects.filter(id__in=ids)
+    qs = Source.objects.of(request.user).filter(id__in=ids)
     if request.data.get("delete"):
         n = qs.count()
         for s in qs:
@@ -203,7 +221,7 @@ def captures(request):
         return Response({"error": 'expected {"text": str, "category": str, "created_at": number, '
                                   '"image": base64 PNG or null}'}, status=400)
     when = datetime.fromtimestamp(float(created_at), tz=dt_timezone.utc)
-    existing = Source.objects.filter(kind=Source.Kind.CAPTURE, created_at=when, text=text).first()
+    existing = Source.objects.of(request.user).filter(kind=Source.Kind.CAPTURE, created_at=when, text=text).first()
     if existing:
         return Response({"id": existing.id})
     png = None
@@ -214,7 +232,7 @@ def captures(request):
         except (binascii.Error, TypeError, UnidentifiedImageError, OSError):
             return Response({"error": "image is not a base64 PNG"}, status=400)
     with transaction.atomic():
-        source = Source.objects.create(kind=Source.Kind.CAPTURE, text=text.strip(),
+        source = Source.objects.create(owner=request.user, kind=Source.Kind.CAPTURE, text=text.strip(),
                                        category=category.strip()[:40], created_at=when)
         if png:
             source.image.save(f"{source.id}.png", ContentFile(png))
@@ -228,7 +246,7 @@ def collect_text(request):
     if not text:
         return Response({"error": "Paste some Japanese text first."}, status=400)
     with transaction.atomic():
-        source = Source.objects.create(kind=Source.Kind.TEXT, text=text,
+        source = Source.objects.create(owner=request.user, kind=Source.Kind.TEXT, text=text,
                                        title=str(request.data.get("title", "")).strip()[:200],
                                        labels=clean_labels(request.data.get("labels")))
         _make_sentences(source, ingest.split_text(text))
@@ -257,19 +275,19 @@ def collect_file(request):
             if media:
                 mext = os.path.splitext(media.name)[1].lower()
                 kind = Source.Kind.VIDEO if mext in VIDEO_EXT else Source.Kind.AUDIO
-            source = Source.objects.create(kind=kind, title=title, labels=labels,
+            source = Source.objects.create(owner=request.user, kind=kind, title=title, labels=labels,
                                            text="\n".join(c[2] for c in cues))
             if media:
                 source.media.save(media.name, media)
             _make_sentences(source, cues)
         elif ext in AUDIO_EXT | VIDEO_EXT:
             kind = Source.Kind.VIDEO if ext in VIDEO_EXT else Source.Kind.AUDIO
-            source = Source.objects.create(kind=kind, title=title, labels=labels, job=Source.Job.WAITING)
+            source = Source.objects.create(owner=request.user, kind=kind, title=title, labels=labels, job=Source.Job.WAITING)
             source.media.save(f.name, f)
             from speech import jobs
             transaction.on_commit(jobs.kick)
         elif ext in IMAGE_EXT:
-            source = Source.objects.create(kind=Source.Kind.CAPTURE, title=title, labels=labels)
+            source = Source.objects.create(owner=request.user, kind=Source.Kind.CAPTURE, title=title, labels=labels)
             source.image.save(f.name, f)
         else:
             return Response({"error": f"kotoba can't use {ext or 'that'} files yet. Audio, video, "
@@ -287,7 +305,7 @@ class SentenceViewSet(viewsets.ModelViewSet):
         return Response({"error": "Sentences come from sources."}, status=405)
 
     def get_queryset(self):
-        qs = Sentence.objects.select_related("source").prefetch_related("attempts", "decks")
+        qs = Sentence.objects.of(self.request.user).select_related("source").prefetch_related("attempts", "decks")
         p = self.request.query_params
         if p.get("status"):
             qs = qs.filter(source__status=p["status"])
@@ -308,7 +326,7 @@ class SentenceViewSet(viewsets.ModelViewSet):
         if p.get("label"):
             qs = qs.filter(source__labels__icontains=f'"{p["label"]}"')
         if p.get("q"):
-            qs = _sentence_search(qs, p["q"].strip())
+            qs = _sentence_search(qs, p["q"].strip(), self.request.user)
         if not p.get("deck"):
             qs = qs.order_by("-source__created_at", "position")
         return qs
@@ -332,29 +350,30 @@ class SentenceViewSet(viewsets.ModelViewSet):
 def translation(request):
     """The translator's status, the saved translators and the language sentences are
     translated into. PATCH {"to": "fr"} picks the language, {"active": id} the translator."""
+    user = request.user
     if request.method == "PATCH":
         try:
             if "to" in request.data:
-                translate.set_language(request.data.get("to", ""))
+                translate.set_language(user, request.data.get("to", ""))
             if "active" in request.data:
-                translate.activate(str(request.data["active"]))
+                translate.activate(user, str(request.data["active"]))
         except ValueError as e:
             return Response({"error": str(e)}, status=400)
         except KeyError:
             return Response({"error": "That translator no longer exists."}, status=404)
-    lang = translate.language()
+    lang = translate.language(user)
     if request.query_params.get("quick"):  # just the language, without asking the LLM server
-        active = translate.public(next(t for t in translate.translators() if t["id"] == translate.active_id()))
+        active = translate.active(user)
         return Response({"to": lang, "name": translate.LANGUAGES[lang],
-                         "translator": active["name"], "cloud": active["cloud"]})
-    sentences = Sentence.objects.exclude(source__status=Source.Status.ARCHIVED)
+                         "translator": active and active["name"], "cloud": bool(active) and translate.public(active)["cloud"]})
+    sentences = Sentence.objects.of(user).exclude(source__status=Source.Status.ARCHIVED)
     return Response({
-        **translate.status(), "to": lang, "name": translate.LANGUAGES[lang],
+        **translate.status(user), "to": lang, "name": translate.LANGUAGES[lang],
         "languages": [{"code": k, "name": v} for k, v in translate.LANGUAGES.items()],
         "translated": sentences.filter(**{f"translations__{lang}__isnull": False}).count(),
         "sentences": sentences.count(),
-        "active": translate.active_id(),
-        "translators": [translate.public(t) for t in translate.translators()],
+        "active": translate.active_id(user),
+        "translators": [translate.public(t) for t in translate.translators(user)],
         "defaults": translate.defaults(),
     })
 
@@ -363,7 +382,7 @@ def translation(request):
 def translators(request):
     """Save a translator; {"activate": true} also makes it the one in use."""
     try:
-        t = translate.add_translator(request.data, activate=bool(request.data.get("activate")))
+        t = translate.add_translator(request.user, request.data, activate=bool(request.data.get("activate")))
     except ValueError as e:
         return Response({"error": str(e)}, status=400)
     return Response(translate.public(t), status=201)
@@ -373,9 +392,9 @@ def translators(request):
 def translator(request, tid):
     try:
         if request.method == "DELETE":
-            translate.remove_translator(tid)
+            translate.remove_translator(request.user, tid)
             return Response(status=204)
-        t = translate.update_translator(tid, request.data, activate=bool(request.data.get("activate")))
+        t = translate.update_translator(request.user, tid, request.data, activate=bool(request.data.get("activate")))
     except KeyError:
         return Response({"error": "That translator no longer exists."}, status=404)
     except ValueError as e:
@@ -387,19 +406,19 @@ def translator(request, tid):
 def translator_test(request):
     """Try a translator from the form without saving it: does it answer, and with which models."""
     try:
-        cfg = translate.draft(request.data)
+        cfg = translate.draft(request.user, request.data)
     except ValueError as e:
         return Response({"error": str(e)}, status=400)
-    return Response(translate.status(cfg))
+    return Response(translate.status(request.user, cfg))
 
 
 @api_view(["GET"])
 def facets(request):
     """Categories and labels in use, with counts, for the library filters."""
-    cats = (Source.objects.exclude(status=Source.Status.ARCHIVED).exclude(category="")
+    cats = (Source.objects.of(request.user).exclude(status=Source.Status.ARCHIVED).exclude(category="")
             .values("category").annotate(n=Count("id")).order_by("-n"))
     labels = {}
-    for ls in Source.objects.exclude(status=Source.Status.ARCHIVED).values_list("labels", flat=True):
+    for ls in Source.objects.of(request.user).exclude(status=Source.Status.ARCHIVED).values_list("labels", flat=True):
         for label in ls:
             labels[label] = labels.get(label, 0) + 1
     return Response({
@@ -415,15 +434,16 @@ def stats(request):
     jobs.kick()   # the app polls this: a cheap moment to pick up waiting uploads
     words.kick()  # and sentences the word index hasn't read
     worker.kick() # and channels due a look (kotoba isn't always on, so no schedule)
-    now = timezone.now()
+    now, user = timezone.now(), request.user
+    sentences = Sentence.objects.of(user).exclude(source__status=Source.Status.ARCHIVED)
     return Response({
-        "inbox": Source.objects.filter(status=Source.Status.INBOX).count(),
-        "due": Sentence.objects.filter(due__lte=now).exclude(source__status=Source.Status.ARCHIVED).count(),
-        "sentences": Sentence.objects.exclude(source__status=Source.Status.ARCHIVED).count(),
-        "decks": Deck.objects.count(),
-        "lessons": Lesson.objects.filter(done_at__isnull=True).count(),
-        "attempts_today": Attempt.objects.filter(created_at__date=timezone.localdate()).count(),
-        "waiting": Source.objects.filter(job__in=[Source.Job.WAITING, Source.Job.RUNNING]).count(),
+        "inbox": Source.objects.of(user).filter(status=Source.Status.INBOX).count(),
+        "due": sentences.filter(due__lte=now).count(),
+        "sentences": sentences.count(),
+        "decks": Deck.objects.of(user).count(),
+        "lessons": Lesson.objects.of(user).filter(done_at__isnull=True).count(),
+        "attempts_today": Attempt.objects.of(user).filter(created_at__date=timezone.localdate()).count(),
+        "waiting": Source.objects.of(user).filter(job__in=[Source.Job.WAITING, Source.Job.RUNNING]).count(),
     })
 
 
@@ -459,7 +479,7 @@ def lookup(request):
             return Response({"error": "end must be a character offset"}, status=400)
     else:
         word = dictionary.lookup(text, at, pairs)
-    return Response({"word": word, "key": _key(word), "library": _in_library(word), "dictionary": dictionary.status()})
+    return Response({"word": word, "key": _key(word), "library": _in_library(word, request.user), "dictionary": dictionary.status()})
 
 
 @api_view(["POST"])
@@ -478,11 +498,11 @@ def _key(word):
     return f"j:{head['id']}" if head else f"m:{form}/{romanize._hira(reading or '')}"
 
 
-def _in_library(word):
+def _in_library(word, user):
     """The looked-up word in the word index, when your sentences have it: {id, sentences, status}."""
     if not word:
         return None
-    found = words.with_counts(Word.objects.filter(key=_key(word))).first()
+    found = words.with_counts(Word.objects.of(user).filter(key=_key(word))).first()
     return {"id": found.id, "sentences": found.sentences, "status": words.status(found)} if found else None
 
 
@@ -497,10 +517,10 @@ def explain(request):
     if len(text) > 500:
         return Response({"error": "That's a lot at once: select at most 500 characters."}, status=400)
     try:
-        out = translate.explain(text, context, request.data.get("to"), force=bool(request.data.get("force")))
+        out = translate.explain(request.user, text, context, request.data.get("to"), force=bool(request.data.get("force")))
     except translate.TranslateError as e:
         return Response({"error": str(e)}, status=503)
-    active = translate.public(next(t for t in translate.translators() if t["id"] == translate.active_id()))
+    active = translate.public(translate.active(request.user))  # explain() raised if there were none
     return Response({"translator": active["name"], "cloud": active["cloud"], **out})  # who answered, if saved
 
 
@@ -511,7 +531,7 @@ class DeckViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         now = timezone.now()
-        return Deck.objects.annotate(
+        return Deck.objects.of(self.request.user).annotate(
             size=Count("items", distinct=True),
             due=Count("items", filter=Q(items__sentence__due__lte=now), distinct=True),
             practised=Count("items", filter=Q(items__sentence__reps__gt=0) | Q(items__sentence__last__isnull=False),
@@ -526,7 +546,7 @@ class DeckViewSet(viewsets.ModelViewSet):
         pos = (deck.items.aggregate(m=Max("position"))["m"] or 0) + 1
         have = set(deck.items.values_list("sentence_id", flat=True))
         for sid in request.data.get("sentences", []):
-            if int(sid) not in have and Sentence.objects.filter(id=sid).exists():
+            if int(sid) not in have and Sentence.objects.of(request.user).filter(id=sid).exists():
                 DeckItem.objects.create(deck=deck, sentence_id=sid, position=pos)
                 pos += 1
         return Response(self.get_serializer(self.get_queryset().get(pk=deck.pk)).data)
@@ -549,7 +569,7 @@ class DeckViewSet(viewsets.ModelViewSet):
 
 @api_view(["POST"])
 def attempts(request):
-    ser = AttemptSerializer(data=request.data)
+    ser = AttemptSerializer(data=request.data, context={"request": request})
     ser.is_valid(raise_exception=True)
     with transaction.atomic():
         attempt = ser.save()
@@ -567,7 +587,7 @@ TAKE_MAX = TAKE_RATE * 2 * 90  # the recorder stops itself at 60 s
 def attempt_audio(request, pk):
     """Keep a take to hear again later: the body is the take as it was scored, 16 kHz mono
     int16 PCM, stored as a WAV. DELETE lets it go; the score stays."""
-    attempt = get_object_or_404(Attempt, pk=pk)
+    attempt = get_object_or_404(Attempt.objects.of(request.user), pk=pk)
     if attempt.audio:
         attempt.audio.delete(save=False)
     if request.method == "DELETE":
@@ -590,7 +610,7 @@ def review(request):
     sources so a fresh library has something to review."""
     now = timezone.now()
     limit = min(int(request.query_params.get("limit", 20)), 100)
-    base = Sentence.objects.exclude(source__status=Source.Status.ARCHIVED).select_related("source")
+    base = Sentence.objects.of(request.user).exclude(source__status=Source.Status.ARCHIVED).select_related("source")
     due = list(base.filter(due__lte=now).order_by("due")[:limit])
     fresh = []
     if len(due) < limit and request.query_params.get("new", "1") == "1":
@@ -612,9 +632,9 @@ def _word_row(w, checked=None) -> dict:
             "tries": len(tries), "misses": tries.count(False), "trouble": words.troubled(tries) if tries else False}
 
 
-def _index_state() -> dict:
+def _index_state(user) -> dict:
     words.kick()
-    return {"pending": words.pending(), "dictionary": dictionary.status()["state"]}
+    return {"pending": words.pending(user), "dictionary": dictionary.status()["state"]}
 
 
 WORD_SORTS = {"count": ("-sentences", "lemma"), "recent": ("-created_at", "lemma"), "az": ("reading", "lemma")}
@@ -624,11 +644,11 @@ WORD_SORTS = {"count": ("-sentences", "lemma"), "recent": ("-created_at", "lemma
 def word_list(request):
     """?q=&status=new|practised|known|trouble&sort=count|recent|az|trouble&limit=&offset=:
     the words in the sentences you keep, with how often they come up and how saying them went."""
-    p = request.query_params
-    qs = words.with_counts(Word.objects.all()).filter(sentences__gt=0)
+    p, user = request.query_params, request.user
+    qs = words.with_counts(Word.objects.of(user)).filter(sentences__gt=0)
     q = p.get("q", "").strip()
     if q:
-        qs = qs.filter(id__in=_word_matches(q))
+        qs = qs.filter(id__in=_word_matches(q, user))
     state = p.get("status", "")
     if state == "known":
         qs = qs.filter(known_at__isnull=False)
@@ -642,31 +662,31 @@ def word_list(request):
     except ValueError:
         return Response({"error": "limit and offset are numbers"}, status=400)
     if state == "trouble" or sort == "trouble":
-        checked = words.checks()
+        checked = words.checks(user)
         if state == "trouble":
             qs = qs.filter(id__in=[wid for wid, tries in checked.items() if words.troubled(tries)])
         rows = list(qs)
         rows.sort(key=lambda w: (-checked.get(w.id, []).count(False), -w.sentences, w.lemma))
         page = rows[offset:offset + limit]
-        return Response({"count": len(rows), "results": [_word_row(w, checked) for w in page], **_index_state()})
+        return Response({"count": len(rows), "results": [_word_row(w, checked) for w in page], **_index_state(user)})
     count = qs.count()
     page = list(qs.order_by(*WORD_SORTS.get(sort, WORD_SORTS["count"]))[offset:offset + limit])
-    checked = words.checks([w.id for w in page])
-    return Response({"count": count, "results": [_word_row(w, checked) for w in page], **_index_state()})
+    checked = words.checks(user, [w.id for w in page])
+    return Response({"count": count, "results": [_word_row(w, checked) for w in page], **_index_state(user)})
 
 
-def _sentence_search(qs, q, word_ids=None):
+def _sentence_search(qs, q, user, word_ids=None):
     """Sentences by their text, reading or translation, and those using a word the search finds,
     in any form: できる finds できます, library finds 図書館. A search finding many words (a
     common kanji) only goes by the text."""
-    ids = list(_word_matches(q) if word_ids is None else word_ids)
-    text = _search_filter(Sentence.objects.all(), q).values("id")
+    ids = list(_word_matches(q, user) if word_ids is None else word_ids)
+    text = _search_filter(Sentence.objects.of(user), q).values("id")
     if not ids or len(ids) > 20:
         return qs.filter(id__in=text)
     return qs.filter(Q(id__in=text) | Q(id__in=WordUse.objects.filter(word__in=ids).values("sentence_id")))
 
 
-def _word_matches(q: str) -> set:
+def _word_matches(q: str, user) -> set:
     """Ids of the words a search finds: by spelling, any form seen (読んで), reading or romaji
     (toshokan), a kanji in it, or, typed in Latin letters, a meaning (library finds 図書館)."""
     f = fold(q)
@@ -675,9 +695,10 @@ def _word_matches(q: str) -> set:
     rq = romanize.key(q) if latin else ""
     if len(rq) >= 2:
         cond |= Q(search__contains=rq)
-    found = set(Word.objects.filter(cond).values_list("id", flat=True))
+    mine = Word.objects.of(user)
+    found = set(mine.filter(cond).values_list("id", flat=True))
     if latin and len(q.strip()) >= 3:
-        entries = dict(Word.objects.exclude(entry=None).values_list("entry", "id"))
+        entries = dict(mine.exclude(entry=None).values_list("entry", "id"))
         found |= {entries[e] for e in dictionary.meaning_matches(entries, q)}
     return found
 
@@ -695,18 +716,19 @@ def search(request):
     q = request.query_params.get("q", "").strip()[:200]
     if not q:
         return Response({"q": q, "words": [], "sentences": [], "sources": [], "lessons": [], "decks": [], "counts": {}})
-    found = _word_matches(q)
-    ws = words.with_counts(Word.objects.filter(id__in=found)).filter(sentences__gt=0)
+    user = request.user
+    found = _word_matches(q, user)
+    ws = words.with_counts(Word.objects.of(user).filter(id__in=found)).filter(sentences__gt=0)
     exact = fold(q)
     top_words = sorted(ws, key=lambda w: (fold(w.lemma) != exact and w.reading != exact, -w.sentences, w.lemma))
-    live = Sentence.objects.exclude(source__status=Source.Status.ARCHIVED).select_related("source").prefetch_related("attempts", "decks")
-    sentences = _sentence_search(live, q, [w.id for w in top_words]).order_by("-source__created_at", "position")
-    ids = _search_filter(Sentence.objects.all(), q).values("source_id")
-    sources = (Source.objects.filter(Q(id__in=ids) | Q(title__icontains=q) | Q(text__icontains=q))
+    live = Sentence.objects.of(user).exclude(source__status=Source.Status.ARCHIVED).select_related("source").prefetch_related("attempts", "decks")
+    sentences = _sentence_search(live, q, user, [w.id for w in top_words]).order_by("-source__created_at", "position")
+    ids = _search_filter(Sentence.objects.of(user), q).values("source_id")
+    sources = (Source.objects.of(user).filter(Q(id__in=ids) | Q(title__icontains=q) | Q(text__icontains=q))
                .annotate(n=Count("sentences")).order_by("-created_at"))
-    lessons = (Lesson.objects.filter(Q(title__icontains=q) | Q(notes__icontains=q) | Q(folder__name__icontains=q)
-                                     | Q(files__name__icontains=q)).distinct().order_by("done_at", "-created_at"))
-    decks = Deck.objects.filter(Q(name__icontains=q) | Q(description__icontains=q) | Q(folder__icontains=q)).annotate(n=Count("items"))
+    lessons = (Lesson.objects.of(user).filter(Q(title__icontains=q) | Q(notes__icontains=q) | Q(folder__name__icontains=q)
+                                              | Q(files__name__icontains=q)).distinct().order_by("done_at", "-created_at"))
+    decks = Deck.objects.of(user).filter(Q(name__icontains=q) | Q(description__icontains=q) | Q(folder__icontains=q)).annotate(n=Count("items"))
     return Response({
         "q": q,
         "words": [{**_word_row(w), "meaning": _meaning(w)} for w in top_words[:8]],
@@ -724,7 +746,8 @@ def search(request):
 def word_detail(request, pk):
     """A word with its meanings, the sentences it's in (the spans it covers in each) and how saying
     it went. PATCH {"known": true|false} marks it known, or not."""
-    word = get_object_or_404(Word, pk=pk)
+    user = request.user
+    word = get_object_or_404(Word.objects.of(user), pk=pk)
     if request.method == "PATCH":
         if "known" in request.data:
             word.known_at = timezone.now() if request.data.get("known") else None
@@ -742,15 +765,15 @@ def word_detail(request, pk):
     shown = order[:200]
     found = Sentence.objects.select_related("source").prefetch_related("attempts", "decks").in_bulk(shown)
     sentences = [{**SentenceSerializer(found[sid]).data, "spans": spans[sid]} for sid in shown if sid in found]
-    checked = words.checks([word.id])
+    checked = words.checks(user, [word.id])
     forms = sorted({u.surface for u in uses}, key=lambda f: (f != word.lemma, len(f), f))[:12]
-    kanji = [{"char": c, "words": Word.objects.filter(lemma__contains=c, uses__isnull=False).distinct().count()}
+    kanji = [{"char": c, "words": Word.objects.of(user).filter(lemma__contains=c, uses__isnull=False).distinct().count()}
              for c in dict.fromkeys(romanize.HAN.findall(word.lemma))]
     return Response({**_word_row(word, checked), "forms": forms, "kanji": kanji,
                      "entries": dictionary.entry(word.entry) if word.entry else
                      dictionary.entries([word.lemma], word.reading) if dictionary.path().exists() else [],
                      "results": checked.get(word.id, []),
-                     "sentence_list": sentences, "more": max(0, len(order) - len(shown)), **_index_state()})
+                     "sentence_list": sentences, "more": max(0, len(order) - len(shown)), **_index_state(user)})
 
 
 @api_view(["GET"])
@@ -760,33 +783,33 @@ def word_next(request):
         limit = min(int(request.query_params.get("limit", 20)), 100)
     except ValueError:
         return Response({"error": "limit is a number"}, status=400)
-    picks = words.next_sentences(limit)
+    picks = words.next_sentences(request.user, limit)
     spans = defaultdict(list)
     for u in WordUse.objects.filter(sentence__in=[s for s, _, _ in picks], word__in=[w for _, w, _ in picks]):
         spans[(u.sentence_id, u.word_id)].append([u.start, u.end])
     return Response({"results": [{"sentence": SentenceSerializer(s).data, "word": _word_row(w), "sentences": n,
-                                  "spans": spans[(s.id, w.id)]} for s, w, n in picks], **_index_state()})
+                                  "spans": spans[(s.id, w.id)]} for s, w, n in picks], **_index_state(request.user)})
 
 
 @api_view(["GET"])
 def sentence_words(request, pk):
     """The words of a sentence (with how often each comes up) and other sentences sharing its rarer ones."""
-    sentence = get_object_or_404(Sentence, pk=pk)
+    sentence = get_object_or_404(Sentence.objects.of(request.user), pk=pk)
     uses = list(sentence.word_uses.all())
     by_id = {w.id: w for w in words.with_counts(Word.objects.filter(id__in={u.word_id for u in uses}))}
-    checked = words.checks(list(by_id))
+    checked = words.checks(request.user, list(by_id))
     out = [{**_word_row(by_id[u.word_id], checked), "start": u.start, "end": u.end, "surface": u.surface}
            for u in uses if u.word_id in by_id and sentence.text[u.start:u.end] == u.surface]
     related = [{"sentence": SentenceSerializer(s).data, "shared": [{"id": w.id, "lemma": w.lemma, "reading": w.reading} for w in ws]}
                for s, ws in words.related(sentence)]
-    return Response({"words": out, "related": related, "indexed": sentence.words_engine == words.engine(), **_index_state()})
+    return Response({"words": out, "related": related, "indexed": sentence.words_engine == words.engine(), **_index_state(request.user)})
 
 
 @api_view(["GET"])
 def source_words(request, pk):
     """How much of a source's vocabulary you have, and its new words that come up most."""
-    source = get_object_or_404(Source, pk=pk)
+    source = get_object_or_404(Source.objects.of(request.user), pk=pk)
     cov = words.coverage(source)
     cov["top_new"] = [_word_row(w) for w in cov["top_new"]]
     waiting = source.sentences.exclude(words_engine=words.engine()).count()
-    return Response({**cov, "waiting": waiting, **_index_state()})
+    return Response({**cov, "waiting": waiting, **_index_state(request.user)})

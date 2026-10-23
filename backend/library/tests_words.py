@@ -2,10 +2,11 @@ import json
 import tempfile
 from pathlib import Path
 
-from django.test import TestCase, override_settings
+from django.test import override_settings
 
 from . import dictionary, words
 from .models import Attempt, Sentence, Source, Word, WordUse
+from .testing import SignedIn
 from .tests_dictionary import _word
 
 
@@ -30,7 +31,7 @@ JMDICT = ['{\n', '"version": "3.6.2",\n', '"dictDate": "2026-10-05",\n', '"tags"
           _word(11, ["犬"], ["いぬ"], "dog") + "\n", "]\n", "}\n"]
 
 
-class WordsCase(TestCase):
+class WordsCase(SignedIn):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -47,7 +48,7 @@ class WordsCase(TestCase):
         super().tearDownClass()
 
     def source(self, *lines, status=Source.Status.KEPT):
-        src = Source.objects.create(kind=Source.Kind.TEXT, status=status, text="\n".join(lines))
+        src = Source.objects.create(owner=self.user, kind=Source.Kind.TEXT, status=status, text="\n".join(lines))
         for i, line in enumerate(lines):
             Sentence(source=src, position=i, text=line).save()
         return src
@@ -90,14 +91,14 @@ class IndexTests(WordsCase):
         self.assertEqual(words.index_pending(), 1)
         s = src.sentences.get()
         self.assertEqual(s.word_uses.count(), 2)
-        self.assertEqual(words.pending(), 0)
+        self.assertEqual(words.pending(self.user), 0)
         # a score doesn't change its words; new text does
         s.last = 90
         s.save(update_fields=["last"])
-        self.assertEqual(words.pending(), 0)
+        self.assertEqual(words.pending(self.user), 0)
         s.text = "犬"
         s.save()
-        self.assertEqual(words.pending(), 1)
+        self.assertEqual(words.pending(self.user), 1)
         words.index_pending()
         self.assertEqual(list(s.word_uses.values_list("word__lemma", flat=True)), ["犬"])
         # 猫 went with its last sentence; 読む too
@@ -115,11 +116,12 @@ class IndexTests(WordsCase):
         self.source("猫")
         words.index_pending()
         Sentence.objects.update(words_engine="old")
-        self.assertEqual(words.pending(), 1)
+        self.assertEqual(words.pending(self.user), 1)
 
 
 class WordApiTests(WordsCase):
     def setUp(self):
+        super().setUp()
         self.a = self.source("猫が本を読む", "犬が本を読む")
         self.b = self.source("猫と図書館")
         self.archived = self.source("猫", status=Source.Status.ARCHIVED)
@@ -188,6 +190,7 @@ class WordApiTests(WordsCase):
 
 class SearchTests(WordsCase):
     def setUp(self):
+        super().setUp()
         self.src = self.source("猫が本を読む", "図書館")
         Source.objects.filter(pk=self.src.pk).update(title="Cat book")
         words.index_pending()
@@ -219,8 +222,8 @@ class SearchTests(WordsCase):
 
     def test_sources_lessons_and_decks(self):
         from .models import Deck, Lesson
-        Lesson.objects.create(title="Cat lesson")
-        Deck.objects.create(name="Cats")
+        Lesson.objects.create(owner=self.user, title="Cat lesson")
+        Deck.objects.create(owner=self.user, name="Cats")
         r = self.search("cat")
         self.assertEqual(([x["title"] for x in r["sources"]], [x["title"] for x in r["lessons"]], [x["name"] for x in r["decks"]]),
                          (["Cat book"], ["Cat lesson"], ["Cats"]))

@@ -60,8 +60,8 @@ export type Addons = {
   screen_ocr: { last_capture: string | null }
   dictionary: DictionaryStatus
 }
-/** translator and cloud come with the quick read: who does the work, and whether it costs credits */
-export type Language = { to: string; name: string; translator?: string; cloud?: boolean }
+/** translator and cloud come with the quick read: who does the work (null: nobody yet), and whether it costs credits */
+export type Language = { to: string; name: string; translator?: string | null; cloud?: boolean }
 export type TranslatorKind = 'ollama' | 'llamacpp' | 'anthropic' | 'openai'
 export type Translator = {
   id: string; kind: TranslatorKind; name: string; url: string; model: string
@@ -72,7 +72,8 @@ export type TranslatorDraft = { id?: string; kind: TranslatorKind; name: string;
 export type TranslatorCheck = { url: string; model: string; cloud: boolean; ready: boolean; error: string | null; models: string[] }
 export type TranslationStatus = Language & TranslatorCheck & {
   languages: { code: string; name: string }[]; translated: number; sentences: number
-  active: string; translators: Translator[]; defaults: Record<TranslatorKind, string>
+  /** null until there's a translator to use */
+  active: string | null; translators: Translator[]; defaults: Record<TranslatorKind, string>
 }
 export type DictionaryStatus = { state: 'missing' | 'downloading' | 'ready' | 'error'; error: string | null; lang: string; version?: string }
 export type DictEntry = {
@@ -178,6 +179,13 @@ export type Lesson = {
   linked_notes: { id: number; title: string; excerpt: string }[]
 }
 
+export type Account = { id: number; username: string; staff: boolean }
+/** who is signed in on this browser, and whether a new account can be made here */
+export type AccountState = { user: Account | null; signup: boolean }
+
+/** Fired when kotoba answers that nobody is signed in (a session that ended): the app asks to sign in again. */
+export const SIGNED_OUT = 'kotoba:signed-out'
+
 export class ApiError extends Error {
   status: number
   constructor(message: string, status: number) { super(message); this.status = status }
@@ -188,6 +196,10 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
   try { r = await fetch('/api/' + path, init) }
   catch { throw new ApiError('Couldn’t reach kotoba. Check your connection and try again.', 0) }
   if (r.status === 204) return undefined as T
+  if (r.status === 401 && !path.startsWith('account')) {
+    window.dispatchEvent(new Event(SIGNED_OUT))
+    throw new ApiError('Sign in again to carry on.', 401)
+  }
   const ctype = r.headers.get('Content-Type') || ''
   const body = ctype.includes('json') ? await r.json() : await r.text()
   if (!r.ok) {
@@ -216,6 +228,14 @@ export async function allSentences(params: { deck?: number; source?: number } = 
 }
 
 export const api = {
+  account: () => req<AccountState>('account'),
+  signin: (username: string, password: string) => req<{ user: Account }>('account/signin', json('POST', { username, password })),
+  signup: (username: string, password: string) => req<{ user: Account }>('account/signup', json('POST', { username, password })),
+  signout: () => req<void>('account/signout', { method: 'POST' }),
+  changePassword: (current: string, next: string) => req<void>('account/password', json('POST', { current, new: next })),
+  /** the key screen-ocr and scripts sign in with; renewing it retires the old one */
+  token: () => req<{ token: string; created: string }>('account/token'),
+  renewToken: () => req<{ token: string; created: string }>('account/token', { method: 'POST' }),
   notes: (p: { lesson?: number } = {}) => req<Note[]>('notes' + qs(p)),
   createNote: (data: Pick<Note, 'title' | 'body'> & { folder?: number | null; lesson?: number | null }) => req<Note>('notes', json('POST', data)),
   updateNote: (id: number, data: Partial<Pick<Note, 'title' | 'body' | 'folder' | 'lesson'>> & { source_ids?: number[] }) => req<Note>(`notes/${id}`, json('PATCH', data)),

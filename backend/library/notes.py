@@ -3,6 +3,7 @@ import re
 from rest_framework import serializers, viewsets
 
 from .models import Lesson, Note, Source
+from .serializers import Owned
 
 # a source mentioned in a note's body: [@今日の会話](/sources/12)
 MENTION = re.compile(r"\[@(?:[^\]\\]|\\.)*\]\(/sources/(\d+)\)")
@@ -23,7 +24,7 @@ class NoteSourceSerializer(serializers.ModelSerializer):
         return source.title or source.text.strip()[:80] or f"{source.kind.title()} source"
 
 
-class NoteSerializer(serializers.ModelSerializer):
+class NoteSerializer(Owned, serializers.ModelSerializer):
     sources = NoteSourceSerializer(many=True, read_only=True)
     source_ids = serializers.PrimaryKeyRelatedField(source="sources", queryset=Source.objects.all(), many=True, write_only=True, required=False)
     lesson = serializers.PrimaryKeyRelatedField(queryset=Lesson.objects.all(), allow_null=True, required=False)
@@ -42,20 +43,20 @@ class NoteSerializer(serializers.ModelSerializer):
 
     def create(self, data):
         folder = data.get("folder")
-        data["position"] = (Note.objects.filter(folder=folder).order_by("-position").values_list("position", flat=True).first() or 0) + 1
+        data["position"] = (Note.objects.of(self._user()).filter(folder=folder).order_by("-position").values_list("position", flat=True).first() or 0) + 1
         return self.link_mentions(super().create(data))
 
     def update(self, note, data):
         if "folder" in data and data["folder"] != note.folder:
             folder = data["folder"]
-            data["position"] = (Note.objects.filter(folder=folder).order_by("-position").values_list("position", flat=True).first() or 0) + 1
+            data["position"] = (Note.objects.of(self._user()).filter(folder=folder).order_by("-position").values_list("position", flat=True).first() or 0) + 1
         return self.link_mentions(super().update(note, data))
 
     def link_mentions(self, note):
         """Sources mentioned with @ join the note's links; unlinking stays a deliberate act."""
         missing = mentioned(note.body) - set(note.sources.values_list("id", flat=True))
         if missing:
-            note.sources.add(*Source.objects.filter(pk__in=missing))
+            note.sources.add(*Source.objects.of(note.owner).filter(pk__in=missing))
             if hasattr(note, "_prefetched_objects_cache"):
                 note._prefetched_objects_cache.pop("sources", None)
         return note
@@ -68,7 +69,7 @@ class NoteViewSet(viewsets.ModelViewSet):
     pagination_class = None
 
     def get_queryset(self):
-        qs = Note.objects.select_related("lesson").prefetch_related("sources").order_by("-updated_at", "-id")
+        qs = Note.objects.of(self.request.user).select_related("lesson").prefetch_related("sources").order_by("-updated_at", "-id")
         lesson = self.request.query_params.get("lesson", "")
         if self.action == "list" and lesson.isdigit():
             qs = qs.filter(lesson=lesson).order_by("created_at", "id")

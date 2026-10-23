@@ -1,9 +1,10 @@
 """Sentence translations by an LLM: a local one by default (Ollama, llama.cpp or any
 OpenAI-compatible server), or Claude.
 
-Translators are set up on the Add-ons page and saved in the data folder's
-settings.json, API keys included; one is active at a time. The KOTOBA_LLM_* variables
-describe one more, "From the environment", which is the default.
+Translators are set up on the Add-ons page and saved with each user's settings (Profile),
+API keys included; one is active at a time. The KOTOBA_LLM_* variables describe one more,
+"From the environment", which is the default for staff: it spends the server's own credits,
+so other users bring their own.
 
 Each sentence is translated with its neighbours as context, so a reply like
 「はい、そうです。」 comes out in the sense the conversation gives it. Results are
@@ -22,7 +23,7 @@ import urllib.request
 from django.conf import settings
 from django.utils import timezone
 
-from .models import Explanation
+from .models import Explanation, Profile
 
 LANGUAGES = {
     "en": "English", "fr": "French", "es": "Spanish", "de": "German", "it": "Italian",
@@ -33,7 +34,6 @@ LANGUAGES = {
 CLAUDE_MODEL = "claude-opus-5-5"
 TIMEOUT = 120  # seconds; a local model may be loading into memory on the first call
 
-_SETTINGS = settings.DATA_DIR / "settings.json"
 _THINK = re.compile(r"<think>.*?</think>", re.S)
 
 
@@ -41,35 +41,28 @@ class TranslateError(Exception):
     pass
 
 
-# --- settings.json -------------------------------------------------------------------
+# --- a user's settings -----------------------------------------------------------------
 
-def _load() -> dict:
-    try:
-        data = json.loads(_SETTINGS.read_text())
-    except (OSError, ValueError):
-        return {}
+def _load(user) -> dict:
+    data = Profile.objects.filter(user=user).values_list("settings", flat=True).first() if user else None
     return data if isinstance(data, dict) else {}
 
 
-def _save(data: dict):
-    _SETTINGS.write_text(json.dumps(data, indent=2))
-    try:
-        _SETTINGS.chmod(0o600)  # it holds API keys
-    except OSError:
-        pass
+def _save(user, data: dict):
+    Profile.objects.update_or_create(user=user, defaults={"settings": data})
 
 
 # --- the chosen language ---------------------------------------------------------
 
-def language() -> str:
-    code = _load().get("translate_to", "en")
+def language(user) -> str:
+    code = _load(user).get("translate_to", "en")
     return code if code in LANGUAGES else "en"
 
 
-def set_language(code: str):
+def set_language(user, code: str):
     if code not in LANGUAGES:
         raise ValueError(f"kotoba can't translate into {code!r}.")
-    _save({**_load(), "translate_to": code})
+    _save(user, {**_load(user), "translate_to": code})
 
 
 # --- translators ----------------------------------------------------------------------
@@ -97,20 +90,29 @@ def _from_env() -> dict:
             "url": url, "model": settings.LLM["model"], "key": settings.LLM["key"]}
 
 
-def translators() -> list[dict]:
-    """The environment's translator first, then the saved ones. These carry the keys."""
-    saved = [t for t in _load().get("translators", []) if isinstance(t, dict) and t.get("kind") in KINDS]
-    return [_from_env(), *saved]
+def translators(user) -> list[dict]:
+    """The environment's translator first (for staff), then the user's own. These carry the keys."""
+    saved = [t for t in _load(user).get("translators", []) if isinstance(t, dict) and t.get("kind") in KINDS]
+    return [_from_env(), *saved] if user and user.is_staff else saved
 
 
-def active_id() -> str:
-    chosen = _load().get("translator", ENV_ID)
-    return chosen if any(t["id"] == chosen for t in translators()) else ENV_ID
+def active_id(user) -> str | None:
+    """The translator in use: the one chosen, else the first there is, else None."""
+    there = [t["id"] for t in translators(user)]
+    chosen = _load(user).get("translator", ENV_ID)
+    return chosen if chosen in there else (there[0] if there else None)
 
 
-def _active() -> dict:
-    chosen = active_id()
-    return next(t for t in translators() if t["id"] == chosen)
+def active(user) -> dict | None:
+    chosen = active_id(user)
+    return next((t for t in translators(user) if t["id"] == chosen), None)
+
+
+def _active(user) -> dict:
+    cfg = active(user)
+    if not cfg:
+        raise TranslateError("No translator yet: add one on the Add-ons page.")
+    return cfg
 
 
 def public(t: dict) -> dict:
@@ -121,9 +123,10 @@ def public(t: dict) -> dict:
             "cloud": t["kind"] == "anthropic" or not _local(t["url"]), "builtin": t["id"] == ENV_ID}
 
 
-def _clean_config(data: dict, old: dict | None = None) -> dict:
+def _clean_config(data: dict, old: dict | None = None, staff: bool = False) -> dict:
     """Validate a translator from the form. An empty key keeps the saved one, unless the
-    address changed: a key only ever goes to the server it was given for."""
+    address changed: a key only ever goes to the server it was given for. Claude without a key
+    would use the server's ANTHROPIC_API_KEY, which only staff may."""
     old = old or {}
     kind = data.get("kind", old.get("kind"))
     if kind not in KINDS:
@@ -142,63 +145,63 @@ def _clean_config(data: dict, old: dict | None = None) -> dict:
         key = old.get("key", "")
     if kind == "openai" and not model:
         raise ValueError("Name the model to use, e.g. gpt-5-mini or a model from your provider's list.")
-    if kind == "anthropic" and not key and not os.environ.get("ANTHROPIC_API_KEY"):
+    if kind == "anthropic" and not key and not (staff and os.environ.get("ANTHROPIC_API_KEY")):
         raise ValueError("Claude needs an API key (console.anthropic.com).")
     return {"kind": kind, "name": name, "url": url, "model": model, "key": key}
 
 
-def add_translator(data: dict, activate: bool = False) -> dict:
-    t = {"id": uuid.uuid4().hex[:8], **_clean_config(data)}
-    store = _load()
+def add_translator(user, data: dict, activate: bool = False) -> dict:
+    t = {"id": uuid.uuid4().hex[:8], **_clean_config(data, staff=user.is_staff)}
+    store = _load(user)
     store["translators"] = [*store.get("translators", []), t]
     if activate:
         store["translator"] = t["id"]
-    _save(store)
+    _save(user, store)
     return t
 
 
-def _saved(tid: str) -> dict:
-    found = next((t for t in _load().get("translators", []) if t.get("id") == tid), None)
+def _saved(user, tid: str) -> dict:
+    found = next((t for t in _load(user).get("translators", []) if t.get("id") == tid), None)
     if not found:
         raise KeyError(tid)
     return found
 
 
-def update_translator(tid: str, data: dict, activate: bool = False) -> dict:
-    old = _saved(tid)
-    t = {"id": tid, **_clean_config(data, old)}
-    store = _load()
+def update_translator(user, tid: str, data: dict, activate: bool = False) -> dict:
+    old = _saved(user, tid)
+    t = {"id": tid, **_clean_config(data, old, staff=user.is_staff)}
+    store = _load(user)
     store["translators"] = [t if x.get("id") == tid else x for x in store.get("translators", [])]
     if activate:
         store["translator"] = tid
-    _save(store)
+    _save(user, store)
     return t
 
 
-def remove_translator(tid: str):
-    _saved(tid)
-    store = _load()
+def remove_translator(user, tid: str):
+    _saved(user, tid)
+    store = _load(user)
     store["translators"] = [x for x in store.get("translators", []) if x.get("id") != tid]
     if store.get("translator") == tid:
-        store["translator"] = ENV_ID
-    _save(store)
+        store.pop("translator")
+    _save(user, store)
 
 
-def activate(tid: str):
-    if not any(t["id"] == tid for t in translators()):
+def activate(user, tid: str):
+    if not any(t["id"] == tid for t in translators(user)):
         raise KeyError(tid)
-    _save({**_load(), "translator": tid})
+    _save(user, {**_load(user), "translator": tid})
 
 
-def draft(data: dict) -> dict:
+def draft(user, data: dict) -> dict:
     """A translator from the form, not saved yet, for Test: an unchanged key comes from its saved copy."""
     old = None
     if data.get("id") and data["id"] != ENV_ID:
         try:
-            old = _saved(data["id"])
+            old = _saved(user, data["id"])
         except KeyError:
             pass
-    return {"id": data.get("id") or "draft", **_clean_config(data, old)}
+    return {"id": data.get("id") or "draft", **_clean_config(data, old, staff=user.is_staff)}
 
 
 # --- the model ---------------------------------------------------------------------
@@ -256,10 +259,13 @@ def _local(url: str) -> bool:
     return ip.is_private or ip.is_loopback or ip in ipaddress.ip_network("100.64.0.0/10")
 
 
-def status(cfg: dict | None = None) -> dict:
-    """Whether a translator (the active one by default) answers; cheap enough for the Add-ons
-    page. `models` lists what an OpenAI-compatible server offers, for the form."""
-    cfg = cfg or _active()
+def status(user, cfg: dict | None = None) -> dict:
+    """Whether a translator (the user's active one by default) answers; cheap enough for the
+    Add-ons page. `models` lists what an OpenAI-compatible server offers, for the form."""
+    cfg = cfg or active(user)
+    if not cfg:
+        return {"url": "", "model": "", "cloud": False, "ready": False, "models": [],
+                "error": "No translator yet: add one below."}
     out = {"url": cfg["url"], "model": cfg["model"], "cloud": cfg["kind"] == "anthropic" or not _local(cfg["url"]),
            "ready": False, "error": None, "models": []}
     if cfg["kind"] == "anthropic":
@@ -357,8 +363,10 @@ def untranslatable(text: str) -> bool:
 
 
 def translate(sentence, lang: str | None = None, force: bool = False) -> str:
-    """Translate one sentence (and save it). Keeps an existing translation unless `force`."""
-    lang = lang or language()
+    """Translate one sentence (and save it) with its owner's translator. Keeps an existing
+    translation unless `force`."""
+    owner = sentence.source.owner
+    lang = lang or language(owner)
     if lang not in LANGUAGES:
         raise TranslateError(f"kotoba can't translate into {lang!r}.")
     if untranslatable(sentence.text):
@@ -370,7 +378,7 @@ def translate(sentence, lang: str | None = None, force: bool = False) -> str:
         at = next((i for i, (pk, _) in enumerate(siblings) if pk == sentence.pk), 0)
         before = [t for _, t in siblings[max(0, at - 2):at]]
         after = [t for _, t in siblings[at + 1:at + 2]]
-        text = _clean(_ask(_active(), *_prompt(sentence.text, before, after, lang)))
+        text = _clean(_ask(_active(owner), *_prompt(sentence.text, before, after, lang)))
         if not text:
             raise TranslateError("The model answered with nothing. Try again, or try another model.")
     sentence.translations = {**sentence.translations, lang: text}
@@ -404,16 +412,16 @@ def _parse_explanation(reply: str) -> dict:
     return {"translation": translation, "notes": notes}
 
 
-def explain(text: str, context: str = "", lang: str | None = None, force: bool = False) -> dict:
+def explain(user, text: str, context: str = "", lang: str | None = None, force: bool = False) -> dict:
     """What `text`, selected inside `context`, means: a translation and a few notes."""
-    lang = lang or language()
+    lang = lang or language(user)
     if lang not in LANGUAGES:
         raise TranslateError(f"kotoba can't translate into {lang!r}.")
-    saved = Explanation.objects.filter(lang=lang, text=text, context=context).first()
+    cfg = _active(user)
+    saved = Explanation.objects.of(user).filter(lang=lang, text=text, context=context).first()
     if not saved or force:
-        cfg = _active()
         answer = _parse_explanation(_ask(cfg, *_explain_prompt(text, context, lang)))
         saved, _ = Explanation.objects.update_or_create(
-            lang=lang, text=text, context=context, defaults={**answer, "translator": cfg["name"], "created_at": timezone.now()})
+            owner=user, lang=lang, text=text, context=context, defaults={**answer, "translator": cfg["name"], "created_at": timezone.now()})
     return {"translation": saved.translation, "notes": saved.notes, "translator": saved.translator,
             "to": lang, "name": LANGUAGES[lang]}

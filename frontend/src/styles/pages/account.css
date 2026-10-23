@@ -1,0 +1,13 @@
+/* Signing in, and the account page. */
+.signin {
+  min-height: 100dvh; display: grid; align-content: center; justify-items: center; gap: var(--s-5);
+  padding: var(--s-6) var(--s-4);
+}
+.signin .brand { margin: 0; align-self: auto; }
+.signin .sheet { width: min(100%, 24rem); }
+.signin h1 { font-size: var(--t-l); }
+
+.account { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: var(--gutter); align-items: start; }
+.account h2 .chip { margin-left: var(--s-2); }
+.account-key { display: flex; gap: var(--s-2); align-items: center; }
+.account .meta.failed { color: var(--accent-ink); }

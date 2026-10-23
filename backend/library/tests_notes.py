@@ -1,9 +1,8 @@
-from django.test import TestCase
-
 from .models import LessonFolder, Note, Source
+from .testing import SignedIn
 
 
-class NoteApiTests(TestCase):
+class NoteApiTests(SignedIn):
     def test_create_edit_list_and_delete_markdown_note(self):
         response = self.client.post('/api/notes', {'title': '  Grammar  ', 'body': '## て-form\n\n- [ ] Review'}, content_type='application/json')
         self.assertEqual(response.status_code, 201, response.content)
@@ -21,9 +20,9 @@ class NoteApiTests(TestCase):
         self.assertEqual(response.status_code, 400)
 
     def test_folder_and_source_links_survive_folder_removal(self):
-        parent = LessonFolder.objects.create(name='Japanese')
-        folder = LessonFolder.objects.create(name='Chapter 1', parent=parent)
-        source = Source.objects.create(kind='text', title='例文', text='日本語を勉強します。')
+        parent = LessonFolder.objects.create(owner=self.user, name='Japanese')
+        folder = LessonFolder.objects.create(owner=self.user, name='Chapter 1', parent=parent)
+        source = Source.objects.create(owner=self.user, kind='text', title='例文', text='日本語を勉強します。')
         response = self.client.post('/api/notes', {'title': 'Grammar', 'body': 'Study', 'folder': folder.id,
                                                    'source_ids': [source.id]}, content_type='application/json')
         self.assertEqual(response.status_code, 201, response.content)
@@ -39,16 +38,16 @@ class NoteApiTests(TestCase):
         self.assertEqual(Note.objects.get(pk=note_id).sources.count(), 1)
 
     def test_nonexistent_source_cannot_be_linked(self):
-        note = Note.objects.create(title='Grammar')
+        note = Note.objects.create(owner=self.user, title='Grammar')
         response = self.client.patch(f'/api/notes/{note.id}', {'source_ids': [999999]}, content_type='application/json')
         self.assertEqual(response.status_code, 400)
         self.assertEqual(note.sources.count(), 0)
 
 
-class NoteMentionAndLessonTests(TestCase):
+class NoteMentionAndLessonTests(SignedIn):
     def test_mentioned_sources_are_linked_and_stay_linked(self):
-        a = Source.objects.create(kind='text', title='会話', text='こんにちは')
-        b = Source.objects.create(kind='text', title='例文', text='日本語')
+        a = Source.objects.create(owner=self.user, kind='text', title='会話', text='こんにちは')
+        b = Source.objects.create(owner=self.user, kind='text', title='例文', text='日本語')
         body = f'See [@会話 \\[1\\]](/sources/{a.id}) and [@例文](/sources/{b.id}), not [plain](/sources/{b.id}) or [@gone](/sources/999999).'
         response = self.client.post('/api/notes', {'title': 'Grammar', 'body': body}, content_type='application/json')
         self.assertEqual(response.status_code, 201, response.content)
@@ -58,8 +57,8 @@ class NoteMentionAndLessonTests(TestCase):
 
     def test_notes_kept_with_a_lesson(self):
         from .models import Lesson
-        lesson = Lesson.objects.create(title='Lesson 18')
-        other = Note.objects.create(title='Elsewhere')
+        lesson = Lesson.objects.create(owner=self.user, title='Lesson 18')
+        other = Note.objects.create(owner=self.user, title='Elsewhere')
         response = self.client.post('/api/notes', {'title': 'て-form', 'body': '\n## Rules\nmore', 'lesson': lesson.id}, content_type='application/json')
         self.assertEqual(response.status_code, 201, response.content)
         self.assertEqual(response.json()['lesson_title'], 'Lesson 18')

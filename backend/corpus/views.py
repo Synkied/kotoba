@@ -31,19 +31,22 @@ def _channel_json(ch: Channel, s: dict) -> dict:
 def status(request):
     """The add-on: on or off, its yt-dlp, what the background reader is doing and the channels
     followed. PATCH {"enabled": bool} turns it on (fetching yt-dlp the first time) or off."""
+    user = request.user
     if request.method == "PATCH" and "enabled" in request.data:
         on = bool(request.data["enabled"])
-        heard.set_enabled(on)
+        heard.set_enabled(user, on)
         if on and ytdlp.missing():
             worker.install_tools()
     worker.kick()
     s = heard.summary()
-    channels = Channel.objects.exclude(kind=Channel.Kind.SEARCH)
-    searched = Video.objects.filter(channels__kind=Channel.Kind.SEARCH).exclude(channels__kind__in=[Channel.Kind.CHANNEL, Channel.Kind.PLAYLIST])
+    followed = Channel.objects.filter(followers=user)
+    channels = followed.exclude(kind=Channel.Kind.SEARCH)
+    searched = (Video.objects.filter(channels__in=followed.filter(kind=Channel.Kind.SEARCH))
+                .exclude(channels__in=channels))
     tools = worker.tools_state()
     js = ytdlp.js_runtime()
     return Response({
-        "enabled": heard.enabled(),
+        "enabled": heard.enabled(user),
         "tool": {"installed": ytdlp.available(), "version": ytdlp.version(), "installing": tools["state"] == "installing",
                  "error": tools["error"], "js": js[0] if js else None, "note": ytdlp.environ_note(), "pot": ytdlp.pot(), "updated": worker.state["updated"]},
         "worker": {"busy": worker.busy(), "doing": worker.state["doing"], "channel": worker.state["channel"], "error": worker.state["error"],
@@ -51,7 +54,7 @@ def status(request):
         "channels": [_channel_json(c, s) for c in channels],
         "found": {"videos": searched.filter(subs=Video.Subs.OK).distinct().count(),
                   "lines": Line.objects.filter(video__in=searched.filter(subs=Video.Subs.OK)).count()},
-        "lines": Line.objects.count(),
+        "lines": Line.objects.filter(video__in=heard.videos(user)).count(),
     })
 
 
@@ -68,16 +71,18 @@ def update(request):
 
 @api_view(["POST"])
 def channels(request):
-    """{url}: follow a channel (its uploads) or a playlist."""
-    if not heard.enabled():
+    """{url}: follow a channel (its uploads) or a playlist. One someone else follows is read
+    already: its lines are there at once."""
+    if not heard.enabled(request.user):
         return _off()
     try:
         kind, url = ytdlp.normalize(str(request.data.get("url", "")))
     except ValueError as e:
         return Response({"error": str(e)}, status=400)
-    ch, made = Channel.objects.get_or_create(url=url, defaults={"kind": kind})
-    if not made:
+    ch, _ = Channel.objects.get_or_create(url=url, defaults={"kind": kind})
+    if ch.followers.filter(pk=request.user.pk).exists():
         return Response({"error": f"You already follow {ch}."}, status=400)
+    ch.followers.add(request.user)
     worker.kick()
     return Response(_channel_json(ch, heard.summary()), status=201)
 
@@ -85,16 +90,20 @@ def channels(request):
 @api_view(["POST", "DELETE"])
 def channel(request, pk):
     """POST reads its video list again now; DELETE stops following it, and its lines go
-    (except the ones you kept, which are your sentences now)."""
-    ch = get_object_or_404(Channel, pk=pk)
+    (except the ones you kept, which are your sentences now). They stay in the corpus while
+    someone else follows it."""
+    ch = get_object_or_404(Channel.objects.filter(followers=request.user), pk=pk)
     if request.method == "POST":
         Channel.objects.filter(pk=pk).update(checked_at=None)
         worker.kick()
         return Response({"ok": True})
     with transaction.atomic():
+        ch.followers.remove(request.user)
+        if ch.followers.exists():
+            return Response(status=204)
         ids = list(ch.videos.values_list("id", flat=True))
         ch.delete()
-        Video.objects.filter(id__in=ids, channels=None, source=None).delete()
+        Video.objects.filter(id__in=ids, channels=None, sources=None).delete()
     heard.tidy()
     return Response(status=204)
 
@@ -103,9 +112,9 @@ def _term(key: str):
     return Term.objects.filter(key=key).first()
 
 
-def _finding(key: str) -> dict | None:
+def _finding(key: str, user) -> dict | None:
     """Where a "Find more" for this word is: searching, checking N videos, or done."""
-    ch = Channel.objects.filter(kind=Channel.Kind.SEARCH, term_key=key).first()
+    ch = Channel.objects.filter(kind=Channel.Kind.SEARCH, term_key=key, followers=user).first()
     if not ch:
         return None
     if ch.checked_at is None:
@@ -134,45 +143,50 @@ def heard_lines(request):
     except ValueError:
         return Response({"error": "offset and limit are numbers"}, status=400)
     worker.kick()
-    base = {"enabled": heard.enabled(), "channels": Channel.objects.exclude(kind=Channel.Kind.SEARCH).count(),
-            "finding": _finding(key), "reading": _reading(), "lines": [], "total": 0, "videos": 0}
+    user = request.user
+    base = {"enabled": heard.enabled(user),
+            "channels": Channel.objects.filter(followers=user).exclude(kind=Channel.Kind.SEARCH).count(),
+            "finding": _finding(key, user), "reading": _reading(), "lines": [], "total": 0, "videos": 0}
     term = _term(key)
     if not base["enabled"] or not term:
         return Response(base)
-    return Response({**base, **heard.lines_for(term, offset, limit)})
+    return Response({**base, **heard.lines_for(term, user, offset, limit)})
 
 
 @api_view(["GET"])
 def counts(request):
     """?keys=a,b: how many lines each word can be heard in."""
     keys = [k for k in request.query_params.get("keys", "").split(",") if k][:50]
-    if not heard.enabled() or not keys:
-        return Response({"enabled": heard.enabled(), "counts": {}})
-    return Response({"enabled": True, "counts": heard.counts(keys)})
+    if not heard.enabled(request.user) or not keys:
+        return Response({"enabled": heard.enabled(request.user), "counts": {}})
+    return Response({"enabled": True, "counts": heard.counts(keys, request.user)})
 
 
 @api_view(["POST"])
 def find(request):
-    """{key}: search YouTube for the word once, and read the subtitles of the videos it finds."""
-    if not heard.enabled():
+    """{key}: search YouTube for the word once, and read the subtitles of the videos it finds.
+    A word someone else searched for has its videos already; asking again searches again."""
+    user = request.user
+    if not heard.enabled(user):
         return _off()
     key = str(request.data.get("key", ""))
     term = _term(key)
-    word = Word.objects.filter(key=key).first()
+    word = Word.objects.of(user).filter(key=key).first()
     lemma = (term or word).lemma if (term or word) else _from_entry(key)["lemma"]
     if not lemma:
         return Response({"error": "kotoba doesn't know that word."}, status=400)
     ch, made = Channel.objects.get_or_create(kind=Channel.Kind.SEARCH, term_key=key,
                                              defaults={"url": f"ytsearch:{key}", "title": lemma[:200]})
-    if not made:
+    if not made and ch.followers.filter(pk=user.pk).exists():
         ch.checked_at, ch.error = None, ""
         ch.save(update_fields=["checked_at", "error"])
+    ch.followers.add(user)
     worker.kick()
-    return Response({"finding": _finding(key)})
+    return Response({"finding": _finding(key, user)})
 
 
-def _line(pk) -> Line:
-    return get_object_or_404(Line.objects.select_related("video"), pk=pk)
+def _line(request, pk) -> Line:
+    return get_object_or_404(Line.objects.filter(video__in=heard.videos(request.user)).select_related("video"), pk=pk)
 
 
 @api_view(["GET"])
@@ -182,15 +196,15 @@ def line_context(request, pk):
         radius = min(int(request.query_params.get("radius", 6)), 30)
     except ValueError:
         radius = 6
-    return Response({"lines": heard.context(_line(pk), radius, request.query_params.get("key") or None)})
+    return Response({"lines": heard.context(_line(request, pk), request.user, radius, request.query_params.get("key") or None)})
 
 
 @api_view(["GET", "POST"])
 def video_audio(request, pk):
     """The video's audio, for playing its lines from (with Range). It's fetched from YouTube the
     first time, which takes a few seconds; POST does just that and says when it's done."""
-    video = get_object_or_404(Video, pk=pk)
-    if not heard.audio_path(video) and not heard.enabled():
+    video = get_object_or_404(heard.videos(request.user).distinct(), pk=pk)
+    if not heard.audio_path(video) and not heard.enabled(request.user):
         return _off()
     try:
         path = heard.fetch(video)
@@ -206,10 +220,10 @@ def video_audio(request, pk):
 @api_view(["POST"])
 def line_keep(request, pk):
     """Make the line one of your sentences, in the inbox under its video."""
-    line = _line(pk)
-    sentence = heard.keep(line)
-    video = Video.objects.get(pk=line.video_id)
-    return Response({"sentence": sentence.id, "source": sentence.source_id, "audio": heard.audio_state(video)}, status=201)
+    line = _line(request, pk)
+    sentence = heard.keep(line, request.user)
+    return Response({"sentence": sentence.id, "source": sentence.source_id,
+                     "audio": heard.audio_state(line.video, sentence.source_id)}, status=201)
 
 
 # --- a word that may not be one of yours ------------------------------------------------------
@@ -239,7 +253,7 @@ def term(request, key):
     the word page when it's in your sentences."""
     found = _from_entry(key)
     t = _term(key)
-    w = words.with_counts(Word.objects.filter(key=key)).first()
+    w = words.with_counts(Word.objects.of(request.user).filter(key=key)).first()
     lemma = (w or t).lemma if (w or t) else found["lemma"]
     reading = (w or t).reading if (w or t) else found["reading"]
     if not lemma:
@@ -253,9 +267,10 @@ def term(request, key):
 @api_view(["GET"])
 def search(request):
     """?q=: lines heard on YouTube with the words a search finds (or its text), and those words."""
-    q = request.query_params.get("q", "").strip()[:200]
-    if not q or not heard.enabled():
-        return Response({"enabled": heard.enabled(), "terms": [], "lines": [], "total": 0})
+    q, user = request.query_params.get("q", "").strip()[:200], request.user
+    if not q or not heard.enabled(user):
+        return Response({"enabled": heard.enabled(user), "terms": [], "lines": [], "total": 0})
+    heard_here = heard.videos(user)
     f = fold(q)
     cond = Q(search__contains=f) | Q(uses__surface__contains=q)
     latin = re.search("[a-z]", f)
@@ -266,15 +281,17 @@ def search(request):
     if latin and len(q) >= 3:
         entries = dict(Term.objects.exclude(entry=None).values_list("entry", "id"))
         terms |= {entries[e] for e in dictionary.meaning_matches(entries, q)}
-    exact = list(Term.objects.filter(id__in=terms).annotate(n=Count("uses__line", distinct=True)))
+    exact = [t for t in Term.objects.filter(id__in=terms).annotate(
+        n=Count("uses__line", filter=Q(uses__line__video__in=heard_here), distinct=True)) if t.n]
     exact.sort(key=lambda t: (fold(t.lemma) != f and t.reading != f, -t.n, t.lemma))
     by_terms = TermUse.objects.filter(term__in=[t.id for t in exact[:20]]).values("line_id")
-    lines = (Line.objects.filter(Q(text__contains=q) | Q(id__in=by_terms), sentence__isnull=True, video__gone_at__isnull=True)
-             .select_related("video").order_by("-video__published", "position"))
+    lines = (Line.objects.filter(Q(text__contains=q) | Q(id__in=by_terms), video__in=heard_here, video__gone_at__isnull=True)
+             .exclude(sentences__source__owner=user).select_related("video").order_by("-video__published", "position"))
     total = lines.count()
     top = exact[0].key if exact else None
     page = list(lines[:6])
     spans = heard.spans_for(top, [l.id for l in page]) if top else {}
+    own = heard.mine(user, page)
     return Response({"enabled": True, "total": total,
                      "terms": [{"key": t.key, "lemma": t.lemma, "reading": t.reading, "lines": t.n} for t in exact[:8]],
-                     "lines": [heard.line_json(l, spans=spans.get(l.id, [])) for l in page]})
+                     "lines": [heard.line_json(l, own, spans=spans.get(l.id, [])) for l in page]})

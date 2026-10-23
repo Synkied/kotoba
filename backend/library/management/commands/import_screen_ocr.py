@@ -9,6 +9,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from library import ingest
+from library.accounts import command_user
 from library.models import Source
 from library.serializers import clean_labels
 from library.views import _make_sentences
@@ -25,10 +26,12 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--dir", default=default_dir(), help="screen_ocr data folder")
+        parser.add_argument("--user", help="whose library they go into (default: the only user)")
         parser.add_argument("--status", default="kept", choices=["inbox", "kept"],
                             help="where imported captures land (default: kept, i.e. the library)")
 
-    def handle(self, *args, dir, status, **kw):
+    def handle(self, *args, dir, status, user=None, **kw):
+        user = command_user(user)
         db = os.path.join(dir, "history.db")
         if not os.path.exists(db):
             self.stderr.write(f"No history at {db}")
@@ -38,11 +41,11 @@ class Command(BaseCommand):
         added = skipped = 0
         for row in conn.execute("SELECT * FROM captures ORDER BY created_at"):
             when = datetime.fromtimestamp(row["created_at"], tz=timezone.utc)
-            if Source.objects.filter(kind="capture", created_at=when, text=row["text"]).exists():
+            if Source.objects.of(user).filter(kind="capture", created_at=when, text=row["text"]).exists():
                 skipped += 1
                 continue
             with transaction.atomic():
-                s = Source.objects.create(kind="capture", status=status, text=row["text"],
+                s = Source.objects.create(owner=user, kind="capture", status=status, text=row["text"],
                                           category=row["category"] or "", created_at=when,
                                           labels=clean_labels(json.loads(row["labels"] or "[]")))
                 img = row["image"] and os.path.join(dir, "images", row["image"])

@@ -1,12 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { BookOpen, Captions, Check, Cloud, Globe, HardDrive, Languages, Mic, Pencil, Plus, RotateCw, ScanText, Square, Trash2, Volume2 } from 'lucide-react'
+import { BookOpen, Captions, Check, Cloud, Globe, HardDrive, Languages, Mic, Pencil, Plus, RotateCw, ScanText, Square, Trash2, UserRound, Volume2 } from 'lucide-react'
 import { api, type HeardChannel, type YouTube, type Addons, type TranslationStatus, type Translator, type TranslatorCheck, type TranslatorDraft, type TranslatorKind } from '../lib/api'
 import { speak, stopAudio } from '../lib/audio'
 import { setLanguage } from '../components/ReadingAids'
 import { ErrorNotice, Skeleton, dayLabel, clock, useAction, usePref, PageHome } from '../components/ui'
 import { CopyButton } from './Library'
-import { Button, ButtonRow, Chip, Field, Input, Segmented, Select } from '../components/ds'
+import { Button, ButtonLink, ButtonRow, Chip, Field, Input, Segmented, Select } from '../components/ds'
 
 /** ok: working · warn: on its way (loading, reading, paused) · off: not set up · fail: set up but failing */
 type Dot = 'ok' | 'warn' | 'off' | 'fail'
@@ -106,6 +106,7 @@ export default function AddonsPage() {
           <div><dt>not set up</dt><dd className="num">{count('off')}</dd></div>
           {count('fail') > 0 && <div className="due"><dt>failing</dt><dd className="num">{count('fail')}</dd></div>}
         </dl>
+        <ButtonLink variant="ghost" size="small" to="/account"><UserRound aria-hidden="true" />Account</ButtonLink>
       </header>
       {error != null && <ErrorNotice error={error} />}
       <div className="addons">
@@ -187,6 +188,7 @@ export default function AddonsPage() {
               uses={[{ to: '/inbox', ja: '受信', en: 'Inbox', what: 'each capture, its text beside its screenshot' }]}>
               <p>Press a hotkey and drag over text on screen: the text and its screenshot land in the inbox, queued offline when kotoba isn't reachable. It runs on the computer you read on.</p>
               <Install where="On the computer you read on, in the kotoba folder" cmds={['make ocr-client', `screen-ocr --server ${window.location.origin}`]} />
+              <p>Captures go to your own inbox: they're sent with <Link to="/account#key">your capture key</Link>.</p>
             </Addon>
           </Group>
         </div>
@@ -403,19 +405,20 @@ function TranslationAddon() {
   const [editing, setEditing] = useState<Translator | 'new' | null>(null)
   const load = (p: Promise<unknown>) => {
     setBusy(true); setError(null)
-    p.then(() => api.translation()).then((x) => { setT(x); setLanguage({ to: x.to, name: x.name, translator: x.translators.find((y) => y.id === x.active)?.name, cloud: x.cloud }) }, setError).finally(() => setBusy(false))
+    p.then(() => api.translation()).then((x) => { setT(x); setLanguage({ to: x.to, name: x.name, translator: x.translators.find((y) => y.id === x.active)?.name ?? null, cloud: x.cloud }) }, setError).finally(() => setBusy(false))
   }
   useEffect(() => load(Promise.resolve()), [])
   if (!t) return error ? <ErrorNotice error={error} /> : null
-  const active = t.translators.find((x) => x.id === t.active)!
+  const active = t.translators.find((x) => x.id === t.active) ?? null
   // the translator from .env is only a guess at a local server: not answering, it's simply not set up yet
-  const dot: State = t.ready ? ['ok', `${t.model} · ${active.name}`] : active.builtin ? ['off', 'Not set up: nothing answers yet'] : ['fail', `${active.name} isn’t answering`]
+  const dot: State = !active ? ['off', 'Not set up: add a translator'] : t.ready ? ['ok', `${t.model} · ${active.name}`]
+    : active.builtin ? ['off', 'Not set up: nothing answers yet'] : ['fail', `${active.name} isn’t answering`]
   const remove = (x: Translator) => {
     if (window.confirm(`Remove the translator “${x.name}”?${x.key_set ? ' Its API key is deleted too.' : ''}`)) load(api.removeTranslator(x.id))
   }
   return (
     <Addon id="translations" icon={<Languages />} dot={dot} name="Translations" by="a local LLM, or an API"
-      where={t.cloud ? ['cloud', <><b>Sentences leave this machine:</b> they go to {where(active)}, with the lines around them.</>]
+      where={t.cloud && active ? ['cloud', <><b>Sentences leave this machine:</b> they go to {where(active)}, with the lines around them.</>]
         : ['local', <><b>Sentences stay on your machines</b> with a local model. An API translator sends them out, and says so here.</>]}
       uses={[{ to: '/practice', ja: '練習', en: 'Practice', what: 'the translation folds inside the balloon; T opens it' },
         { en: 'Any sentence', what: 'the translation reading aid, and a looked-up word in context' }]}>

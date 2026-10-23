@@ -1,9 +1,9 @@
-import { Inbox, Library as LibraryIcon, Layers, RotateCcw, Plus, Puzzle, ScrollText, Languages, Search as SearchIcon, NotebookPen } from 'lucide-react'
+import { Inbox, Library as LibraryIcon, Layers, RotateCcw, Plus, Puzzle, ScrollText, Languages, Search as SearchIcon, NotebookPen, UserRound } from 'lucide-react'
 import { createContext, lazy, Suspense, useContext, useEffect, useState } from 'react'
 import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
-import { api, type Stats } from './lib/api'
+import { api, SIGNED_OUT, type Account, type AccountState, type Stats } from './lib/api'
 import { useTrail } from './lib/trail'
-import { ToastHost } from './components/ui'
+import { ErrorNotice, ToastHost } from './components/ui'
 import { SelectionLookup } from './components/WordLookup'
 import InboxPage from './pages/Inbox'
 import SourcesPage from './pages/Library'
@@ -26,7 +26,8 @@ import WordPage from './pages/Word'
 import DictPage from './pages/Dict'
 import SearchPage, { GlobalSearch } from './pages/Search'
 import DesignPage from './pages/Design'
-import { EmptyState, buttonClass } from './components/ds'
+import AccountPage, { SignInPage } from './pages/Account'
+import { Button, EmptyState, buttonClass } from './components/ds'
 
 type Section = { to: string; name: string; ja: string; short?: string; key: string; icon: typeof Inbox; count?: (s: Stats) => number; hot?: boolean }
 const SECTIONS: Section[] = [
@@ -64,11 +65,11 @@ function sectionFor(path: string) {
   if (path.startsWith('/sentences')) return 'sources'
   if (/^\/sources\/\d+\/cleanup/.test(path)) return 'recordings'
   if (path.startsWith('/lessons')) return 'library'
-  if (path.startsWith('/addons')) return 'collect'
+  if (path.startsWith('/addons') || path.startsWith('/account')) return 'collect'
   return SECTIONS.find((s) => path.startsWith(s.to))?.key ?? 'collect'
 }
 
-function Shell() {
+function Shell({ account }: { account: Account }) {
   const loc = useLocation()
   useTrail()
   const [stats, setStats] = useState<Stats | null>(null)
@@ -81,7 +82,7 @@ function Shell() {
   useEffect(refresh, [loc.pathname])
   const section = sectionFor(loc.pathname)
   useEffect(() => {
-    document.title = `kotoba · ${section === 'practice' ? 'Practice' : loc.pathname.startsWith('/addons') ? 'Add-ons' : loc.pathname.startsWith('/search') ? 'Search' : loc.pathname.startsWith('/design') ? 'Design system' : section.charAt(0).toUpperCase() + section.slice(1)}`
+    document.title = `kotoba · ${section === 'practice' ? 'Practice' : loc.pathname.startsWith('/addons') ? 'Add-ons' : loc.pathname.startsWith('/account') ? 'Account' : loc.pathname.startsWith('/search') ? 'Search' : loc.pathname.startsWith('/design') ? 'Design system' : section.charAt(0).toUpperCase() + section.slice(1)}`
     document.getElementById('main')?.focus({ preventScroll: true })
     window.scrollTo(0, 0)
   }, [loc.pathname, section])
@@ -110,6 +111,7 @@ function Shell() {
           </nav>
           <div className="foot">
             <NavLink to="/addons"><Puzzle size={14} aria-hidden="true" />Add-ons</NavLink>
+            <NavLink to="/account"><UserRound size={14} aria-hidden="true" />{account.username}</NavLink>
             {stats && <span className="meta">{stats.sentences} sentences · {stats.attempts_today} tries today</span>}
           </div>
         </aside>
@@ -144,6 +146,7 @@ function Shell() {
             <Route path="/transcriptions" element={<Moved to="/sources/queue" />} />
             <Route path="/transcriptions/all" element={<Moved to="/sources/sentences" />} />
             <Route path="/addons" element={<AddonsPage />} />
+            <Route path="/account" element={<AccountPage account={account} />} />
             <Route path="/design" element={<DesignPage />} />
             <Route path="*" element={<EmptyState><h2>Nothing on this page</h2><NavLink className={buttonClass({})} to="/inbox">Go to the inbox</NavLink></EmptyState>} />
           </Routes>
@@ -171,9 +174,25 @@ function Shell() {
 
 
 export default function App() {
+  const [state, setState] = useState<AccountState | null>(null)
+  const [error, setError] = useState<unknown>(null)
+  const load = () => api.account().then((s) => { setState(s); setError(null) }, setError)
+  useEffect(() => { load() }, [])
+  // a session that ended (signed out elsewhere, a changed password) asks to sign in again
+  useEffect(() => {
+    const out = () => setState((s) => s && { ...s, user: null })
+    window.addEventListener(SIGNED_OUT, out)
+    return () => window.removeEventListener(SIGNED_OUT, out)
+  }, [])
+
+  let content
+  if (error != null) content = <main className="signin"><ErrorNotice error={error} action={<Button size="small" onClick={load}>Try again</Button>} /></main>
+  else if (!state) content = null  // a moment, while kotoba says who is signed in
+  else if (!state.user) content = <SignInPage signup={state.signup} />
+  else content = <Shell account={state.user} />
   return (
     <BrowserRouter>
-      <ToastHost><Shell /></ToastHost>
+      <ToastHost>{content}</ToastHost>
     </BrowserRouter>
   )
 }

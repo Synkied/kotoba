@@ -3,7 +3,8 @@ import mimetypes
 
 from django.http import HttpResponse
 from django.urls import include, path, re_path
-from django.views.static import serve
+
+from library.views import owned_file
 
 
 def spa(request, rest=""):
@@ -28,6 +29,6 @@ urlpatterns = [
     path("api/", include("speech.urls")),
     path("api/", include("library.urls")),
     path("api/", include("corpus.urls")),
-    re_path(r"^files/(?P<path>.*)$", serve, {"document_root": settings.MEDIA_ROOT}),
+    re_path(r"^files/(?P<path>.*)$", owned_file),  # only to the user whose file it is
     re_path(r"^(?P<rest>.*)$", spa),
 ]

@@ -1,7 +1,8 @@
-"""kotoba settings. A personal, local-first service: it runs on your own machine or a
-Raspberry Pi reached over Tailscale, so there are no accounts; the Origin check in
-library.middleware keeps other websites from writing to it."""
+"""kotoba settings. It runs on your own machine, reached over Tailscale, or on a server shared by
+several learners: everyone signs in, and sees only their own library. The Origin check in
+library.middleware keeps other websites from writing to it with your session."""
 import os
+import secrets
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -30,7 +31,6 @@ def _read_env_file(path: Path):
 _read_env_file(BASE_DIR.parent / ".env")
 FRONTEND_DIST = BASE_DIR.parent / "frontend" / "dist"
 
-SECRET_KEY = os.environ.get("KOTOBA_SECRET_KEY", "kotoba-local-only-not-secret")
 DEBUG = os.environ.get("KOTOBA_DEBUG", "1") == "1"
 # Extra host names (e.g. pi.tail1234.ts.net) as a comma-separated list
 ALLOWED_HOSTS = ["127.0.0.1", "localhost", *filter(None, os.environ.get("KOTOBA_HOSTS", "").split(","))]
@@ -41,6 +41,37 @@ DATA_DIR = Path(os.environ.get("KOTOBA_DATA") or
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 MEDIA_ROOT = DATA_DIR / "files"
 MEDIA_URL = "/files/"
+
+
+def _secret_key() -> str:
+    """KOTOBA_SECRET_KEY, or one made on the first run and kept in the data folder."""
+    if os.environ.get("KOTOBA_SECRET_KEY"):
+        return os.environ["KOTOBA_SECRET_KEY"]
+    path = DATA_DIR / "secret_key"
+    try:
+        return path.read_text().strip()
+    except FileNotFoundError:
+        key = secrets.token_urlsafe(50)
+        path.write_text(key)
+        path.chmod(0o600)
+        return key
+
+
+SECRET_KEY = _secret_key()
+
+# Accounts. KOTOBA_SIGNUP=1 lets anyone who reaches kotoba make one; otherwise they're made with
+# `python manage.py adduser`. KOTOBA_HTTPS=1 behind an HTTPS proxy keeps the session cookie to HTTPS.
+SIGNUP = os.environ.get("KOTOBA_SIGNUP", "0") == "1"
+SESSION_COOKIE_AGE = 180 * 86400  # signed in on a phone for months, not days
+SESSION_COOKIE_SAMESITE = "Lax"
+if os.environ.get("KOTOBA_HTTPS", "0") == "1":
+    SESSION_COOKIE_SECURE = True
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+]
 
 # Whisper for scoring and transcription (the `whisper` extra). Empty values pick what
 # suits the machine: large-v3 / float16 on an NVIDIA GPU, large-v3-turbo / int8 on a CPU.
@@ -62,9 +93,12 @@ LLM = {
 }
 
 INSTALLED_APPS = [
+    "django.contrib.auth",
     "django.contrib.contenttypes",
+    "django.contrib.sessions",
     "django.contrib.staticfiles",
     "rest_framework",
+    "rest_framework.authtoken",
     "library",
     "speech",
     "corpus",
@@ -72,9 +106,13 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
     "library.middleware.SameOriginWrites",
     "django.middleware.common.CommonMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+X_FRAME_OPTIONS = "SAMEORIGIN"  # a lesson shows its PDF in a frame
 
 ROOT_URLCONF = "kotoba.urls"
 TEMPLATES = []
@@ -92,9 +130,12 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 64 * 1024 * 1024  # base64 screenshots and score c
 FILE_UPLOAD_MAX_MEMORY_SIZE = 8 * 1024 * 1024
 
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": [],
-    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.AllowAny"],
-    "UNAUTHENTICATED_USER": None,
+    # the browser signs in with a session; screen-ocr and scripts send "Authorization: Token <key>"
+    # (the token comes first so a request without either is answered 401, not 403)
+    "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework.authentication.TokenAuthentication",
+                                       "library.auth.SessionAuthentication"],
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+    "DEFAULT_THROTTLE_RATES": {"signin": "10/min"},
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
     "PAGE_SIZE": 100,
