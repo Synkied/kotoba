@@ -22,7 +22,7 @@ export default function WordPage() {
 }
 
 /** One word across everything you've collected: what it means, every sentence it's in (heard
- *  from each source's own speaker), the forms it takes, and how saying it has gone. */
+ *  from each source's own speaker), the forms it takes (よくない under 良い), and how saying it has gone. */
 function Detail({ id }: { id: number }) {
   const { data: w, error, reload, set } = useAsync(() => api.word(id), [id])
   useIndexWait(w, reload)
@@ -54,6 +54,11 @@ function Detail({ id }: { id: number }) {
             {w.tries > 0 && <span className="num"> · said right {ok} of {w.tries} recent times</span>}
             {' '}<WordPlates w={w} />
           </p>
+          {w.forms.length > 1 && <div className="word-page-forms">
+            <span className="meta">Seen as</span>
+            <span className="chips" lang="ja">{w.forms.map((f) => <Chip key={f}>{f}</Chip>)}</span>
+            <p className="meta">Its conjugations (negative, past…) and other ways of writing or saying it are all filed under <span lang="ja">{w.lemma}</span>.</p>
+          </div>}
           {w.sentence_list.length === 0 ? <EmptyState>
             <h2>Not in any sentence you keep</h2>
             <p>It was in sentences that have since gone or been archived. It stays here because you marked it known.</p>
@@ -66,9 +71,6 @@ function Detail({ id }: { id: number }) {
             {w.entries.length ? <div className="word-page-entries"><Entries entries={w.entries} /></div>
               : <p className="meta">{w.dictionary === 'ready' ? 'Not in the dictionary.' : 'Meanings come with the dictionary.'}</p>}
           </section>
-          {w.forms.length > 1 && <section className="sentence-section"><h2>As it appears</h2>
-            <div className="chips" lang="ja">{w.forms.map((f) => <Chip key={f}>{f}</Chip>)}</div>
-          </section>}
           {w.kanji.length > 0 && <section className="sentence-section"><h2>Its kanji</h2>
             <ul className="word-kanji">{w.kanji.map((k) => <li key={k.char}>
               <Link to={`/words?q=${encodeURIComponent(k.char)}`} lang="ja" className="word-kanji-char">{k.char}</Link>

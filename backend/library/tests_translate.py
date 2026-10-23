@@ -8,7 +8,7 @@ from unittest.mock import patch
 from django.test import TestCase, override_settings
 
 from . import translate
-from .models import Sentence, Source
+from .models import Explanation, Sentence, Source
 
 
 class FakeLLM(BaseHTTPRequestHandler):
@@ -194,7 +194,6 @@ class ExplainTests(TestCase):
     def setUp(self):
         FakeLLM.requests = []
         FakeLLM.strict = False
-        translate._explained.clear()
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         settings_file = patch.object(translate, "_SETTINGS", Path(tmp.name) / "settings.json")
@@ -218,8 +217,21 @@ class ExplainTests(TestCase):
         self.assertIn("映画と本、どちらが好きですか。", prompt[1]["content"])
         self.ask(text="どちらが好き", context="映画と本、どちらが好きですか。", to="fr")
         self.assertEqual(len(FakeLLM.requests), 1)
-        self.ask(text="どちらが好き", context="映画と本、どちらが好きですか。", to="fr", force=True)
+        with patch.object(FakeLLM, "reply", "Lequel préfères-tu ?"):
+            r = self.ask(text="どちらが好き", context="映画と本、どちらが好きですか。", to="fr", force=True)
         self.assertEqual(len(FakeLLM.requests), 2)
+        self.assertEqual((r.json()["translation"], r.json()["notes"]), ("Lequel préfères-tu ?", []))
+
+    def test_keeps_answers_in_the_library(self):
+        self.ask(text="どちらが好き", context="映画と本、どちらが好きですか。", to="fr")
+        saved = Explanation.objects.get()
+        self.assertEqual((saved.lang, saved.translation, saved.translator), ("fr", "Which one do you like?", "From the environment"))
+        saved.translation = "kept"
+        saved.save()
+        self.assertEqual(self.ask(text="どちらが好き", context="映画と本、どちらが好きですか。", to="fr").json()["translation"], "kept")
+        self.assertEqual(len(FakeLLM.requests), 1)
+        self.ask(text="どちらが好き", context="映画と本、どちらが好きですか。", to="en")  # another language is another question
+        self.assertEqual((len(FakeLLM.requests), Explanation.objects.count()), (2, 2))
 
     def test_checks_the_selection(self):
         self.assertEqual(self.ask(text="  ").status_code, 400)

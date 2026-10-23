@@ -493,7 +493,7 @@ def explain(request):
     except translate.TranslateError as e:
         return Response({"error": str(e)}, status=503)
     active = translate.public(next(t for t in translate.translators() if t["id"] == translate.active_id()))
-    return Response({**out, "translator": active["name"], "cloud": active["cloud"]})
+    return Response({"translator": active["name"], "cloud": active["cloud"], **out})  # who answered, if saved
 
 
 # ---------------------------------------------------------------- decks

@@ -20,6 +20,9 @@ import urllib.parse
 import urllib.request
 
 from django.conf import settings
+from django.utils import timezone
+
+from .models import Explanation
 
 LANGUAGES = {
     "en": "English", "fr": "French", "es": "Spanish", "de": "German", "it": "Italian",
@@ -377,7 +380,6 @@ def translate(sentence, lang: str | None = None, force: bool = False) -> str:
 
 # --- explaining a selected stretch ---------------------------------------------------
 
-_explained: dict[tuple, dict] = {}  # the same question again doesn't cost a second call
 _BULLET = re.compile(r"^\s*(?:[-*•・]|\d+[.)])\s*")
 
 
@@ -407,10 +409,11 @@ def explain(text: str, context: str = "", lang: str | None = None, force: bool =
     lang = lang or language()
     if lang not in LANGUAGES:
         raise TranslateError(f"kotoba can't translate into {lang!r}.")
-    cfg = _active()
-    key = (cfg["id"], cfg["url"], cfg["model"], lang, text, context)
-    if key not in _explained or force:
-        if len(_explained) >= 200:
-            _explained.pop(next(iter(_explained)))
-        _explained[key] = _parse_explanation(_ask(cfg, *_explain_prompt(text, context, lang)))
-    return {**_explained[key], "to": lang, "name": LANGUAGES[lang]}
+    saved = Explanation.objects.filter(lang=lang, text=text, context=context).first()
+    if not saved or force:
+        cfg = _active()
+        answer = _parse_explanation(_ask(cfg, *_explain_prompt(text, context, lang)))
+        saved, _ = Explanation.objects.update_or_create(
+            lang=lang, text=text, context=context, defaults={**answer, "translator": cfg["name"], "created_at": timezone.now()})
+    return {"translation": saved.translation, "notes": saved.notes, "translator": saved.translator,
+            "to": lang, "name": LANGUAGES[lang]}

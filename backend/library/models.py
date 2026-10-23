@@ -286,3 +286,19 @@ class Note(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class Explanation(models.Model):
+    """What a selected stretch of Japanese means in its context, as a translator explained it
+    into one language. Kept so the same question doesn't cost a second call; Ask again replaces it."""
+
+    lang = models.CharField(max_length=8)
+    text = models.TextField()
+    context = models.TextField(blank=True)
+    translation = models.TextField()
+    notes = models.JSONField(default=list, blank=True)
+    translator = models.CharField(max_length=60, blank=True)  # the one that answered, by name
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["lang", "text", "context"], name="one_explanation_per_question")]

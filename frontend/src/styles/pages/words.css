@@ -18,6 +18,8 @@
 .word-page-aside { padding-left: var(--s-5); border-left: 1px solid var(--ink-3); gap: var(--s-6); }
 .word-page-reading { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); margin: 0; font-size: var(--t-l); }
 .word-page-stats { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-2); margin: 0; }
+.word-page-forms { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-2); }
+.word-page-forms p { flex-basis: 100%; margin: 0; }
 .word-page-entries { display: grid; gap: var(--s-2); }
 .word-source { margin-top: var(--s-4); }
 .word-source .day-head { margin-bottom: 0; font-size: var(--t-m); }
