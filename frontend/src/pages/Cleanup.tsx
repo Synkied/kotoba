@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError, type Cleanup, type CleanupSettings, type Cut, type Job, type ScriptRow, type TChar } from '../lib/api'
 import { ErrorNotice, Skeleton, usePref, useToast, useAction } from '../components/ui'
 import { Button, ButtonLink, ButtonRow, Checkbox, Field, Input, Kbd, Notice, Panel, Segmented, Select, Sheet, Textarea, buttonClass } from '../components/ds'
+import { usePractise } from '../lib/practise'
 
 // ------------------------------------------------------------------ cut model
 
@@ -964,6 +965,7 @@ function Reader({ title, sentences, onClose }: { title: string; sentences: strin
  *  kept takes when there is a script, else the kept utterances of the transcript. */
 function MakeSentences({ data, cuts, fromScript, onDone }: { data: Cleanup; cuts: EditCut[]; fromScript: boolean; onDone: () => void }) {
   const toast = useToast()
+  const practise = usePractise()
   const [busy, setBusy] = useState(false)
   const rows = useMemo(() => {
     if (fromScript && data.report) {
@@ -986,7 +988,7 @@ function MakeSentences({ data, cuts, fromScript, onDone }: { data: Cleanup; cuts
   return (
     <span className="btn-row">
       <Button size="small" disabled={busy} onClick={go} title="Use these as the recording's practice sentences, timed to the audio"><ListPlus aria-hidden="true" />Use as sentences</Button>
-      <ButtonLink variant="primary" size="small" to={`/practice?source=${data.source}`}><Play aria-hidden="true" />Practise</ButtonLink>
+      <ButtonLink variant="primary" size="small" {...practise.link({ source: data.source })}><Play aria-hidden="true" />Practise</ButtonLink>
     </span>
   )
 }

@@ -155,3 +155,45 @@
   .take-error { top: auto; bottom: calc(100% + var(--s-2)); flex-wrap: wrap; }
   @keyframes take-error-in { from { opacity: 0; translate: 0 4px; } }
 }
+/* practice over a page (?practise=…): the run on its own sheet, the page dimmed behind it */
+.practice-dialog {
+  width: min(86rem, calc(100vw - 2 * var(--s-6))); max-width: none; height: calc(100dvh - 2 * var(--s-5)); max-height: none;
+  margin: auto; padding: 0 var(--s-6) var(--s-6); overflow-y: auto; overscroll-behavior: contain;
+  border: var(--frame) solid var(--rule-strong); background: var(--page); color: var(--ink); box-shadow: var(--lift);
+}
+.practice-dialog:focus { outline: none; }
+.practice-dialog::backdrop { background: rgb(0 0 0 / .4); }
+.practice-dialog[open] { animation: practice-in var(--t-state) var(--ease); }
+@keyframes practice-in { from { opacity: 0; translate: 0 12px; } }
+html:has(.practice-dialog:modal) { overflow: hidden; }
+/* the head stays at the top of the sheet, so Close is always in reach */
+.practice-dialog .practice-head { position: sticky; top: 0; z-index: 7; padding-top: var(--s-5); background: var(--page); }
+.practice-dialog .practice-head { padding-right: calc(var(--control-h) + var(--s-3)); }
+.practice-dialog .practice-close { position: absolute; top: var(--s-5); right: 0; }
+.practice-dialog-fail { display: grid; gap: var(--s-3); justify-items: start; padding-top: var(--s-5); }
+/* on a lesson page: docked to the right half, the worksheet still open beside it; the run stacks */
+.practice-dialog.docked {
+  position: fixed; inset: 0 0 0 auto; z-index: 40; width: min(58rem, 50vw); height: 100dvh; margin: 0;
+  border-width: 0 0 0 var(--frame); padding: 0 var(--s-5) var(--s-6);
+}
+.practice-dialog.docked[open] { animation-name: practice-dock; }
+@keyframes practice-dock { from { opacity: 0; translate: 16px 0; } }
+.practice-dialog.docked .practice { grid-template-columns: 1fr; gap: var(--s-2); }
+.practice-dialog.docked .practice-side { display: contents; }
+.practice-dialog.docked .practice .source-panel { order: 0; }
+.practice-dialog.docked .practice .stage { order: 1; }
+.practice-dialog.docked .score-slot { order: 2; }
+.practice-dialog.docked .practice .keys { order: 3; }
+.practice-dialog.docked .practice .source-panel .panel.big { aspect-ratio: 16 / 7; }
+.practice-dialog.docked .wave-panel canvas { height: 56px; }
+/* phones: the whole screen, the controls docked at its foot (there's no tab bar under a dialog) */
+@media (max-width: 760px) {
+  .practice-dialog { width: 100vw; height: 100dvh; border: 0; padding: 0 var(--s-4); }
+  .practice-dialog .practice-head { padding-top: var(--s-4); }
+  .practice-dialog .practice-close { top: var(--s-3); }
+  .practice-dialog .controls { bottom: 0; padding-bottom: calc(var(--s-2) + env(safe-area-inset-bottom)); }
+  .practice-dialog .score-slot { scroll-margin-bottom: calc(80px + env(safe-area-inset-bottom)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .practice-dialog[open] { animation: none; }
+}

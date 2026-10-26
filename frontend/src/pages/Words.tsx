@@ -8,6 +8,7 @@ import { IndexNotice, KnownButton, ListenSentence, WordPlates, WordsTabs } from 
 import { useIndexWait } from '../lib/wordIndex'
 import { ErrorNotice, SearchBox, PageHome, Skeleton, useAsync, usePref } from '../components/ui'
 import { Button, ButtonLink, ChipButton, EmptyState, Select } from '../components/ds'
+import { useOnPractised, usePractise } from '../lib/practise'
 
 const STATUSES = [
   { id: '', name: 'All' }, { id: 'new', name: 'New' }, { id: 'practised', name: 'Practised' },
@@ -100,6 +101,8 @@ export default function WordsPage() {
  *  them. The new word that comes up most in your sentences leads. */
 export function NextSentencesPage() {
   const { data, error, loading, reload } = useAsync(() => api.nextSentences(), [])
+  const practise = usePractise()
+  useOnPractised(reload)
   useIndexWait(data, reload)
   const [furigana] = usePref('furigana', true)
   const ids = data?.results.map((r) => r.sentence.id) ?? []
@@ -108,7 +111,7 @@ export function NextSentencesPage() {
       <header className="page-head">
         <h1><PageHome to="/words/next">Next sentences</PageHome> {data && <span className="meta num">{data.results.length}</span>}</h1>
         <span className="grow" />
-        {ids.length > 0 && <ButtonLink variant="primary" to={'/practice?ids=' + ids.join(',')}><Play aria-hidden="true" />Practise these</ButtonLink>}
+        {ids.length > 0 && <ButtonLink variant="primary" {...practise.link({ ids })}><Play aria-hidden="true" />Practise these</ButtonLink>}
       </header>
       <WordsTabs />
       <IndexNotice state={data} onChange={reload} />
@@ -134,7 +137,7 @@ export function NextSentencesPage() {
               <div className="acts">
                 <ListenSentence s={s} />
                 <ButtonLink variant="ghost" size="small" to={`/sentences/${s.id}`}>Details</ButtonLink>
-                <ButtonLink variant="ghost" size="small" to={`/practice?ids=${s.id}`}><Play aria-hidden="true" />Practise</ButtonLink>
+                <ButtonLink variant="ghost" size="small" {...practise.link({ sentence: s.id })}><Play aria-hidden="true" />Practise</ButtonLink>
                 <KnownButton small w={w} onChange={reload} />
               </div>
             </li>

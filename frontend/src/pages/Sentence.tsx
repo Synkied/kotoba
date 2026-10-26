@@ -13,6 +13,7 @@ import { ReadingAids, Translation, useAids, useLanguage } from '../components/Re
 import { Button, ButtonLink, ButtonRow } from '../components/ds'
 import { useIndexWait } from '../lib/wordIndex'
 import { useBackTo } from '../lib/trail'
+import { usePractise } from '../lib/practise'
 
 export default function SentencePage() {
   const id = Number(useParams().id)
@@ -29,6 +30,7 @@ function Detail({ id }: { id: number }) {
   const [saveError, setSaveError] = useState<unknown>(null)
   const toast = useToast()
   const backTo = useBackTo(`sentence:${id}`, (p) => p.startsWith('/practice'))
+  const practise = usePractise()
   if (detail.error) return <ErrorNotice error={detail.error} action={<Link to="/sources">Open Sources</Link>} />
   if (!detail.data || detail.loading) return <Skeleton rows={3} />
   const { sentence: s, source } = detail.data
@@ -44,7 +46,7 @@ function Detail({ id }: { id: number }) {
         {aids.translation && <Translation s={s} onTranslated={updated => detail.set({ source, sentence: updated })} />}</SentenceText>
       <ReadingAids aids={aids} roman={!!s.roman} />
       <div className="sentence-actions">
-      <ButtonLink variant="primary" to={`/practice?sentence=${s.id}`}>Practise sentence</ButtonLink>
+      <ButtonLink variant="primary" {...practise.link({ sentence: s.id })}>Practise sentence</ButtonLink>
       <Button onClick={async () => { try { await navigator.clipboard.writeText(window.location.href); toast({ text: 'Sentence link copied' }) } catch { toast({ text: 'Copy the link from your address bar' }) } }}>Copy link</Button>
       <Button onClick={() => setEditing(true)}><Pencil aria-hidden="true" />Edit</Button>
       <DeckPicker sentenceIds={() => [s.id]} onDone={detail.reload} />

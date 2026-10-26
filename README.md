@@ -136,6 +136,10 @@ fix the lines that stray, once, then marks what still does; a voice (VOICEVOX, e
 reads it. A story is a source like any other: furigana, lookups, translations, practice. Link a
 unit to the lesson you study it in, and the lesson page offers **Make a story**.
 
+**Practise** buttons open the practice run over the page you're on (on a lesson page it sits
+beside the worksheet), so you listen, say each line and see its score without leaving it; Esc or
+Close puts it away, and the page shows the new scores.
+
 Select any stretch of a sentence (a few words, a clause, the whole line) and an **Explain**
 button comes up beside it. It opens the stretch with its reading in kana and romaji, its meanings
 when the dictionary lists it, and what your translator (see Translations below) says it means in

@@ -5,6 +5,7 @@ import { api, byFolder, type Deck } from '../lib/api'
 import { ErrorNotice, Skeleton, useAsync, useAction, PageHome } from '../components/ui'
 import { Button, ButtonLink, ChipButton, EmptyState, Input, Plate } from '../components/ds'
 import { SourcesTabs } from '../components/SourcesTabs'
+import { usePractise } from '../lib/practise'
 
 export default function DecksPage() {
   const { data, error, loading, reload, set } = useAsync(() => api.decks(), [])
@@ -97,6 +98,7 @@ export default function DecksPage() {
 }
 
 function DeckRow({ d }: { d: Deck }) {
+  const practise = usePractise()
   return (
     <tr>
       <td><Link className="name" to={`/decks/${d.id}`}>{d.name}</Link>{d.description && <div className="meta">{d.description}</div>}</td>
@@ -105,7 +107,7 @@ function DeckRow({ d }: { d: Deck }) {
       <td className="hide-s"><span className="meter" role="img" aria-label={`${d.practised} of ${d.size} practised`}><i style={{ width: d.size ? `${(100 * d.practised) / d.size}%` : 0 }} /></span></td>
       <td className="n hide-s">{d.average != null ? Math.round(d.average) : '–'}</td>
       <td className="n">{d.due ? <Plate tone="accent">{d.due}</Plate> : <span className="meta">0</span>}</td>
-      <td style={{ textAlign: 'right' }}>{d.size > 0 && <ButtonLink size="small" to={`/practice?deck=${d.id}`}><Play aria-hidden="true" />Practise</ButtonLink>}</td>
+      <td style={{ textAlign: 'right' }}>{d.size > 0 && <ButtonLink size="small" {...practise.link({ deck: d.id })}><Play aria-hidden="true" />Practise</ButtonLink>}</td>
     </tr>
   )
 }

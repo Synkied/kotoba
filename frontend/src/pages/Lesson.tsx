@@ -12,6 +12,7 @@ import { Listen, altKey, clockTime, lessonTracks, type ListenControl, type Momen
 import { fileSize, folderOptions, folderPath, materialsIn } from '../lib/lessonTree'
 import { Button, ButtonLink, ButtonRow, Checkbox, EmptyState, Field, Input, Plate, Select, buttonClass } from '../components/ds'
 import { MentionTextarea, NoteMarkdown, caretPoint, quoteToken, type Mentionable } from '../components/NoteMarkdown'
+import { usePractise } from '../lib/practise'
 
 export default function LessonPage() {
   const id = Number(useParams().id)
@@ -517,6 +518,7 @@ function NoteEditor({ note, near, busy, onSaved, onClose, onDelete, insertRef, f
 /** Sources from the library studied with this lesson: what gets practised from it. */
 function Sources({ l, onChange }: { l: Lesson; onChange: (l: Lesson) => void }) {
   const [q, setQ] = useState<string | null>(null)
+  const practise = usePractise()
   const action = useAction()
   const found = useAsync(() => q === null ? Promise.resolve(null) : api.sources({ q, limit: 8 }), [q])
   const link = (ids: number[]) => action.run(async () => { onChange(await api.updateLesson(l.id, { sources: ids })) })
@@ -529,7 +531,7 @@ function Sources({ l, onChange }: { l: Lesson; onChange: (l: Lesson) => void }) 
           <Link to={`/sources/${s.id}`} lang="ja">{s.title}</Link>
           <span className="meta num">{s.sentences} sentence{s.sentences === 1 ? '' : 's'}{s.status === 'inbox' ? ' · in the inbox' : s.status === 'archived' ? ' · archived' : ''}</span>
           <span className="grow" />
-          {s.sentences > 0 && <ButtonLink size="small" to={`/practice?source=${s.id}`}><Play aria-hidden="true" />Practise</ButtonLink>}
+          {s.sentences > 0 && <ButtonLink size="small" {...practise.link({ source: s.id })}><Play aria-hidden="true" />Practise</ButtonLink>}
           <Button variant="ghost" size="small" icon disabled={action.busy} aria-label={`Unlink ${s.title}`} title="Unlink" onClick={() => link(l.sources.filter(x => x.id !== s.id).map(x => x.id))}><X aria-hidden="true" /></Button>
         </li>
       ))}</ul>

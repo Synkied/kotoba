@@ -1,6 +1,6 @@
 import { Copy, Check, Play, Tag, X, AudioLines, BookAudio, Clapperboard, Captions, Type, Camera } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { api, type Source, type SourceKind } from '../lib/api'
 import { DeckPicker } from '../components/DeckPicker'
 import { fmtTime } from '../components/SourcePanel'
@@ -9,6 +9,7 @@ import { MAX_LABELS, mergeLabels, parseLabels } from '../lib/labels'
 import { ErrorNotice, SearchBox, Skeleton, clock, dayLabel, useAsync, useToast, useAction, PageHome } from '../components/ui'
 import { Button, ButtonLink, Checkbox, Chip, ChipButton, EmptyState, Field, Input, Plate, Select } from '../components/ds'
 import { SourcesTabs } from '../components/SourcesTabs'
+import { useOnPractised, usePractise } from '../lib/practise'
 
 const KINDS: { id: SourceKind | ''; name: string }[] = [
   { id: '', name: 'All' }, { id: 'capture', name: 'Captures' }, { id: 'audio', name: 'Audio' },
@@ -31,11 +32,12 @@ export default function LibraryPage() {
   const toast = useToast()
   const [limit, setLimit] = useState(200)
   useEffect(() => { setSelected(new Set()); setLabelDraft(null); setLimit(200) }, [q, kind, category, label])
-  const nav = useNavigate()
+  const practise = usePractise()
   const facets = useAsync(() => api.facets(), [])
   const { data, error, loading, reload } = useAsync(
     () => api.sources({ status: 'kept', q, kind: kind || undefined, limit, category, label }),
     [q, kind, category, label, limit])
+  useOnPractised(reload)
 
   // identical captures show once, with a ×N count (as screen_ocr's history did)
   const groups = useMemo(() => {
@@ -80,8 +82,6 @@ export default function LibraryPage() {
   const filterCategory = (c: string) => setCategory(cur => cur === c ? '' : c)
   const labels = facets.data?.labels ?? []
   const categories = facets.data?.categories ?? []
-  const shownLabels = labels.slice(0, 12)
-  const moreLabels = labels.slice(12)
 
   return (
     <>
@@ -92,38 +92,31 @@ export default function LibraryPage() {
       </header>
       <SourcesTabs />
 
-      <div className="filters" role="group" aria-label="Filters">
-        <div className="group">
-          <span className="meta">Kind</span>
-          <div className="chips">
-            {KINDS.map((k) => <ChipButton key={k.id} aria-pressed={kind === k.id} onClick={() => setKind(k.id)}>{k.name}</ChipButton>)}
-          </div>
-          {filtered && <><span className="grow" /><Button variant="ghost" size="small" onClick={() => { setQ(''); setKind(''); setCategory(''); setLabel('') }}><X aria-hidden="true" />Clear filters</Button></>}
+      {/* one line: the kind as a row of quiet toggles, labels and categories as menus (a card's own tags filter too) */}
+      <div className="source-filters" role="group" aria-label="Filters">
+        <div className="source-kinds" role="group" aria-label="Kind">
+          {KINDS.map((k) => {
+            const Icon = k.id ? KIND[k.id].Icon : null
+            return <button key={k.id} type="button" className="source-kind" aria-pressed={kind === k.id} onClick={() => setKind(k.id)}>{Icon && <Icon aria-hidden="true" />}{k.name}</button>
+          })}
         </div>
+        <span className="grow" />
         {labels.length > 0 && (
-          <div className="group">
-            <span className="meta">Labels</span>
-            <div className="chips">
-              {shownLabels.map(l => <ChipButton key={l.name} aria-pressed={label === l.name} onClick={() => filterLabel(l.name)}>{l.name}<span className="n">{l.count}</span></ChipButton>)}
-              {moreLabels.length > 0 && (
-                <Select className="chip-select" aria-label="More labels" value={moreLabels.some(l => l.name === label) ? label : ''} onChange={(e) => setLabel(e.target.value)}>
-                  <option value="">{moreLabels.length} more…</option>
-                  {moreLabels.map(l => <option key={l.name} value={l.name}>{l.name} ({l.count})</option>)}
-                </Select>
-              )}
-              {/* a label filtered from a card before the facets refresh still shows */}
-              {label && !labels.some(l => l.name === label) && <ChipButton aria-pressed onClick={() => setLabel('')}>{label}</ChipButton>}
-            </div>
-          </div>
+          <Select className="chip-select source-facet" aria-label="Label" data-on={label ? true : undefined} value={label} onChange={(e) => setLabel(e.target.value)}>
+            <option value="">Any label</option>
+            {/* a label filtered from a card before the facets refresh still shows */}
+            {label && !labels.some(l => l.name === label) && <option value={label}>{label}</option>}
+            {labels.map(l => <option key={l.name} value={l.name}>{l.name} ({l.count})</option>)}
+          </Select>
         )}
         {categories.length > 0 && (
-          <div className="group">
-            <span className="meta">Category</span>
-            <div className="chips">
-              {categories.map(c => <ChipButton key={c.name} aria-pressed={category === c.name} onClick={() => filterCategory(c.name)}>{c.name}<span className="n">{c.count}</span></ChipButton>)}
-            </div>
-          </div>
+          <Select className="chip-select source-facet" aria-label="Category" data-on={category ? true : undefined} value={category} onChange={(e) => setCategory(e.target.value)}>
+            <option value="">Any category</option>
+            {category && !categories.some(c => c.name === category) && <option value={category}>{category}</option>}
+            {categories.map(c => <option key={c.name} value={c.name}>{c.name} ({c.count})</option>)}
+          </Select>
         )}
+        {filtered && <Button variant="ghost" size="small" onClick={() => { setQ(''); setKind(''); setCategory(''); setLabel('') }}><X aria-hidden="true" />Clear</Button>}
       </div>
 
       {selected.size > 0 && (
@@ -131,7 +124,7 @@ export default function LibraryPage() {
           <span className="num" style={{ fontWeight: 700 }}>{plural(selected.size, 'source')} · {plural(sentenceIds.length, 'sentence')}</span>
           <DeckPicker small sentenceIds={() => sentenceIds} onDone={clearSelection} />
           <Button size="small" style={{ background: 'var(--on-ink)', color: 'var(--ink)' }} disabled={!sentenceIds.length}
-            onClick={() => nav('/practice?ids=' + sentenceIds.join(','))}><Play aria-hidden="true" />Practise these</Button>
+            onClick={() => practise.open({ ids: sentenceIds })}><Play aria-hidden="true" />Practise these</Button>
           <Button variant="ghost" size="small" disabled={labelAction.busy} aria-expanded={labelDraft !== null} onClick={() => setLabelDraft(d => d === null ? '' : null)}><Tag aria-hidden="true" />Add labels</Button>
           <span className="grow" />
           <Button variant="ghost" size="small" disabled={labelAction.busy} onClick={clearSelection}>Clear</Button>
@@ -162,7 +155,7 @@ export default function LibraryPage() {
             <p>{filtered ? 'Try fewer filters, or search by reading: “kyou” finds 今日.' : 'Sources you keep from the inbox live here, with every sentence and every attempt at saying it.'}</p>
             {!filtered && <ButtonLink variant="primary" to="/inbox">Go to the inbox</ButtonLink>}
           </EmptyState>
-        ) : groups.map((day) => {
+        ) : <div className="source-days">{groups.map((day) => {
           const { date, rel } = dayLabel(day.items[0].s.created_at)
           return (
             <section className="day" key={day.key} aria-label={date}>
@@ -173,7 +166,7 @@ export default function LibraryPage() {
               </ul>
             </section>
           )
-        })}
+        })}</div>}
       {data && data.results.length < data.count && <Button disabled={loading} onClick={() => setLimit((n) => n + 200)}>{loading ? 'Loading…' : 'Load more sources'}</Button>}
     </>
   )
@@ -191,6 +184,7 @@ function SourceCard({ s, n, q, selected, onToggle, label, category, onLabel, onC
   const title = s.title || line?.text || s.text.slice(0, 80) || 'Untitled'
   const excerpt = s.title ? line?.text : s.sentences[1]?.text
   const practised = s.sentences.filter(x => x.stamps.length).length
+  const practise = usePractise()
   const last = s.sentences.flatMap(x => x.stamps).sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
   return (
     <li className="source-card" data-selected={selected || undefined}>
@@ -198,9 +192,8 @@ function SourceCard({ s, n, q, selected, onToggle, label, category, onLabel, onC
       <div className="source-card-body">
         <h3 lang={s.title ? undefined : 'ja'}><Link to={`/sources/${s.id}`} className="source-card-link">{title}</Link></h3>
         <p className="meta source-card-meta num">
-          <Icon aria-hidden="true" />{kindName} · {plural(s.sentences.length, 'sentence')}
-          {s.duration ? ` · ${fmtTime(s.duration).replace(/\.\d$/, '')}` : ''} · {clock(s.created_at)}
-          {n > 1 && <Plate tone="hollow" className="num">×{n}</Plate>}
+          <Icon aria-hidden="true" />{kindName}{s.duration ? ` · ${fmtTime(s.duration).replace(/\.\d$/, '')}` : ''} · {clock(s.created_at)}
+          {n > 1 && <Plate tone="hollow" className="num" title={`Captured ${n} times`}>×{n}</Plate>}
         </p>
         {excerpt && <p className="source-card-line" lang="ja">{excerpt}</p>}
         {(s.category || s.labels.length > 0) && (
@@ -212,9 +205,9 @@ function SourceCard({ s, n, q, selected, onToggle, label, category, onLabel, onC
       </div>
       <div className="source-card-foot">
         {last && <Stamp s={last} />}
-        <span className="meta num">{s.sentences.length === 0 ? 'No sentences yet' : practised === 0 ? 'Not practised yet' : `${practised} of ${s.sentences.length} practised`}</span>
+        <span className="meta num">{s.sentences.length === 0 ? 'No sentences yet' : practised === 0 ? plural(s.sentences.length, 'sentence') : `${practised} of ${plural(s.sentences.length, 'sentence')} practised`}</span>
         <span className="grow" />
-        {s.sentences.length > 0 && <ButtonLink size="small" to={`/practice?source=${s.id}`}><Play aria-hidden="true" />Practise</ButtonLink>}
+        {s.sentences.length > 0 && <ButtonLink variant="ghost" size="small" {...practise.link({ source: s.id })}><Play aria-hidden="true" />Practise</ButtonLink>}
       </div>
       <Checkbox type="checkbox" className="source-card-check" checked={selected} onChange={onToggle} aria-label={`Select ${title}`} />
     </li>

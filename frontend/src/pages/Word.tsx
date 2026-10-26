@@ -14,6 +14,7 @@ import { useIndexWait } from '../lib/wordIndex'
 import { ErrorNotice, Skeleton, useAsync, usePref } from '../components/ui'
 import { Button, ButtonLink, Chip, EmptyState } from '../components/ds'
 import { useBackTo } from '../lib/trail'
+import { useOnPractised, usePractise } from '../lib/practise'
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
 
@@ -26,6 +27,8 @@ export default function WordPage() {
  *  from each source's own speaker), the forms it takes (よくない under 良い), and how saying it has gone. */
 function Detail({ id }: { id: number }) {
   const { data: w, error, reload, set } = useAsync(() => api.word(id), [id])
+  const practise = usePractise()
+  useOnPractised(reload)
   useIndexWait(w, reload)
   const backTo = useBackTo(`word:${id}`, (p) => p.startsWith('/sentences/') || p.startsWith('/practice'))
   const [furigana] = usePref('furigana', true)
@@ -40,7 +43,7 @@ function Detail({ id }: { id: number }) {
         <h1 className="word-page-title" lang="ja">{w.lemma}</h1>
         <span className="grow" />
         <KnownButton w={w} onChange={(known) => set((d: WordDetail) => ({ ...d, status: known ? 'known' : d.status === 'known' ? 'new' : d.status, known_at: known ? new Date().toISOString() : null }))} />
-        {ids.length > 0 && <ButtonLink variant="primary" to={'/practice?ids=' + ids.join(',')}><Play aria-hidden="true" />Practise {ids.length === 1 ? 'it' : `all ${ids.length}`}</ButtonLink>}
+        {ids.length > 0 && <ButtonLink variant="primary" {...practise.link({ ids })}><Play aria-hidden="true" />Practise {ids.length === 1 ? 'it' : `all ${ids.length}`}</ButtonLink>}
       </header>
       <IndexNotice state={w} onChange={reload} />
 

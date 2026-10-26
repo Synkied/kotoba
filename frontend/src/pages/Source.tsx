@@ -18,6 +18,7 @@ import { ReadingAids, TranslateAll, Translation, useAids } from '../components/R
 import { CopyButton } from './Library'
 import { useBackTo } from '../lib/trail'
 import { Button, ButtonLink, Chip, Input, Plate } from '../components/ds'
+import { useOnPractised, usePractise } from '../lib/practise'
 
 export default function SourcePage() {
   const id = Number(useParams().id)
@@ -47,6 +48,8 @@ function SourcePageDetail({ id }: { id: number }) {
   const [labels, setLabels] = useState<string | null>(null)
   const toast = useToast()
   const action = useAction()
+  const practise = usePractise()
+  useOnPractised(reload)
   useEffect(() => () => stopAudio(), [id])
   // a story being written: its lines, then its voice, arrive as each step finishes
   const writing = !!s?.story?.state && STORY_BUSY.includes(s.story.state)
@@ -89,7 +92,7 @@ function SourcePageDetail({ id }: { id: number }) {
         {s.media && (s.kind === 'audio' || s.kind === 'video') && <ButtonLink to={`/sources/${s.id}/cleanup`}><Scissors aria-hidden="true" />Clean up</ButtonLink>}
         {s.story && <ButtonLink to={`/stories?syllabus=${s.story.syllabus}&unit=${s.story.unit}`}><BookAudio aria-hidden="true" />Another story</ButtonLink>}
         {s.sentences.length > 0 && <DeckPicker sentenceIds={() => s.sentences.map((x) => x.id)} />}
-        {s.sentences.length > 0 && <ButtonLink variant="primary" to={`/practice?source=${s.id}`}><Play aria-hidden="true" />Practise all</ButtonLink>}
+        {s.sentences.length > 0 && <ButtonLink variant="primary" {...practise.link({ source: s.id })}><Play aria-hidden="true" />Practise all</ButtonLink>}
       </header>
 
       <div className="source-layout">
@@ -156,6 +159,7 @@ function SentenceRow({ x, beyond, furigana, roman, translation, audio, current, 
   onPlay: () => void; onPlayFrom: () => void; onSaved: (x: Sentence) => void
 }) {
   const [editing, setEditing] = useState(false)
+  const practise = usePractise()
   const row = useRef<HTMLLIElement>(null)
   // keep the spoken sentence in the upper part of the reading area, so the lines coming next
   // stay visible; only scroll once it drifts out of that band, not on every line
@@ -189,7 +193,7 @@ function SentenceRow({ x, beyond, furigana, roman, translation, audio, current, 
       </SentenceText>
       {editing && <SentenceEditor sentence={x} onSaved={onSaved} onClose={() => setEditing(false)} />}
       <div className="acts">
-        <ButtonLink variant="ghost" size="small" to={`/practice?sentence=${x.id}&from=source`} title="Practise this sentence only"><Play aria-hidden="true" />Practise</ButtonLink>
+        <ButtonLink variant="ghost" size="small" {...practise.link({ sentence: x.id })} title="Practise this sentence only"><Play aria-hidden="true" />Practise</ButtonLink>
         <ButtonLink variant="ghost" size="small" to={`/sentences/${x.id}`}>Details</ButtonLink>
         <CopyButton text={x.text} />
         <Button variant="ghost" size="small" icon aria-label="Edit the text, readings and translation" title="Edit sentence" onClick={() => setEditing(true)}><Pencil aria-hidden="true" /></Button>

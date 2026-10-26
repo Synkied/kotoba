@@ -7,6 +7,7 @@
   position: fixed; z-index: 60; width: min(24rem, calc(100vw - 32px)); max-height: min(28rem, 70vh);
   border: var(--frame) solid var(--rule-strong); background: var(--paper); color: var(--ink); box-shadow: var(--lift);
   padding: var(--s-4) var(--s-4) var(--s-3); display: flex; flex-direction: column; gap: var(--s-2); font-size: var(--t-m); line-height: 1.5;
+  overflow-y: auto; overscroll-behavior: contain; /* squeezed between the word and the window's edge, the whole card scrolls */
 }
 .word-pop-top { display: grid; gap: var(--s-2); flex: none; }
 .word-pop-body { display: grid; gap: var(--s-2); min-height: 0; overflow-y: auto; overscroll-behavior: contain; }

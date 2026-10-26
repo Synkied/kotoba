@@ -9,6 +9,7 @@ import { Stamps } from '../components/Stamp'
 import { playClip, speak, stopAudio } from '../lib/audio'
 import { ErrorNotice, Skeleton, useAsync, usePref, useToast, useAction } from '../components/ui'
 import { Button, ButtonLink, Chip, EmptyState, Input } from '../components/ds'
+import { useOnPractised, usePractise } from '../lib/practise'
 
 export default function DeckPage() {
   const id = Number(useParams().id)
@@ -26,6 +27,8 @@ function DeckPageDetail({ id }: { id: number }) {
   const deck = useAsync(() => api.deck(id), [id])
   const list = useAsync(() => allSentences({ deck: id }), [id])
   const action = useAction()
+  const practise = usePractise()
+  useOnPractised(list.reload)
   const [name, setName] = useState<string | null>(null)
   const items = list.data?.results ?? []
 
@@ -96,7 +99,7 @@ function DeckPageDetail({ id }: { id: number }) {
           <div><dt>practised</dt><dd className="num">{deck.data.practised}</dd></div>
         </dl>
         <Button variant="ghost" onClick={async () => { if (window.confirm(`Delete the deck “${deck.data!.name}”? Its sentences stay in Sources.`)) { await action.run(async () => { await api.deleteDeck(id); nav('/decks') }) } }}><Trash2 aria-hidden="true" />Delete deck</Button>
-        {items.length > 0 && <ButtonLink variant="primary" to={`/practice?deck=${id}`}><Play aria-hidden="true" />Practise</ButtonLink>}
+        {items.length > 0 && <ButtonLink variant="primary" {...practise.link({ deck: id })}><Play aria-hidden="true" />Practise</ButtonLink>}
       </header>
       <FolderField deck={deck.data} onSaved={deck.set} run={action.run} />
       {list.error ? <ErrorNotice error={list.error} action={<Button onClick={list.reload}>Try again</Button>} /> : list.loading && !list.data ? <Skeleton /> : !items.length ? (

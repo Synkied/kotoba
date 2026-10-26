@@ -1,6 +1,6 @@
 import { Play, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api, type Sentence } from '../lib/api'
 import { DeckPicker } from '../components/DeckPicker'
 import { Furigana } from '../components/Furigana'
@@ -10,6 +10,7 @@ import { Stamps } from '../components/Stamp'
 import { ErrorNotice, SearchBox, Skeleton, useAsync, usePref, PageHome } from '../components/ui'
 import { Button, ButtonLink, Checkbox, ChipButton, EmptyState, Select } from '../components/ds'
 import { SourcesTabs } from '../components/SourcesTabs'
+import { useOnPractised, usePractise } from '../lib/practise'
 
 const KINDS = [
   { id: '', name: 'All' }, { id: 'audio,video', name: 'Transcribed' }, { id: 'capture', name: 'Captures' },
@@ -35,9 +36,10 @@ export default function SentencesPage() {
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const key = FILTERS.map((k) => f[k]).join('\n')
   useEffect(() => { setSelected(new Set()); setLimit(100) }, [key])
-  const nav = useNavigate()
   const facets = useAsync(() => api.facets(), [])
   const { data, error, loading, reload } = useAsync(() => api.sentences({ ...f, limit }), [key, limit])
+  const practise = usePractise()
+  useOnPractised(reload)
 
   const items = data?.results ?? []
   const filtered = FILTERS.some((k) => f[k])
@@ -95,7 +97,7 @@ export default function SentencesPage() {
           <span className="num" style={{ fontWeight: 700 }}>{plural(ids.length, 'sentence')}</span>
           <DeckPicker small sentenceIds={() => ids} onDone={() => setSelected(new Set())} />
           <Button size="small" style={{ background: 'var(--on-ink)', color: 'var(--ink)' }}
-            onClick={() => nav('/practice?ids=' + ids.join(','))}><Play aria-hidden="true" />Practise these</Button>
+            onClick={() => practise.open({ ids })}><Play aria-hidden="true" />Practise these</Button>
           <span className="grow" />
           <Button variant="ghost" size="small" onClick={() => setSelected(new Set())}>Clear</Button>
         </div>
@@ -125,6 +127,7 @@ export default function SentencesPage() {
 }
 
 function Row({ s, furigana, picked, onPick }: { s: Sentence; furigana: boolean; picked: boolean; onPick: () => void }) {
+  const practise = usePractise()
   return (
     <li className="row row-select">
       <Checkbox type="checkbox" checked={picked} onChange={onPick} aria-label={`Select “${s.text}”`} />
@@ -136,7 +139,7 @@ function Row({ s, furigana, picked, onPick }: { s: Sentence; furigana: boolean; 
       </div>
       <div className="acts">
         <ButtonLink variant="ghost" size="small" to={`/sentences/${s.id}`}>Details</ButtonLink>
-        <ButtonLink variant="ghost" size="small" to={`/practice?ids=${s.id}`}><Play aria-hidden="true" />Practise</ButtonLink>
+        <ButtonLink variant="ghost" size="small" {...practise.link({ sentence: s.id })}><Play aria-hidden="true" />Practise</ButtonLink>
         <span className="record"><Stamps stamps={s.stamps} max={3} /></span>
       </div>
     </li>

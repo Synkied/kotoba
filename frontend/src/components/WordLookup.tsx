@@ -135,6 +135,9 @@ function picked(): Picked | null {
 /** Select any stretch of a sentence and an Explain button comes up beside it: the stretch
  *  opens with its reading, its meanings when it's a dictionary word, and what the translator
  *  says it means there. Mounted once for the whole app. */
+/** Where popovers go: into an open modal dialog (practice, say), since the page behind one can't be clicked. */
+const layer = () => document.querySelector('dialog:modal') ?? document.body
+
 export function SelectionLookup() {
   const [offer, setOffer] = useState<Picked | null>(null)
   const [open, setOpen] = useState<Open | null>(null)
@@ -170,7 +173,7 @@ export function SelectionLookup() {
         style={{ left: Math.min(Math.max(16, offer.rect.right - w / 2), window.innerWidth - w - 16), top: Math.min(offer.rect.bottom + gap, window.innerHeight - 56) }}
         onPointerDown={(e) => e.preventDefault()} onClick={explain} title="Its reading, meaning and what it means here">
         <MessageSquareText aria-hidden="true" />Explain
-      </Button>, document.body)}
+      </Button>, layer())}
     {open && <WordPopover key={`${open.at}-${open.end}`} {...open} onClose={() => setOpen(null)} />}
   </>
 }
@@ -183,7 +186,7 @@ function WordPopover({ text, pairs, at, end, root, x, y, onClose }: Open & { onC
   const [heard, setHeard] = useState<{ key: string; lines: number } | null>(null)
   const [key, setKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [pos, setPos] = useState<{ left: number; top: number } | 'sheet' | null>(null)
+  const [pos, setPos] = useState<{ left: number; top: number; maxHeight?: number } | 'sheet' | null>(null)
   const [playing, setPlaying] = useState<string | null>(null)
   const [voice] = usePref<string>('voice', 'browser')
 
@@ -203,7 +206,8 @@ function WordPopover({ text, pairs, at, end, root, x, y, onClose }: Open & { onC
     return () => { ctl.abort(); window.clearTimeout(timer) }
   }, [text, at, end])
 
-  // highlight the word, and sit just below it (above it when there is no room)
+  // highlight the word, and sit just below it (above it when there is no room); with no room
+  // either side, take the roomier one and scroll inside, as the page can't scroll under it
   const span = word ? rangeOf(root, word.start, word.end) : null
   useLayoutEffect(() => {
     const hl = highlights()
@@ -213,11 +217,17 @@ function WordPopover({ text, pairs, at, end, root, x, y, onClose }: Open & { onC
       if (!el) return
       if (window.matchMedia('(max-width: 760px)').matches) { setPos((p) => (p === 'sheet' ? p : 'sheet')); return } // a sheet above the tab bar
       const r = span?.getBoundingClientRect() ?? new DOMRect(x, y, 0, 0)
+      const was = el.style.maxHeight
+      el.style.maxHeight = ''
       const w = el.offsetWidth, h = el.offsetHeight, gap = 8, edge = 16
+      el.style.maxHeight = was
       const left = Math.min(Math.max(edge, r.left + r.width / 2 - w / 2), window.innerWidth - w - edge)
-      const below = r.bottom + gap
-      const top = below + h > window.innerHeight - edge && r.top - gap - h > edge ? r.top - gap - h : below
-      setPos((p) => (p && p !== 'sheet' && p.left === left && p.top === top ? p : { left, top }))
+      const below = window.innerHeight - edge - r.bottom - gap, above = r.top - gap - edge
+      const up = h > below && (h <= above || above > below)
+      const room = Math.floor(up ? above : below)
+      const maxHeight = h > room ? room : undefined
+      const top = up ? r.top - gap - Math.min(h, room) : r.bottom + gap
+      setPos((p) => (p && p !== 'sheet' && p.left === left && p.top === top && p.maxHeight === maxHeight ? p : { left, top, maxHeight }))
     }
     place()
     return () => hl?.delete('lookup')
@@ -227,7 +237,7 @@ function WordPopover({ text, pairs, at, end, root, x, y, onClose }: Open & { onC
   useEffect(() => {
     const before = document.activeElement as HTMLElement | null
     box.current?.focus({ preventScroll: true })
-    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); close() } }
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); close() } }
     const down = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node) && (end != null || !root.contains(e.target as Node))) close() }
     const scroll = (e: Event) => { if (!box.current?.contains(e.target as Node)) close() }
     window.addEventListener('keydown', key, true)
@@ -301,7 +311,7 @@ function WordPopover({ text, pairs, at, end, root, x, y, onClose }: Open & { onC
         {end == null && <Explanation text={word.surface} context={text} />}
         </div>
       </>}
-    </div>, document.body)
+    </div>, layer())
 }
 
 /** A word's dictionary entries: numbered senses, the part of speech shown once until it changes.

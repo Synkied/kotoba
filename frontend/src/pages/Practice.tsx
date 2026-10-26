@@ -1,7 +1,8 @@
 import { AlertTriangle, ChevronLeft, Link2, ChevronRight, Mic, Square, Volume2, RotateCcw, X, AudioLines, Bot, LoaderCircle, Play, ArrowLeftRight, Bookmark, BookmarkCheck, Download } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { api, allSentences, type Score, type Sentence, type Stamp as StampT } from '../lib/api'
+import { PRACTISED, parseSpec, specParam, type PractiseSpec } from '../lib/practise'
 import { Recorder, playClip, playUrl, speak, stopAudio, wav } from '../lib/audio'
 import { Balloon } from '../components/Balloon'
 import { Furigana, Units } from '../components/Furigana'
@@ -12,6 +13,25 @@ import { useStats } from '../App'
 import { MeaningHint, ReadingAids, useAids } from '../components/ReadingAids'
 import { Button, ButtonLink, ButtonRow, buttonClass, ChipButton, EmptyState, Kbd, Notice, Panel, Segmented, Select } from '../components/ds'
 
+/** A run's sentences and title; back is where its page's Back goes. */
+async function loadPractice(p: PractiseSpec, from?: string | null) {
+  if ('sentence' in p) {
+    const s = await api.sentence(p.sentence)
+    const back = from === 'source' ? `/sources/${s.source}` : `/sentences/${s.id}`
+    return { title: 'Sentence practice', back, sentences: [s] }
+  }
+  if ('deck' in p) {
+    const [d, s] = await Promise.all([api.deck(p.deck), allSentences({ deck: p.deck })])
+    return { title: d.name, back: `/decks/${p.deck}`, sentences: s.results }
+  }
+  if ('source' in p) {
+    const s = await api.source(p.source)
+    return { title: s.title || 'Source', back: `/sources/${p.source}`, sentences: s.sentences }
+  }
+  const pick = await Promise.all([...new Set(p.ids)].map((id) => api.sentence(id)))
+  return { title: 'Selected sentences', back: '/sources', sentences: pick }
+}
+
 export default function PracticePage() {
   const [params, setParams] = useSearchParams()
   const sentence = Number(params.get('sentence')) || undefined
@@ -19,21 +39,11 @@ export default function PracticePage() {
   const source = Number(params.get('source')) || undefined
   const ids = params.get('ids')?.split(',').map(Number).filter(Boolean)
   const { data, error, loading } = useAsync(async () => {
-    if (sentence) {
-      const s = await api.sentence(sentence)
-      const back = params.get('from') === 'source' ? `/sources/${s.source}` : `/sentences/${s.id}`
-      return { title: 'Sentence practice', back, sentences: [s] }
-    }
-    if (deck) {
-      const [d, s] = await Promise.all([api.deck(deck), allSentences({ deck })])
-      return { title: d.name, back: `/decks/${deck}`, sentences: s.results }
-    }
-    if (source) {
-      const s = await api.source(source)
-      return { title: s.title || 'Source', back: `/sources/${source}`, sentences: s.sentences }
-    }
-    const pick = ids ? await Promise.all([...new Set(ids)].map((id) => api.sentence(id))) : (await api.sentences({ limit: 20 })).results
-    return { title: 'Selected sentences', back: '/sources', sentences: pick }
+    if (sentence) return loadPractice({ sentence }, params.get('from'))
+    if (deck) return loadPractice({ deck })
+    if (source) return loadPractice({ source })
+    if (ids?.length) return loadPractice({ ids })
+    return { title: 'Selected sentences', back: '/sources', sentences: (await api.sentences({ limit: 20 })).results }
   }, [sentence, deck, source, params.get('ids')])
 
   if (error) return <ErrorNotice error={error} />
@@ -49,14 +59,71 @@ export default function PracticePage() {
     startAt={Number(params.get('at')) || undefined} onAt={onAt} />
 }
 
+/** A practice run over the page that asked for it (?practise=…, see lib/practise). It opens as a
+ *  dialog over the page; on a lesson page with room it docks to the right half instead, so the
+ *  worksheet stays in view. Closing it, by Close, Esc or Back, leaves the page where it was. */
+export function PracticeDialog() {
+  const loc = useLocation()
+  const nav = useNavigate()
+  const spec = parseSpec(new URLSearchParams(loc.search).get('practise'))
+  if (!spec) return null
+  const close = () => {
+    if ((loc.state as { practise?: boolean } | null)?.practise) { nav(-1); return }
+    // opened from an address rather than a button: take the run off it instead of leaving the page
+    const q = new URLSearchParams(loc.search); q.delete('practise')
+    const rest = q.toString()
+    nav({ pathname: loc.pathname, search: rest ? '?' + rest : '' }, { replace: true })
+  }
+  return <PracticeOverlay key={specParam(spec)} spec={spec} docked={loc.pathname.startsWith('/lessons/')} onClose={close} />
+}
+
+function PracticeOverlay({ spec, docked, onClose }: { spec: PractiseSpec; docked: boolean; onClose: () => void }) {
+  const ref = useRef<HTMLDialogElement>(null)
+  const [dock] = useState(() => docked && window.matchMedia('(min-width: 1100px)').matches)
+  const { data, error } = useAsync(() => loadPractice(spec), [])
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    // the page's own player falls quiet while you practise
+    document.querySelectorAll('audio, video').forEach((m) => (m as HTMLMediaElement).pause())
+    stopAudio()
+    if (dock) el.show(); else el.showModal()
+    el.focus({ preventScroll: true })
+    // keys pressed in the run stay in it: the page's shortcuts (Space plays, arrows seek) never see them
+    const keep = (e: KeyboardEvent) => { if (!dock || (e.target instanceof Node && el.contains(e.target))) e.stopPropagation() }
+    document.addEventListener('keydown', keep)
+    return () => { document.removeEventListener('keydown', keep); window.dispatchEvent(new Event(PRACTISED)) }
+  }, [dock])
+  const ours = useCallback((e: KeyboardEvent) => !dock || (e.target instanceof Node && !!ref.current?.contains(e.target)), [dock])
+  return (
+    // Esc on the modal closes it natively (the run keeps Esc while recording); the docked one has no Esc of its own
+    <dialog ref={ref} className={'practice-dialog' + (dock ? ' docked' : '')} aria-label={data?.title ?? 'Practice'} tabIndex={-1} onClose={onClose}>
+      {error ? (
+        <div className="practice-dialog-fail">
+          <ErrorNotice error={error} />
+          <Button onClick={onClose}>Close</Button>
+        </div>
+      ) : !data ? <Skeleton rows={3} /> : (
+        <PracticeSession title={data.title} sentences={data.sentences} onClose={onClose} keys={ours} onEscape={dock ? onClose : undefined} />
+      )}
+    </dialog>
+  )
+}
+
 type Result = Score & { model: 'native' | 'tts' | 'none' }
 /** the last take of a sentence, to hear back; attempt is its saved score, once there is one */
 type Take = { pcm: Int16Array; attempt: number | null; kept: boolean }
 
 /** One practice run through a list of sentences: listen to the model, say it, see the score. */
-export function PracticeSession({ title, back, sentences: initial, onFinish, startAt, onAt }: {
-  title: string; back: string; sentences: Sentence[]; onFinish?: () => void
+export function PracticeSession({ title, back = '/sources', sentences: initial, onFinish, startAt, onAt, onClose, keys, onEscape }: {
+  title: string; back?: string; sentences: Sentence[]; onFinish?: () => void
   startAt?: number; onAt?: (id: number | null) => void
+  /** in a dialog: Close takes the place of Back, and Done closes it */
+  onClose?: () => void
+  /** in a dialog: which key presses are the run's (the others belong to the page) */
+  keys?: (e: KeyboardEvent) => boolean
+  /** Esc when there's no take or error to put away */
+  onEscape?: () => void
 }) {
   const [sentences, setSentences] = useState(initial)
   const [i, setI] = useState(() => Math.max(0, initial.findIndex((x) => x.id === startAt)))
@@ -257,9 +324,11 @@ export function PracticeSession({ title, back, sentences: initial, onFinish, sta
   // keyboard: L listen, Space record/stop, Esc discard, M my take, C compare, K keep, N/→ next, P/← previous, F furigana, R romaji, T meaning
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (keys && !keys(e)) return
       // Esc (discard the take, or put away an error) still works with the record button focused, which it is after a click
       const inField = e.target instanceof Element && !!e.target.closest('input, textarea, select, [role="dialog"]')
       if (e.key === 'Escape' && !e.defaultPrevented && !inField && (recording || err)) { e.preventDefault(); if (recording) discardRec(); else dismissErr(); return }
+      if (e.key === 'Escape' && !e.defaultPrevented && !inField && onEscape) { e.preventDefault(); onEscape(); return }
       if (shortcutBlocked(e) || done || scoring || saving) return
       if (e.key === ' ') { e.preventDefault(); if (recording) stopRec(); else if (!scoring) startRec() }
       else if (e.key === 'l') listen()
@@ -272,9 +341,11 @@ export function PracticeSession({ title, back, sentences: initial, onFinish, sta
       else if (e.key === 'r') setRoman(!roman)
       else if (e.key === 't' && s) { if (!translation) setTranslation(true); setMeaningFor(meaningFor === s.id ? null : s.id) }
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [recording, scoring, startRec, stopRec, discardRec, err, dismissErr, listen, hear, toggleKeep, go, furigana, setFurigana, roman, setRoman, translation, setTranslation, meaningFor, s, done, saving])
+    // in a dialog the keys are heard on the document, before they'd reach the page's own (see PracticeOverlay)
+    const on = keys ? document : window
+    on.addEventListener('keydown', onKey as EventListener)
+    return () => on.removeEventListener('keydown', onKey as EventListener)
+  }, [recording, scoring, startRec, stopRec, discardRec, err, dismissErr, listen, hear, toggleKeep, go, furigana, setFurigana, roman, setRoman, translation, setTranslation, meaningFor, s, done, saving, keys, onEscape])
   useEffect(() => () => { stopAudio(); if (rec.current.active) rec.current.stop() }, [])
 
   if (!sentences.length) {
@@ -282,7 +353,7 @@ export function PracticeSession({ title, back, sentences: initial, onFinish, sta
       <EmptyState>
         <h2>Nothing to practise here</h2>
         <p>Add sentences to this deck from Sources or the inbox.</p>
-        <ButtonLink to={back}>Back</ButtonLink>
+        {onClose ? <Button onClick={onClose}>Close</Button> : <ButtonLink to={back}>Back</ButtonLink>}
       </EmptyState>
     )
   }
@@ -292,11 +363,12 @@ export function PracticeSession({ title, back, sentences: initial, onFinish, sta
   return (
     <>
       <header className="page-head practice-head">
-        <ButtonLink variant="ghost" icon to={back} aria-label="Back"><ChevronLeft aria-hidden="true" /></ButtonLink>
+        {!onClose && <ButtonLink variant="ghost" icon to={back} aria-label="Back"><ChevronLeft aria-hidden="true" /></ButtonLink>}
         <h1>{title} <span className="meta num">{done ? 'Finished' : `${i + 1} / ${sentences.length}`}</span></h1>
         <span className="grow" />
         {onAt && !done && <Button variant="ghost" size="small" onClick={copyLink} title="Copy a link that opens this practice on this sentence"><Link2 aria-hidden="true" />Copy link</Button>}
         <EngineLine engine={engine} onLoad={loadEngine} />
+        {onClose && <Button variant="ghost" icon className="practice-close" onClick={onClose} aria-label="Close practice" title="Close (Esc)"><X aria-hidden="true" /></Button>}
       </header>
 
       <div className="deck-progress" aria-hidden="true">
@@ -308,7 +380,7 @@ export function PracticeSession({ title, back, sentences: initial, onFinish, sta
 
       {done ? (
         <Summary sentences={sentences} results={results} back={back}
-          again={(weak) => { setSentences(weak); setResults({}); setI(0) }} onFinish={onFinish} toast={toast} />
+          again={(weak) => { setSentences(weak); setResults({}); setI(0) }} onFinish={onFinish ?? onClose} toast={toast} />
       ) : (<>
         {/* how the whole session reads and sounds: one bar, set once, never between the sentences */}
         <div className="practice-bar">
@@ -335,8 +407,9 @@ export function PracticeSession({ title, back, sentences: initial, onFinish, sta
           {/* the model, then how you did against it: the score lands where you can see it */}
           <aside className="practice-side">
             <div className="source-panel">
+              {/* the native clip's waveform, or the screenshot it was read off; plain text has nothing to show */}
               {canNative ? <WavePanel s={s} playhead={playhead} /> :
-                <SourcePanel big kind={s.source_kind} image={s.image} start={s.start} end={s.end} alt={s.text} />}
+                s.image && <SourcePanel big kind={s.source_kind} image={s.image} start={s.start} end={s.end} alt={s.text} />}
               {!canNative && <p className="meta">{s.source_kind === 'capture' ? 'From a screen capture: no native audio, so the synthetic voice reads it.' : 'This sentence has no timed audio.'}</p>}
               <p className="meta"><Link to={`/sources/${s.source}`}>{s.source_title}</Link>{s.start != null && <> · <span className="num">{fmtTime(s.start)}</span></>}</p>
             </div>

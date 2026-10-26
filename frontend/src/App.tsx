@@ -11,7 +11,7 @@ import SourcePage from './pages/Source'
 import SentencePage from './pages/Sentence'
 import DecksPage from './pages/Decks'
 import DeckPage from './pages/Deck'
-import PracticePage from './pages/Practice'
+import PracticePage, { PracticeDialog } from './pages/Practice'
 import ReviewPage from './pages/Review'
 import CollectPage from './pages/Collect'
 import AddonsPage from './pages/Addons'
@@ -97,7 +97,8 @@ function Shell({ account }: { account: Account }) {
   const section = sectionFor(loc.pathname)
   useEffect(() => {
     document.title = `kotoba · ${section === 'practice' ? 'Practice' : loc.pathname.startsWith('/addons') ? 'Add-ons' : loc.pathname.startsWith('/account') ? 'Account' : loc.pathname.startsWith('/search') ? 'Search' : loc.pathname.startsWith('/design') ? 'Design system' : section.charAt(0).toUpperCase() + section.slice(1)}`
-    document.getElementById('main')?.focus({ preventScroll: true })
+    // a practice run opened with the page (?practise=…) keeps the focus, so its keys work at once
+    if (!document.querySelector('.practice-dialog[open]')) document.getElementById('main')?.focus({ preventScroll: true })
     window.scrollTo(0, 0)
   }, [loc.pathname, section])
 
@@ -192,6 +193,7 @@ function Shell({ account }: { account: Account }) {
         </nav>
       </div>
       <SelectionLookup />
+      <PracticeDialog />
     </StatsCtx.Provider>
   )
 }
