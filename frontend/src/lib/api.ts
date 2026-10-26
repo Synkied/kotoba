@@ -197,6 +197,8 @@ export type HeardVideoRow = {
   /** with a search: how many of its lines say it, and the first */
   said?: { lines: number; line: { id: number; text: string } } | null
 }
+/** channel: ids (and found) joined by commas; length: short | mid | long; order: new | old | short | long */
+export type VideoFilters = { channel: string; length: string; order: string; q: string }
 export type HeardVideos = {
   enabled: boolean; total: number; reading: { busy: boolean; waiting: number; unread: number }
   channels: { id: number; title: string; videos: number }[]; found: number; videos: HeardVideoRow[]
@@ -421,7 +423,8 @@ export const api = {
   heardContext: (line: number, key?: string, radius = 6) => req<{ lines: HeardLine[] }>(`youtube/lines/${line}/context` + qs({ key, radius })),
   /** fetch the video's audio from YouTube now (a few seconds the first time) */
   heardAudio: (video: number) => req<{ ready: boolean }>(`youtube/videos/${video}/audio`, json('POST', {})),
-  heardVideos: (channel = '', q = '', offset = 0, limit = 30) => req<HeardVideos>('youtube/videos' + qs({ channel: channel || undefined, q: q.trim() || undefined, offset, limit })),
+  heardVideos: (f: VideoFilters, offset = 0, limit = 30) => req<HeardVideos>('youtube/videos' + qs({
+    channel: f.channel || undefined, length: f.length || undefined, order: f.order || undefined, q: f.q.trim() || undefined, offset, limit })),
   heardVideo: (id: number) => req<HeardVideoDetail>(`youtube/videos/${id}`),
   keepLine: (line: number) => req<{ sentence: number; source: number; audio: string | null }>(`youtube/lines/${line}/keep`, json('POST', {})),
   term: (key: string) => req<Term>(`dict/${encodeURIComponent(key)}`),

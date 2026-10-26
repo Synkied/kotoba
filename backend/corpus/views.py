@@ -2,7 +2,7 @@ import mimetypes
 import re
 
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, F, Q
 from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -204,10 +204,22 @@ def _video_json(v: Video, lines: int, kept: int, source: int | None) -> dict:
             "published": v.published, "url": v.url(), "gone": v.gone_at is not None, "lines": lines, "kept": kept, "source": source}
 
 
+# the list's orders, the newest first by default; a video with no date or length goes last
+VIDEO_ORDERS = {
+    "new": (F("published").desc(nulls_last=True), F("id").desc()),
+    "old": (F("published").asc(nulls_last=True), F("id").asc()),
+    "short": (F("duration").asc(nulls_last=True), F("published").desc(nulls_last=True)),
+    "long": (F("duration").desc(nulls_last=True), F("published").desc(nulls_last=True)),
+}
+# lengths to pick from, in seconds: under 10 minutes, 10 to 30, over 30
+VIDEO_LENGTHS = {"short": (None, 600), "mid": (600, 1800), "long": (1800, None)}
+
+
 @api_view(["GET"])
 def video_list(request):
-    """?channel=<id>|found&q=&offset=&limit=: the videos with Japanese subtitles you hear lines from,
-    newest first, and the channels to pick from (found: the ones Find more turned up). q finds a
+    """?channel=<id>,<id>,found&length=short|mid|long&order=new|old|short|long&q=&offset=&limit=:
+    the videos with Japanese subtitles you hear lines from, newest first, and the channels to pick
+    from (any number of them; found: the ones Find more turned up). q finds a
     video by its title or channel, or by something said in it: such a video comes with the first
     line that says it and how many do."""
     user, p = request.user, request.query_params
@@ -219,14 +231,28 @@ def video_list(request):
     channels = followed.exclude(kind=Channel.Kind.SEARCH)
     ok = Video.objects.filter(subs=Video.Subs.OK)
     found = ok.filter(channels__in=followed.filter(kind=Channel.Kind.SEARCH)).exclude(channels__in=channels)
-    pick = p.get("channel", "")
-    mine = (found if pick == "found" else ok.filter(channels__in=channels.filter(pk=int(pick))) if pick.isdigit()
-            else ok.filter(channels__in=followed))
+    picks = [x for x in p.get("channel", "").split(",") if x]
+    if picks:
+        either = Q()
+        if ids := [int(x) for x in picks if x.isdigit()]:
+            either |= Q(id__in=ok.filter(channels__in=channels.filter(pk__in=ids)).values("id"))
+        if "found" in picks:
+            either |= Q(id__in=found.values("id"))
+        mine = ok.filter(either) if either else ok.none()
+    else:
+        mine = ok.filter(channels__in=followed)
+    if (length := p.get("length", "")) in VIDEO_LENGTHS:
+        low, high = VIDEO_LENGTHS[length]
+        mine = mine.filter(duration__isnull=False)
+        if low is not None:
+            mine = mine.filter(duration__gte=low)
+        if high is not None:
+            mine = mine.filter(duration__lt=high)
     q = p.get("q", "").strip()
     if q:
         said_in = Line.objects.filter(text__icontains=q).values("video")
         mine = mine.filter(Q(title__icontains=q) | Q(uploader__icontains=q) | Q(id__in=said_in))
-    videos = Video.objects.filter(id__in=mine.values("id")).annotate(n=Count("lines")).order_by("-published", "-id")
+    videos = Video.objects.filter(id__in=mine.values("id")).annotate(n=Count("lines")).order_by(*VIDEO_ORDERS.get(p.get("order", ""), VIDEO_ORDERS["new"]))
     total = videos.count()
     page = list(videos[offset:offset + limit])
     ids = [v.id for v in page]

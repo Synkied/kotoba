@@ -1,5 +1,6 @@
 import json
 import tempfile
+from datetime import timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -197,6 +198,28 @@ class HeardCase(SignedIn):
         self.channel.followers.remove(self.user)
         self.assertEqual(self.client.get(f"/api/youtube/videos/{self.v1.id}").status_code, 200)
         self.assertEqual(self.client.get(f"/api/youtube/videos/{self.v2.id}").status_code, 404)
+
+    def test_videos_list_picks_channels_lengths_and_order(self):
+        Video.objects.filter(pk=self.v1.pk).update(published=timezone.localdate())
+        Video.objects.filter(pk=self.v2.pk).update(published=timezone.localdate() - timedelta(days=5), duration=1200)
+        other = Channel.objects.create(kind="channel", url="https://www.youtube.com/@b/videos", title="B")
+        other.followers.add(self.user)
+        v3 = self._video("ccccccccccc", ["猫です。"])  # no date: last either way
+        self.channel.videos.remove(v3)
+        other.videos.add(v3)
+
+        def ids(**params):
+            return [v["yt_id"][0] for v in self.client.get("/api/youtube/videos", params).json()["videos"]]
+        self.assertEqual(ids(), ["a", "b", "c"])
+        self.assertEqual(ids(order="old"), ["b", "a", "c"])
+        self.assertEqual(ids(order="long"), ["b", "a", "c"])
+        self.assertEqual(ids(order="short"), ["a", "c", "b"])
+        self.assertEqual(ids(channel=str(other.id)), ["c"])
+        self.assertEqual(ids(channel=f"{self.channel.id},{other.id}"), ["a", "b", "c"])
+        self.assertEqual(ids(channel="found"), [])
+        self.assertEqual(ids(length="short"), ["a", "c"])
+        self.assertEqual(ids(length="mid"), ["b"])
+        self.assertEqual(ids(length="long"), [])
 
     def test_a_word_page_for_a_word_not_yet_met(self):
         r = self.client.get("/api/dict/j:1").json()

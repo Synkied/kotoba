@@ -1,11 +1,11 @@
 /* YouTube: the subtitled videos of the channels you follow, and one video watched with its lines
    beside it (the listening panel's player and transcript, from lesson.css). */
 
-/* the list: channel filters on the left, grid or list on the right */
-.video-tools { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--s-2) var(--s-4); margin-bottom: var(--s-5); }
-.video-channels { display: flex; flex-wrap: wrap; flex: 1; gap: var(--s-1) var(--s-2); min-width: 0; }
-.video-channels .chip .num { margin-left: 2px; opacity: .7; }
-.video-view { margin-left: auto; flex: none; }
+/* the list: filters (channels add up; a length; an order) with grid or list at the end */
+.video-filters { gap: var(--s-2); }
+.video-filters .chip .num { margin-left: 2px; opacity: .7; }
+.video-filters .grow { flex: 1; }
+.video-view { flex: none; }
 .video-list { list-style: none; margin: 0; padding: 0; }
 .video-row { position: relative; min-width: 0; }
 .video-thumb { position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: var(--wash); outline: var(--frame) solid var(--rule); outline-offset: -1px; }
@@ -81,7 +81,6 @@
   .video-script { height: 60dvh; }
 }
 @media (max-width: 760px) {
-  .video-tools { margin-bottom: var(--s-4); }
   .video-list[data-view='list'] .video-row { grid-template-columns: 7rem minmax(0, 1fr); gap: var(--s-3); }
   .video-head h1 { font-size: var(--t-m); white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 }

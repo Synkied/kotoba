@@ -1,4 +1,4 @@
-import { AudioLines, BookmarkPlus, Check, ChevronLeft, ExternalLink, LayoutGrid, List, ListEnd, LoaderCircle, Pause, Play, Repeat1, Settings2, SkipBack, SkipForward } from 'lucide-react'
+import { AudioLines, BookmarkPlus, Check, ChevronLeft, ExternalLink, X, LayoutGrid, List, ListEnd, LoaderCircle, Pause, Play, Repeat1, Settings2, SkipBack, SkipForward } from 'lucide-react'
 import { memo, useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { api, type HeardVideoDetail, type HeardVideoRow, type VideoLine } from '../lib/api'
@@ -14,27 +14,37 @@ import { useStats } from '../App'
 const plural = (n: number, word: string) => `${n.toLocaleString()} ${word}${n === 1 ? '' : 's'}`
 const PAGE = 30
 type View = 'grid' | 'list'
+const LENGTHS = [{ id: '', name: 'Any length' }, { id: 'short', name: 'Under 10 min' }, { id: 'mid', name: '10–30 min' }, { id: 'long', name: 'Over 30 min' }]
+const ORDERS = [{ id: '', name: 'Newest' }, { id: 'old', name: 'Oldest' }, { id: 'short', name: 'Shortest' }, { id: 'long', name: 'Longest' }]
 const day = (d: string) => new Date(d + 'T00:00').toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 
 /** The videos with Japanese subtitles of the channels you follow, newest first: open one to watch
  *  it with its lines beside it. */
 export default function YouTubePage() {
   const [params, setParams] = useSearchParams()
-  const channel = params.get('channel') ?? ''
+  const channel = params.get('channel') ?? '', length = params.get('length') ?? '', order = params.get('order') ?? ''
   const q = params.get('q') ?? ''
-  const list = useAsync(() => api.heardVideos(channel, q, 0, PAGE), [channel, q])
-  // "Show more" pages, for the channel and search they were asked for
-  const asked = channel + '\n' + q
+  const filters = { channel, length, order, q }
+  const list = useAsync(() => api.heardVideos(filters, 0, PAGE), [channel, length, order, q])
+  // "Show more" pages, for the filters and search they were asked for
+  const asked = [channel, length, order, q].join('\n')
   const [extra, setExtra] = useState<{ asked: string; rows: HeardVideoRow[] }>({ asked, rows: [] })
   const [more, setMore] = useState(false)
   const d = list.data
   const shown = d ? [...d.videos, ...(extra.asked === asked ? extra.rows : [])] : []
-  const set = (key: 'channel' | 'q', value: string) => setParams((p) => {
+  const set = (key: 'channel' | 'length' | 'order' | 'q', value: string) => setParams((p) => {
     const next = new URLSearchParams(p)
     if (value) next.set(key, value); else next.delete(key)
     return next
   }, { replace: true })
-  const pick = (c: string) => set('channel', c)
+  // channels add up: each one pressed is shown, none pressed is all of them
+  const picked = channel ? channel.split(',') : []
+  const toggle = (c: string) => {
+    const next = picked.includes(c) ? picked.filter((x) => x !== c) : [...picked, c]
+    const every = d ? d.channels.length + (d.found > 0 ? 1 : 0) : 0
+    set('channel', next.length >= every ? '' : next.join(','))
+  }
+  const filtered = !!(channel || length)
   const [view, setView] = usePref<View>('video-view', 'grid')
 
   return (
@@ -57,18 +67,36 @@ export default function YouTubePage() {
         </EmptyState>
       )}
       {d?.enabled && <>
-        <div className="video-tools">
-          {(d.channels.length > 1 || d.found > 0) && <div className="video-channels" role="group" aria-label="Channel">
-            <ChipButton type="button" aria-pressed={!channel} onClick={() => pick('')}>All</ChipButton>
-            {d.channels.map((c) => <ChipButton key={c.id} type="button" aria-pressed={channel === String(c.id)} onClick={() => pick(String(c.id))}>
-              {plain(c.title)} <span className="num">{c.videos}</span></ChipButton>)}
-            {d.found > 0 && <ChipButton type="button" aria-pressed={channel === 'found'} onClick={() => pick('found')}
-              title="Videos found by Find more on a word’s page">Found with Find more <span className="num">{d.found}</span></ChipButton>}
+        {(d.channels.length > 0 || d.found > 0) && <div className="filters video-filters" role="group" aria-label="Filters">
+          {(d.channels.length > 1 || d.found > 0) && <div className="group">
+            <span className="meta">Channels</span>
+            <div className="chips">
+              <ChipButton type="button" aria-pressed={!channel} onClick={() => set('channel', '')} title="Every channel you follow">All</ChipButton>
+              {d.channels.map((c) => <ChipButton key={c.id} type="button" aria-pressed={picked.includes(String(c.id))} onClick={() => toggle(String(c.id))}
+                title={picked.includes(String(c.id)) ? 'Leave this channel out' : 'Show this channel (with any others pressed)'}>
+                <span lang="ja">{plain(c.title)}</span> <span className="num">{c.videos}</span></ChipButton>)}
+              {d.found > 0 && <ChipButton type="button" aria-pressed={picked.includes('found')} onClick={() => toggle('found')}
+                title="Videos found by Find more on a word’s page">Found with Find more <span className="num">{d.found}</span></ChipButton>}
+            </div>
           </div>}
-          {shown.length > 0 && <Segmented name="video-view" role="radiogroup" aria-label="Show the videos as" className="video-view" value={view} onChange={setView}
+          <div className="group">
+            <span className="meta">Length</span>
+            <div className="chips">
+              {LENGTHS.map((x) => <ChipButton key={x.id} type="button" aria-pressed={length === x.id} onClick={() => set('length', x.id)}>{x.name}</ChipButton>)}
+            </div>
+          </div>
+          <div className="group">
+            <span className="meta">Order</span>
+            <div className="chips">
+              {ORDERS.map((x) => <ChipButton key={x.id} type="button" aria-pressed={order === x.id} onClick={() => set('order', x.id)}>{x.name}</ChipButton>)}
+            </div>
+            <span className="grow" />
+            {filtered && <Button variant="ghost" size="small" onClick={() => setParams(q ? { q } : {}, { replace: true })}><X aria-hidden="true" />Clear filters</Button>}
+            <Segmented name="video-view" role="radiogroup" aria-label="Show the videos as" className="video-view" value={view} onChange={setView}
             options={[{ value: 'grid', label: <><LayoutGrid aria-hidden="true" />Grid</>, title: 'Large thumbnails, side by side' },
-              { value: 'list', label: <><List aria-hidden="true" />List</>, title: 'One video a row' }]} />}
-        </div>
+              { value: 'list', label: <><List aria-hidden="true" />List</>, title: 'One video a row' }]} />
+          </div>
+        </div>}
         {shown.length > 0 ? <>
           <ul className="video-list" data-view={view}>{shown.map((v) => <VideoRow key={v.id} v={v} view={view} q={q.trim()} />)}</ul>
           {shown.length < d.total && (
@@ -76,7 +104,7 @@ export default function YouTubePage() {
               <Button size="small" aria-busy={more} disabled={more} onClick={async () => {
                 setMore(true)
                 try {
-                  const x = await api.heardVideos(channel, q, shown.length, PAGE)
+                  const x = await api.heardVideos(filters, shown.length, PAGE)
                   setExtra((e) => ({ asked, rows: [...(e.asked === asked ? e.rows : []), ...x.videos] }))
                 } finally { setMore(false) }
               }}>Show more</Button>
@@ -87,7 +115,11 @@ export default function YouTubePage() {
           <EmptyState>
             {q.trim() ? <>
               <h2>Nothing found</h2>
-              <p>No video here has “{q.trim()}” in its title, its channel or its lines{channel ? ' on this channel' : ''}.</p>
+              <p>No video here has “{q.trim()}” in its title, its channel or its lines{filtered ? ' with these filters' : ''}.</p>
+            </> : filtered ? <>
+              <h2>No videos match</h2>
+              <p>{length ? `None of the videos${channel ? ' on the channels pressed' : ''} is ${LENGTHS.find((x) => x.id === length)?.name.toLowerCase()}.` : 'The channels pressed have no subtitled videos yet.'}</p>
+              <Button onClick={() => setParams({}, { replace: true })}><X aria-hidden="true" />Clear filters</Button>
             </> : d.channels.length === 0 && !d.found ? <>
               <h2>No channels yet</h2>
               <p>Follow a YouTube channel or playlist with Japanese subtitles, and its videos show up here once their subtitles are read.</p>
