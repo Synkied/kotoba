@@ -13,7 +13,7 @@ import { SourcesTabs } from '../components/SourcesTabs'
 
 const KINDS = [
   { id: '', name: 'All' }, { id: 'audio,video', name: 'Transcribed' }, { id: 'capture', name: 'Captures' },
-  { id: 'subtitle', name: 'Subtitles' }, { id: 'text', name: 'Text' },
+  { id: 'subtitle', name: 'Subtitles' }, { id: 'text', name: 'Text' }, { id: 'story', name: 'Stories' },
 ]
 const STATUSES = [{ id: '', name: 'All' }, { id: 'inbox', name: 'Inbox' }, { id: 'kept', name: 'Kept' }, { id: 'archived', name: 'Archived' }]
 const PRACTICE = [{ id: '', name: 'All' }, { id: 'new', name: 'Not practised' }, { id: 'practised', name: 'Practised' }, { id: 'due', name: 'Due' }]

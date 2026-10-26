@@ -1,7 +1,7 @@
 from django.urls import path
 from rest_framework.routers import SimpleRouter
 
-from . import accounts, views, lessons, notes
+from . import accounts, views, lessons, notes, stories
 
 router = SimpleRouter(trailing_slash=False)
 router.register("sources", views.SourceViewSet, basename="source")
@@ -41,6 +41,13 @@ urlpatterns = [
     path("words/<int:pk>", views.word_detail),
     path("sentences/<int:pk>/words", views.sentence_words),
     path("sources/<int:pk>/words", views.source_words),
+    path("stories", stories.stories),
+    path("stories/options", stories.options),
+    path("stories/<int:pk>/retry", stories.retry),
+    path("syllabi", stories.syllabi),
+    path("syllabi/<str:sid>", stories.syllabus_detail),
+    path("syllabi/<str:sid>/csv", stories.syllabus_csv),
+    path("syllabi/<str:sid>/units/<int:number>", stories.unit_detail),
     path("translation", views.translation),
     path("translation/translators", views.translators),
     path("translation/translators/test", views.translator_test),

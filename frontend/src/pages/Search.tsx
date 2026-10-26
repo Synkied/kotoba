@@ -10,7 +10,7 @@ import { ErrorNotice, SearchBox, Skeleton, usePref, PageHome } from '../componen
 import { ButtonLink, EmptyState, Plate } from '../components/ds'
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
-const KIND = { capture: 'Capture', audio: 'Audio', video: 'Video', subtitle: 'Subtitles', text: 'Text' } as const
+const KIND = { capture: 'Capture', audio: 'Audio', video: 'Video', subtitle: 'Subtitles', text: 'Text', story: 'Story' } as const
 
 /** The search box on the rail: Enter opens everything that matches. Ctrl/⌘ K finds it from anywhere. */
 export function GlobalSearch() {

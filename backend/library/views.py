@@ -11,7 +11,7 @@ from pathlib import Path
 
 from django.core.files.base import ContentFile
 from django.db import transaction
-from django.db.models import Avg, Count, Max, Q
+from django.db.models import Avg, Case, Count, Max, Q, Value, When
 from django.conf import settings
 from django.http import FileResponse, Http404, HttpResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404
@@ -349,7 +349,8 @@ class SentenceViewSet(viewsets.ModelViewSet):
 @api_view(["GET", "PATCH"])
 def translation(request):
     """The translator's status, the saved translators and the language sentences are
-    translated into. PATCH {"to": "fr"} picks the language, {"active": id} the translator."""
+    translated into. PATCH {"to": "fr"} picks the language, {"active": id} the translator,
+    {"writer": id} the one that writes stories ("" for the translator in use)."""
     user = request.user
     if request.method == "PATCH":
         try:
@@ -357,6 +358,8 @@ def translation(request):
                 translate.set_language(user, request.data.get("to", ""))
             if "active" in request.data:
                 translate.activate(user, str(request.data["active"]))
+            if "writer" in request.data:
+                translate.set_writer(user, str(request.data["writer"] or ""))
         except ValueError as e:
             return Response({"error": str(e)}, status=400)
         except KeyError:
@@ -373,6 +376,8 @@ def translation(request):
         "translated": sentences.filter(**{f"translations__{lang}__isnull": False}).count(),
         "sentences": sentences.count(),
         "active": translate.active_id(user),
+        # the one chosen to write stories; None: the translator in use writes them
+        "writer": translate.chosen_writer(user),
         "translators": [translate.public(t) for t in translate.translators(user)],
         "defaults": translate.defaults(),
     })
@@ -753,8 +758,10 @@ def word_detail(request, pk):
             word.known_at = timezone.now() if request.data.get("known") else None
             word.save(update_fields=["known_at"])
     word = words.with_counts(Word.objects.filter(pk=pk)).get()
+    # what you collected first, then the stories written for you
+    story = Case(When(sentence__source__kind=Source.Kind.STORY, then=Value(1)), default=Value(0))
     uses = list(words.live_uses().filter(word=word).select_related("sentence")
-                .order_by("-sentence__source__created_at", "sentence__position", "start"))
+                .order_by(story, "-sentence__source__created_at", "sentence__position", "start"))
     spans, order = {}, []
     for u in uses:
         if u.sentence_id not in spans:

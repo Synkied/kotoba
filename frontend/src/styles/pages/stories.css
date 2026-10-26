@@ -1,0 +1,60 @@
+/* Stories: the new-story form beside the stories written so far; syllabi and their units. */
+.stories-lead { max-width: var(--measure); margin: 0 0 var(--s-5); }
+.stories { display: grid; grid-template-columns: minmax(0, 22rem) minmax(0, 1fr); gap: var(--s-7); align-items: start; }
+/* one column on a phone: the stories you have first, the form after them (New story jumps there) */
+.stories-jump { display: none; }
+@media (max-width: 900px) {
+  .stories { grid-template-columns: minmax(0, 1fr); gap: var(--s-7); }
+  .stories-list:has(.source-cards) { order: -1; }
+  .stories-jump { display: inline-flex; }
+  .story-form { scroll-margin-top: var(--s-4); }
+}
+
+/* the form: a sheet with an ink rule on top, like an add-on group */
+.story-form { position: sticky; top: var(--s-4); display: grid; gap: var(--s-3); padding-top: var(--s-3); border-top: var(--frame) solid var(--ink); }
+@media (max-width: 900px) { .story-form { position: static; } }
+.story-form h2, .stories-list > h2 { font-size: var(--t-sub); font-weight: 700; margin: 0; }
+.story-form form { display: grid; gap: var(--s-3); }
+.story-fields { display: grid; gap: var(--s-3); border: 0; margin: 0; padding: 0; min-width: 0; }
+.story-fields .field > span:first-child { font-size: var(--t-s); }
+.story-scope { margin: calc(-1 * var(--s-2)) 0 0; }
+.story-writer { margin: 0; line-height: 1.6; }
+.stories-list { display: grid; gap: var(--s-3); padding-top: var(--s-3); border-top: var(--frame) solid var(--ink); }
+
+.story-card .source-card-body { padding-right: 0; }
+.story-untitled { color: var(--ink-2); }
+.story-error { margin: 0; color: var(--ink-2); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.story-card-error { grid-column: 1 / -1; }
+.story-progress { display: inline-flex; align-items: center; gap: var(--s-1); margin: 0; }
+.story-progress svg { width: 14px; height: 14px; flex: none; }
+.story-progress.failed { color: var(--accent-ink); }
+/* writing, checking, reading aloud: one short segment each, like practice's progress rule */
+.story-steps { display: inline-flex; align-items: center; gap: 3px; }
+.story-steps i { width: 16px; height: 3px; background: var(--rule-strong); }
+.story-steps i[data-step='done'] { background: var(--ink-3); }
+.story-steps i[data-step='now'] { height: 5px; background: var(--ink); }
+
+/* on a story's page: what it was written within, how it's going, what it checked */
+.story-panel { display: grid; gap: var(--s-2); padding-top: var(--s-3); border-top: var(--frame) solid var(--rule-strong); }
+.story-title-tr { margin: 0; font-weight: var(--w-medium); }
+.story-failed { display: grid; gap: var(--s-2); justify-items: start; }
+.story-ok { width: 14px; height: 14px; vertical-align: -2px; margin-right: 4px; color: var(--ok); }
+.story-progress .story-ok { margin-right: 0; }
+.story-grammar summary { cursor: pointer; }
+.story-grammar ul { margin: var(--s-2) 0 0; padding-left: var(--s-4); display: grid; gap: 2px; font-size: var(--t-s); }
+/* a word beyond the syllabus: dotted burgundy under it, the word itself untouched */
+mark.story-beyond { background: none; color: inherit; text-decoration: underline dotted 2px var(--accent); text-underline-offset: .3em; }
+
+/* syllabi: a ruled list; units numbered in a column like a contents page */
+.syllabi, .units { list-style: none; margin: 0 0 var(--s-5); padding: 0; border-top: var(--frame) solid var(--ink); max-width: 52rem; }
+.syllabi li { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-1) var(--s-3); padding: var(--s-3) 0; border-bottom: var(--frame) solid var(--rule); }
+.syllabus-new { max-width: 32rem; align-items: end; }
+.syllabus-import { display: grid; gap: var(--s-3); max-width: 52rem; margin-bottom: var(--s-5); }
+.units > li { border-bottom: var(--frame) solid var(--rule); }
+.unit-row { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-2) 0; flex-wrap: wrap; }
+.unit-n { min-width: 2.5rem; font-weight: 700; color: var(--ink-2); }
+.unit-what { display: grid; gap: 2px; min-width: 0; }
+.unit-editor { display: grid; gap: var(--s-3); padding: var(--s-3) 0 var(--s-4); }
+.unit-editor h2 { font-size: var(--t-sub); margin: 0; }
+.unit-editor-head { display: flex; gap: var(--s-3); flex-wrap: wrap; align-items: end; }
+.unit-editor .textarea { font-family: inherit; line-height: 1.7; }

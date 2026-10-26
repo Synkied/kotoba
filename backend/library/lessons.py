@@ -207,6 +207,9 @@ class LessonSerializer(Owned, serializers.ModelSerializer):
                            "media": f"/api/sources/{s.id}/media" if s.media else None} for s in lesson.sources.all()]
         out["linked_notes"] = [{"id": n.id, "title": n.title, "excerpt": next((line.strip() for line in n.body.splitlines() if line.strip()), "")}
                                for n in sorted(lesson.lesson_notes.all(), key=lambda n: (n.created_at, n.id))]
+        # the syllabus units studied in it, so the page can offer a story for them
+        out["units"] = [{"syllabus": u.syllabus_id, "syllabus_name": u.syllabus.name, "number": u.number, "title": u.title}
+                        for u in lesson.units.select_related("syllabus")]
         from speech import jobs
         out["can_transcribe"] = jobs.can_transcribe()
         return out

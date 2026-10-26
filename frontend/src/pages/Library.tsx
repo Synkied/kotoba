@@ -1,4 +1,4 @@
-import { Copy, Check, Play, Tag, X, AudioLines, Clapperboard, Captions, Type, Camera } from 'lucide-react'
+import { Copy, Check, Play, Tag, X, AudioLines, BookAudio, Clapperboard, Captions, Type, Camera } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api, type Source, type SourceKind } from '../lib/api'
@@ -12,11 +12,11 @@ import { SourcesTabs } from '../components/SourcesTabs'
 
 const KINDS: { id: SourceKind | ''; name: string }[] = [
   { id: '', name: 'All' }, { id: 'capture', name: 'Captures' }, { id: 'audio', name: 'Audio' },
-  { id: 'video', name: 'Video' }, { id: 'subtitle', name: 'Subtitles' }, { id: 'text', name: 'Text' },
+  { id: 'video', name: 'Video' }, { id: 'subtitle', name: 'Subtitles' }, { id: 'text', name: 'Text' }, { id: 'story', name: 'Stories' },
 ]
 const KIND = {
   capture: { name: 'Capture', Icon: Camera }, audio: { name: 'Audio', Icon: AudioLines }, video: { name: 'Video', Icon: Clapperboard },
-  subtitle: { name: 'Subtitles', Icon: Captions }, text: { name: 'Text', Icon: Type },
+  subtitle: { name: 'Subtitles', Icon: Captions }, text: { name: 'Text', Icon: Type }, story: { name: 'Story', Icon: BookAudio },
 } satisfies Record<SourceKind, unknown>
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
 

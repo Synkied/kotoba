@@ -1,4 +1,4 @@
-import { AudioLines, Captions, FileText, Film, Play, ScanText } from 'lucide-react'
+import { AudioLines, BookAudio, Captions, FileText, Film, Play, ScanText } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState, type ComponentProps, type Ref } from 'react'
 import { Link } from 'react-router-dom'
 import ReactMarkdown, { type Components } from 'react-markdown'
@@ -8,7 +8,7 @@ import { api, type SourceKind } from '../lib/api'
 /** A source a note can point at with @. */
 export type Mentionable = { id: number; title: string; kind: SourceKind }
 
-export const kindIcon: Record<SourceKind, typeof FileText> = { capture: ScanText, audio: AudioLines, video: Film, subtitle: Captions, text: FileText }
+export const kindIcon: Record<SourceKind, typeof FileText> = { capture: ScanText, audio: AudioLines, video: Film, subtitle: Captions, text: FileText, story: BookAudio }
 const SOURCE_HREF = /^\/sources\/(\d+)$/
 /** A moment in one of a lesson's recordings, left by quoting a transcript line: [0:12](#at=f3:12). */
 const TIME_HREF = /^#at=([\w-]+):(\d+(?:\.\d+)?)$/

@@ -1,4 +1,4 @@
-import { Check, Paperclip, ChevronRight, Ellipsis, ExternalLink, Folder, NotebookPen, Pencil, Pin, Play, Plus, RotateCcw, Trash2, Upload, X } from 'lucide-react'
+import { BookAudio, Check, Paperclip, ChevronRight, Ellipsis, ExternalLink, Folder, NotebookPen, Pencil, Pin, Play, Plus, RotateCcw, Trash2, Upload, X } from 'lucide-react'
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, type Lesson, type LessonFile, type Note } from '../lib/api'
@@ -89,6 +89,9 @@ function LessonDetail({ id }: { id: number }) {
           </form>
         </>}
         <div className="lesson-actions">
+          {/* the syllabus unit studied here: a story with its words, and everything before it */}
+          {l.units.slice(0, 1).map((u) => <ButtonLink key={u.syllabus} to={`/sources/stories?syllabus=${u.syllabus}&unit=${u.number}`}
+            title={`A story with ${u.syllabus_name}'s words up to unit ${u.number}`}><BookAudio aria-hidden="true" />Make a story</ButtonLink>)}
           <Button variant="ghost" icon className="card-pin" aria-pressed={l.pinned} disabled={busy} onClick={() => actions.pin(l)}
             aria-label="Pin to the top of the library" title={l.pinned ? 'Pinned to the top of the library' : 'Pin to the top of the library'}><Pin aria-hidden="true" /></Button>
           {l.done_at

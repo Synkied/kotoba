@@ -466,6 +466,15 @@ function TranslationAddon() {
           </ButtonRow>
         )}
       </fieldset>
+      {t.translators.length > 0 && <ButtonRow>
+        <label className="btn-row"><span>Writes stories</span>
+          <Select style={{ width: 'auto' }} value={t.writer ?? ''} disabled={busy} onChange={(e) => load(api.chooseWriter(e.target.value))}>
+            <option value="">{active ? `The translator in use (${active.name})` : 'The translator in use'}</option>
+            {t.translators.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+          </Select>
+        </label>
+        <span className="meta">Stories need a capable model: small local ones break the level they're asked for. <Link to="/sources/stories">Stories</Link></span>
+      </ButtonRow>}
       {error != null && <ErrorNotice error={error} />}
       {t.ready && t.translated < t.sentences && <Install cmds={['# sentences are translated when you ask; to do all of them now:', 'make translate']} />}
     </Addon>

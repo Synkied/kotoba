@@ -1,13 +1,22 @@
-import { BookOpen, Bold, Check, Code2, Eye, Folder, Heading2, Italic, Link2, List, ListChecks, Plus, Search, Trash2, X } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { BookOpen, Bold, Check, ChevronLeft, Clock, Code2, Ellipsis, Folder, Heading2, Italic, Link2, List, ListChecks, MoveHorizontal, PanelLeftClose, PanelLeftOpen, Plus, Search, Trash2, X } from 'lucide-react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, type LessonFolder, type Note, type Source } from '../lib/api'
-import { folderOptions } from '../lib/lessonTree'
+import { folderOptions, folderPath } from '../lib/lessonTree'
 import { Button, Select } from '../components/ds'
+import { Menu, MenuItem, MenuRule } from '../components/Menu'
 import { MentionTextarea, NoteMarkdown, plainText } from '../components/NoteMarkdown'
+import { dayLabel, usePref } from '../components/ui'
 
-type View = 'split' | 'write' | 'preview'
+/** read: the note as a page (a click starts writing); write: its Markdown; split: both side by side */
+type View = 'read' | 'write' | 'split'
+const VIEWS: { value: View; label: string }[] = [{ value: 'read', label: 'Read' }, { value: 'write', label: 'Write' }, { value: 'split', label: 'Split' }]
 const same = (a: Note, b: Note) => a.title === b.title && a.body === b.body
+/** Today, Yesterday, else the date without the year unless it's another year's */
+const shortDay = (iso: string) => {
+  const d = new Date(iso)
+  return dayLabel(iso).rel || d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', ...(d.getFullYear() === new Date().getFullYear() ? {} : { year: 'numeric' }) })
+}
 
 export default function NotesPage() {
   const [params, setParams] = useSearchParams()
@@ -29,7 +38,11 @@ export default function NotesPage() {
   const [sourceResults, setSourceResults] = useState<Source[]>([])
   const [sourceLoading, setSourceLoading] = useState(false)
   const [query, setQuery] = useState('')
-  const [view, setView] = useState<View>('split')
+  const [stored, setView] = usePref<View>('notes.view', 'read')
+  const view: View = VIEWS.some(v => v.value === stored) ? stored : 'read'
+  const [sideOpen, setSideOpen] = usePref('notes.side', true)
+  const [wide, setWide] = usePref('notes.wide', true)
+  const picker = useRef<HTMLDivElement>(null)
   const input = useRef<HTMLTextAreaElement>(null)
   const sourceToggle = useRef<HTMLButtonElement>(null)
   const latest = useRef<Note | null>(null)
@@ -92,7 +105,9 @@ export default function NotesPage() {
   }, [persist])
 
   const choose = useCallback(async (note: Note, updateUrl = true) => {
-    if (note.id === activeId.current || switchingRef.current || creatingRef.current || updatingRef.current) return
+    // the open note, picked again from the list: on a phone that opens it over the list
+    if (note.id === activeId.current) { if (updateUrl) setParams({ note: String(note.id) }); return }
+    if (switchingRef.current || creatingRef.current || updatingRef.current) return
     switchingRef.current = true; setSwitching(true)
     if (saveTimer.current !== null) window.clearTimeout(saveTimer.current)
     try {
@@ -151,7 +166,7 @@ export default function NotesPage() {
       setNotes(items => [note, ...items]); setDraft(note); latest.current = note; saved.current = note; activeId.current = note.id
       setParams({ note: String(note.id) })
       setPickerOpen(false); setMetaError('')
-      setView('write')
+      if (view === 'read') setView('write')
       window.setTimeout(() => input.current?.focus(), 0)
     } catch (e) { setError((e as Error).message) }
     finally { creatingRef.current = false; setCreating(false) }
@@ -185,51 +200,162 @@ export default function NotesPage() {
   const retrySave = () => { if (latest.current) void persist(latest.current).catch(() => {}) }
   const options = folderOptions(folders)
   const availableSources = sourceResults.filter(source => !draft?.sources.some(link => link.id === source.id))
+  /** Show the Markdown and put the caret in it: at the end, or at the line about as far down as `at` (0–1). */
+  const write = (to: View = 'write', at?: number) => {
+    setView(to)
+    window.setTimeout(() => {
+      const el = input.current
+      if (!el) return
+      let caret = el.value.length
+      if (at !== undefined) {
+        const lines = el.value.split('\n'), line = Math.min(lines.length - 1, Math.floor(at * lines.length))
+        caret = lines.slice(0, line).reduce((n, l) => n + l.length + 1, 0) + lines[line].length
+      }
+      el.focus({ preventScroll: at !== undefined }); el.setSelectionRange(caret, caret)
+    }, 0)
+  }
+  // clicking the page starts writing where you clicked, roughly; a link, a time code or a checkbox
+  // does its own thing, and so does selecting text to copy
+  const clickToWrite = (e: MouseEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('a, button, input, label') || window.getSelection()?.toString()) return
+    const box = e.currentTarget.getBoundingClientRect()
+    write('write', Math.max(0, Math.min(1, (e.clientY - box.top) / box.height)))
+  }
+  const crumbs = draft?.folder ? folderPath(folders, draft.folder) : []
+  const phone = notes.length > 0 && !requestedId ? 'list' : 'note'
+  const busy = switching || creating || updating
 
-  return <div className="notes-page">
-    <header className="page-head notes-head"><h1>Notes <span className="meta">A space to think through what you learn</span></h1><span className="grow" /><Button onClick={create} disabled={creating || switching || updating}><Plus size={16} /> New note</Button></header>
-    {error && <div className="notes-error" role="alert">{error} <button type="button" onClick={() => window.location.reload()}>Try again</button></div>}
-    <div className="notes-layout">
-      <aside className="notes-list" aria-label="Your notes">
-        <label className="notes-search"><Search size={16} aria-hidden="true" /><span className="sr">Search notes</span><input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Find a note" /></label>
-        <div className="notes-list-heading"><strong>All notes</strong><span className="meta num">{notes.length}</span></div>
-        {loading ? <p className="notes-list-empty">Loading notes…</p> : filtered.length ? <div className="notes-items">{filtered.map(note => <button key={note.id} type="button" disabled={switching || creating || updating} className="notes-item" aria-current={draft?.id === note.id ? 'page' : undefined} onClick={() => { void choose(note) }}><strong>{note.title || 'Untitled'}</strong><span>{plainText(note.body).split('\n').find(Boolean) || 'Empty note'}</span><small>{new Date(note.updated_at).toLocaleDateString()}</small></button>)}</div> : <p className="notes-list-empty">{query ? 'No notes match your search.' : 'Your notes will appear here.'}</p>}
-      </aside>
-      <section className="notes-workspace" aria-label="Note editor">
-        {draft ? <>
-          <div className="notes-document-head"><input className="notes-title" aria-label="Note title" maxLength={200} value={draft.title} disabled={switching || creating || updating} onChange={e => change({ title: e.target.value })} placeholder="Untitled" /><div className="notes-document-actions"><span className="notes-save" role="status">{saveError ? 'Not saved' : saving || dirty ? 'Saving…' : <><Check size={14} /> Saved</>}</span><button type="button" className="notes-delete" title="Delete note" aria-label="Delete note" disabled={switching || creating || updating} onClick={remove}><Trash2 size={17} /></button></div></div>
-          {saveError && <div className="notes-error" role="alert">Couldn’t save this note: {saveError} <button type="button" onClick={retrySave}>Retry</button></div>}
-          {metaError && <div className="notes-error" role="alert">{metaError}</div>}
-          <div className="notes-context">
-            <div className="notes-context-actions">
-              <label className="notes-folder"><Folder size={15} aria-hidden="true" /><span className="sr">Library folder</span>
-                <Select value={draft.folder ?? ''} disabled={updating || switching || creating} onChange={e => { void updateMeta({ folder: e.target.value ? Number(e.target.value) : null }) }}>
-                  <option value="">Library top level</option>
-                  {options.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
-                </Select>
-              </label>
-              <button ref={sourceToggle} type="button" className="notes-add-source" aria-expanded={pickerOpen} aria-controls="notes-source-picker" disabled={updating || switching || creating} onClick={togglePicker}><Plus size={14} aria-hidden="true" />Link source</button>
-            </div>
-            {draft.lesson !== null && <Link className="notes-lesson" to={`/lessons/${draft.lesson}`}><BookOpen size={15} aria-hidden="true" />Written for <strong lang="ja">{draft.lesson_title}</strong></Link>}
-            {draft.sources.length > 0 && <div className="notes-linked-sources" aria-label="Linked sources">
-              {draft.sources.map(source => <span className="notes-source-link" key={source.id}>
-                <Link to={`/sources/${source.id}`}><Link2 size={14} aria-hidden="true" />{source.title}</Link>
-                <button type="button" aria-label={`Remove ${source.title} from this note`} title="Remove link" disabled={updating || switching || creating}
-                  onClick={() => { void updateMeta({ source_ids: draft.sources.filter(item => item.id !== source.id).map(item => item.id) }) }}><X size={13} /></button>
-              </span>)}
-            </div>}
-            {pickerOpen && <div id="notes-source-picker" className="notes-source-picker">
-              <label><Search size={15} aria-hidden="true" /><span className="sr">Find a source</span><input type="search" autoFocus value={sourceSearch} placeholder="Find a source by title or text" onChange={e => { setSourceSearch(e.target.value); setSourceLoading(true) }} onKeyDown={e => { if (e.key === 'Escape') { setPickerOpen(false); sourceToggle.current?.focus() } }} /></label>
-              <div className="notes-source-results">
-                {sourceLoading ? <p className="meta">Finding sources…</p> : availableSources.length ? availableSources.map(source => <button key={source.id} type="button" disabled={updating} onClick={() => { void updateMeta({ source_ids: [...draft.sources.map(item => item.id), source.id] }) }}><span>{source.title || source.text.trim().slice(0, 80) || `${source.kind} source`}</span><small>{source.kind}</small></button>) : <p className="meta">{sourceSearch ? 'No other sources match.' : 'No sources to link yet.'}</p>}
-              </div>
-            </div>}
+  // the Markdown grows with what's written, so the page scrolls rather than a box inside it
+  useLayoutEffect(() => {
+    const el = input.current
+    if (!el) return
+    const fit = () => {
+      // measured with its room held open, so a long note's scroll isn't thrown back to the top as you type
+      const box = el.parentElement!
+      box.style.minHeight = `${box.offsetHeight}px`
+      el.style.height = 'auto'
+      el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`
+      box.style.minHeight = ''
+    }
+    fit()
+    let width = el.clientWidth
+    const watch = new ResizeObserver(() => { if (el.clientWidth !== width) { width = el.clientWidth; fit() } })
+    watch.observe(el)
+    return () => watch.disconnect()
+  }, [draft?.body, draft?.id, view])
+
+  // the source picker closes on a click anywhere else
+  useEffect(() => {
+    if (!pickerOpen) return
+    const away = (e: PointerEvent) => { if (!picker.current?.contains(e.target as Node) && !sourceToggle.current?.contains(e.target as Node)) setPickerOpen(false) }
+    document.addEventListener('pointerdown', away)
+    return () => document.removeEventListener('pointerdown', away)
+  }, [pickerOpen])
+
+  return <div className="notes-page" data-side={sideOpen ? 'open' : 'closed'} data-phone={phone}>
+    <aside className="notes-side" aria-label="Your notes">
+      <div className="notes-side-head">
+        <h1>Notes{notes.length > 0 && <span className="meta num">{notes.length}</span>}</h1>
+        <Button size="small" onClick={create} disabled={busy}><Plus aria-hidden="true" />New note</Button>
+      </div>
+      <label className="notes-search"><Search aria-hidden="true" /><span className="sr">Search notes</span><input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Find a note" /></label>
+      {loading ? <p className="notes-list-empty">Loading notes…</p> : filtered.length ? <ul className="notes-items">{filtered.map(note => {
+        const line = plainText(note.body).split('\n').find(Boolean)
+        return <li key={note.id}><button type="button" disabled={busy} className="notes-item" aria-current={draft?.id === note.id ? 'page' : undefined} onClick={() => { void choose(note) }}>
+          <span className="notes-item-title">{note.title || 'Untitled'}</span>
+          <time className="num" dateTime={note.updated_at} title={new Date(note.updated_at).toLocaleString()}>{shortDay(note.updated_at)}</time>
+          <span className="notes-item-line">{note.lesson_title ? <><BookOpen aria-hidden="true" /><span lang="ja">{note.lesson_title}</span>{line && ' · '}</> : null}{line || (note.lesson_title ? '' : 'Empty note')}</span>
+        </button></li>
+      })}</ul> : <p className="notes-list-empty">{query ? `No note matches “${query}”.` : 'Your notes will appear here.'}</p>}
+    </aside>
+
+    <section className="notes-doc" aria-label={draft ? `Note: ${draft.title || 'Untitled'}` : 'Note'}>
+      <header className="notes-bar">
+        <Button variant="ghost" size="small" icon className="notes-side-toggle" aria-label={sideOpen ? 'Hide the list of notes' : 'Show the list of notes'} title={sideOpen ? 'Hide the list' : 'Show the list'}
+          aria-expanded={sideOpen} onClick={() => setSideOpen(!sideOpen)}>{sideOpen ? <PanelLeftClose aria-hidden="true" /> : <PanelLeftOpen aria-hidden="true" />}</Button>
+        <button type="button" className="notes-back" onClick={() => setParams({})}><ChevronLeft aria-hidden="true" />Notes</button>
+        {draft && <nav className="notes-crumbs" aria-label="Where this note is">
+          <Link to="/library">Library</Link>
+          {crumbs.map(f => <span key={f.id}><span aria-hidden="true">/</span><Link to={`/library?folder=${f.id}`}>{f.name}</Link></span>)}
+          <span><span aria-hidden="true">/</span><strong>{draft.title || 'Untitled'}</strong></span>
+        </nav>}
+        <span className="grow" />
+        {draft && <>
+          <span className={'notes-save' + (saveError ? ' failed' : '')} role="status">{saveError ? 'Not saved' : saving || dirty ? 'Saving…' : <><Check aria-hidden="true" />Saved</>}</span>
+          <div className="notes-view" role="group" aria-label="Show the note as">
+            {VIEWS.map(v => <button key={v.value} type="button" data-view={v.value} aria-pressed={view === v.value} onClick={() => v.value === 'read' ? setView('read') : write(v.value)}>{v.label}</button>)}
           </div>
-          <div className="notes-toolbar">{view !== 'preview' && <div className="notes-format" aria-label="Markdown formatting"><button type="button" title="Heading" aria-label="Insert heading" onClick={() => format('## ', '', 'Heading')}><Heading2 size={18} /></button><button type="button" title="Bold" aria-label="Insert bold" onClick={() => format('**', '**')}><Bold size={18} /></button><button type="button" title="Italic" aria-label="Insert italic" onClick={() => format('*', '*')}><Italic size={18} /></button><button type="button" title="Bullet list" aria-label="Insert bullet list" onClick={() => format('- ', '', 'List item')}><List size={18} /></button><button type="button" title="Checklist" aria-label="Insert checklist" onClick={() => format('- [ ] ', '', 'Task')}><ListChecks size={18} /></button><button type="button" title="Code" aria-label="Insert inline code" onClick={() => format('`', '`')}><Code2 size={18} /></button></div>}<div className="notes-view" aria-label="Editor view"><button type="button" aria-pressed={view === 'write'} onClick={() => setView('write')}>Write</button><button type="button" aria-pressed={view === 'split'} onClick={() => setView('split')}>Split</button><button type="button" aria-pressed={view === 'preview'} onClick={() => setView('preview')}><Eye size={15} /> Preview</button></div></div>
-          <div className={'notes-panes notes-panes-' + view}>{view !== 'preview' && <div className="notes-pane notes-write"><span className="notes-pane-label">MARKDOWN</span><MentionTextarea ref={input} aria-label="Markdown note" spellCheck disabled={switching || creating || updating} value={draft.body} near={draft.sources} onValueChange={body => change({ body })} placeholder="Start writing in Markdown…" /></div>}{view !== 'write' && <div className="notes-pane notes-preview"><span className="notes-pane-label">INTERPRETED</span><NoteMarkdown body={draft.body} empty="Your note will appear here as you write." /></div>}</div>
-          <p className="notes-hint">Type @ to link a source. Use # for headings, - for lists, **bold**, and [text](url) for links. Changes save automatically.</p>
-        </> : <div className="notes-blank"><h2>{loading ? 'Opening your notes…' : 'Make room for a thought'}</h2><p>Keep ideas, vocabulary, and study plans together. Write in Markdown and see the finished page as you go.</p>{!loading && <Button onClick={create} disabled={creating}><Plus size={16} /> Create your first note</Button>}</div>}
-      </section>
-    </div>
+          <Menu label="More" content={<Ellipsis aria-hidden="true" />} variant="ghost" size="small" icon>
+            <MenuItem onClick={() => setWide(!wide)}><MoveHorizontal aria-hidden="true" />{wide ? 'Narrow the page' : 'Use the full width'}</MenuItem>
+            <MenuRule />
+            <MenuItem onClick={() => { void remove() }} disabled={busy}><Trash2 aria-hidden="true" />Delete note</MenuItem>
+          </Menu>
+        </>}
+      </header>
+
+      <div className="notes-canvas">
+        {draft ? <div className="notes-sheet" data-wide={wide || undefined} data-view={view}>
+          {saveError && <div className="notes-error" role="alert">Couldn’t save this note: {saveError} <button type="button" onClick={retrySave}>Try again</button></div>}
+          {metaError && <div className="notes-error" role="alert">{metaError}</div>}
+          <input className="notes-title" aria-label="Note title" maxLength={200} value={draft.title} disabled={busy} placeholder="Untitled"
+            onChange={e => change({ title: e.target.value })}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); write(view === 'read' ? 'write' : view, 0) } }} />
+
+          <dl className="notes-props">
+            <div><dt><Folder aria-hidden="true" />Folder</dt><dd>
+              <Select className="notes-prop-select" aria-label="Library folder" value={draft.folder ?? ''} disabled={busy}
+                onChange={e => { void updateMeta({ folder: e.target.value ? Number(e.target.value) : null }) }}>
+                <option value="">Library, top level</option>
+                {options.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+              </Select>
+            </dd></div>
+            {draft.lesson !== null && <div><dt><BookOpen aria-hidden="true" />Lesson</dt><dd><Link className="notes-lesson" to={`/lessons/${draft.lesson}`} lang="ja">{draft.lesson_title}</Link></dd></div>}
+            <div><dt><Link2 aria-hidden="true" />Sources</dt><dd className="notes-sources">
+              {draft.sources.map(source => <span className="notes-source" key={source.id}>
+                <Link to={`/sources/${source.id}`} lang="ja">{source.title}</Link>
+                <button type="button" aria-label={`Unlink ${source.title}`} title="Unlink" disabled={busy}
+                  onClick={() => { void updateMeta({ source_ids: draft.sources.filter(item => item.id !== source.id).map(item => item.id) }) }}><X aria-hidden="true" /></button>
+              </span>)}
+              <button ref={sourceToggle} type="button" className="notes-add-source" aria-expanded={pickerOpen} aria-controls="notes-source-picker" disabled={busy} onClick={togglePicker}><Plus aria-hidden="true" />{draft.sources.length ? 'Link' : 'Link a source'}</button>
+              {pickerOpen && <div id="notes-source-picker" className="notes-source-picker" ref={picker}>
+                <label><Search aria-hidden="true" /><span className="sr">Find a source</span><input type="search" autoFocus value={sourceSearch} placeholder="Find a source by title or text" onChange={e => { setSourceSearch(e.target.value); setSourceLoading(true) }} onKeyDown={e => { if (e.key === 'Escape') { setPickerOpen(false); sourceToggle.current?.focus() } }} /></label>
+                <div className="notes-source-results">
+                  {sourceLoading ? <p className="meta">Finding sources…</p> : availableSources.length ? availableSources.map(source => <button key={source.id} type="button" disabled={updating} onClick={() => { void updateMeta({ source_ids: [...draft.sources.map(item => item.id), source.id] }) }}><span lang="ja">{source.title || source.text.trim().slice(0, 80) || `${source.kind} source`}</span><small>{source.kind}</small></button>) : <p className="meta">{sourceSearch ? 'No other source matches.' : 'No sources to link yet.'}</p>}
+                </div>
+              </div>}
+            </dd></div>
+            <div><dt><Clock aria-hidden="true" />Edited</dt><dd className="meta"><time dateTime={draft.updated_at} title={new Date(draft.updated_at).toLocaleString()}>{shortDay(draft.updated_at)}, {new Date(draft.updated_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</time></dd></div>
+          </dl>
+
+          {view !== 'read' && <div className="notes-toolbar">
+            <div className="notes-format" role="group" aria-label="Markdown formatting">
+              <button type="button" title="Heading" aria-label="Insert heading" onClick={() => format('## ', '', 'Heading')}><Heading2 aria-hidden="true" /></button>
+              <button type="button" title="Bold" aria-label="Insert bold" onClick={() => format('**', '**')}><Bold aria-hidden="true" /></button>
+              <button type="button" title="Italic" aria-label="Insert italic" onClick={() => format('*', '*')}><Italic aria-hidden="true" /></button>
+              <button type="button" title="Bullet list" aria-label="Insert bullet list" onClick={() => format('- ', '', 'List item')}><List aria-hidden="true" /></button>
+              <button type="button" title="Checklist" aria-label="Insert checklist" onClick={() => format('- [ ] ', '', 'Task')}><ListChecks aria-hidden="true" /></button>
+              <button type="button" title="Code" aria-label="Insert inline code" onClick={() => format('`', '`')}><Code2 aria-hidden="true" /></button>
+            </div>
+            <span className="meta notes-hint">Markdown · @ links a source{view === 'write' && ' · Esc to read'}</span>
+          </div>}
+
+          <div className="notes-body">
+            {view !== 'read' && <MentionTextarea ref={input} className="notes-text" aria-label="Markdown note" spellCheck disabled={busy} value={draft.body} near={draft.sources}
+              onValueChange={body => change({ body })} onKeyDown={e => { if (e.key === 'Escape' && view === 'write') { e.preventDefault(); setView('read') } }}
+              placeholder={'## て-form\n- Page 12, exercise 3\n- Listen again to @…'} />}
+            {view !== 'write' && (draft.body.trim()
+              ? <div className="notes-read" onClick={view === 'read' ? clickToWrite : undefined}><NoteMarkdown body={draft.body} /></div>
+              : view === 'read' ? <button type="button" className="notes-start" onClick={() => write()}>Start writing…</button>
+              : <p className="meta notes-read">The page appears here as you write.</p>)}
+          </div>
+        </div> : <div className="notes-blank">
+          {error ? <div className="notes-error" role="alert">Couldn’t load your notes: {error} <button type="button" onClick={() => window.location.reload()}>Try again</button></div> : <>
+            <h2>{loading ? 'Opening your notes…' : 'Make room for a thought'}</h2>
+            {!loading && <><p>Keep ideas, vocabulary and study plans together. Write in Markdown, link the sources it's about, and read it back as a page.</p>
+              <Button variant="primary" onClick={create} disabled={creating}><Plus aria-hidden="true" />New note</Button></>}
+          </>}
+        </div>}
+      </div>
+    </section>
   </div>
 }

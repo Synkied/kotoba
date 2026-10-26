@@ -38,6 +38,7 @@ class Source(models.Model):
         VIDEO = "video"
         SUBTITLE = "subtitle"
         TEXT = "text"
+        STORY = "story"                 # written by an LLM to a syllabus, voiced by TTS (stories.py)
 
     class Status(models.TextChoices):
         INBOX = "inbox"
@@ -65,6 +66,8 @@ class Source(models.Model):
     duration = models.FloatField(null=True, blank=True)
     job = models.CharField(max_length=10, choices=Job.choices, default=Job.NONE, blank=True)
     job_error = models.TextField(blank=True)
+    # a story's request, how far writing it got, and what its check found (stories.py)
+    story = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
 
     class Meta:
@@ -275,6 +278,46 @@ class Lesson(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class Syllabus(models.Model):
+    """A course's words and grammar, unit by unit (Minna no Nihongo, lessons 1 to 25), that
+    stories are written within. The JLPT levels come with kotoba (stories.JLPT) and aren't rows."""
+
+    OWNER = "owner"
+    owner = owner_field()
+    objects = OwnedQuerySet.as_manager()
+
+    name = models.CharField(max_length=200)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["name", "id"]
+
+    def __str__(self):
+        return self.name
+
+
+class SyllabusUnit(models.Model):
+    """One unit of a syllabus: the words it teaches ([word, reading, meaning]) and its grammar
+    ([pattern, note]). A story for unit N may use units 1 to N and features N."""
+
+    OWNER = "syllabus__owner"
+    objects = OwnedQuerySet.as_manager()
+
+    syllabus = models.ForeignKey(Syllabus, related_name="units", on_delete=models.CASCADE)
+    number = models.PositiveIntegerField()
+    title = models.CharField(max_length=200, blank=True)
+    vocab = models.JSONField(default=list, blank=True)
+    grammar = models.JSONField(default=list, blank=True)
+    lesson = models.ForeignKey(Lesson, related_name="units", null=True, blank=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        ordering = ["syllabus", "number"]
+        constraints = [models.UniqueConstraint(fields=["syllabus", "number"], name="unique_unit_number")]
+
+    def __str__(self):
+        return f"{self.syllabus} {self.number}"
 
 
 class Material(models.Model):

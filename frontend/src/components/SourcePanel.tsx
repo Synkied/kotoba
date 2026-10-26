@@ -1,4 +1,4 @@
-import { AudioLines, Clapperboard, Captions, Type } from 'lucide-react'
+import { AudioLines, BookAudio, Clapperboard, Captions, Type } from 'lucide-react'
 import type { SourceKind } from '../lib/api'
 
 export const fmtTime = (t: number | null | undefined) => {
@@ -7,8 +7,8 @@ export const fmtTime = (t: number | null | undefined) => {
   return `${m}:${s.toFixed(1).padStart(4, '0')}`
 }
 
-const KIND_LABEL: Record<SourceKind, string> = { capture: 'Capture', audio: 'Audio', video: 'Video', subtitle: 'Subs', text: 'Text' }
-const KIND_ICON = { audio: AudioLines, video: Clapperboard, subtitle: Captions, text: Type, capture: Type }
+const KIND_LABEL: Record<SourceKind, string> = { capture: 'Capture', audio: 'Audio', video: 'Video', subtitle: 'Subs', text: 'Text', story: 'Story' }
+const KIND_ICON = { audio: AudioLines, video: Clapperboard, subtitle: Captions, text: Type, capture: Type, story: BookAudio }
 
 /** The panel a sentence came from: the screenshot, or the span of native audio. */
 export function SourcePanel({ kind, image, start, end, big, alt = '' }: {

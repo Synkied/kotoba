@@ -4,12 +4,14 @@ import { Lookup } from './WordLookup'
 
 /** Text with hiragana over the kanji, from [kanji, reading] pairs in reading order.
  *  Tapping a word looks it up, unless `lookup` is off (say, inside a button). */
-export function Furigana({ text, pairs, show = true, lookup = true, marks }: {
+export function Furigana({ text, pairs, show = true, lookup = true, marks, markClass = 'word-mark', markTitle }: {
   text: string; pairs: [string, string][]; show?: boolean; lookup?: boolean
   /** [start, end) stretches of text to mark, such as a word wherever it stands */
   marks?: [number, number][]
+  /** how the marks look (word-mark: the word looked for) and what they say on hover */
+  markClass?: string; markTitle?: string
 }) {
-  if (lookup) return <Lookup text={text} pairs={pairs}><Furigana text={text} pairs={pairs} show={show} lookup={false} marks={marks} /></Lookup>
+  if (lookup) return <Lookup text={text} pairs={pairs}><Furigana text={text} pairs={pairs} show={show} lookup={false} marks={marks} markClass={markClass} markTitle={markTitle} /></Lookup>
   if ((!show || !pairs.length) && !marks?.length) return <>{text}</>
   const pieces = cut(text, show ? pairs : [], marks ?? [])
   const node = (p: Piece) => p.ruby == null ? <Fragment key={p.start}>{text.slice(p.start, p.end)}</Fragment>
@@ -21,7 +23,7 @@ export function Furigana({ text, pairs, show = true, lookup = true, marks }: {
     if (!m) { out.push(node(pieces[i++])); continue }
     const inside: Piece[] = []
     while (i < pieces.length && pieces[i].end <= m[1]) inside.push(pieces[i++])
-    out.push(<mark key={'m' + m[0]} className="word-mark">{inside.map(node)}</mark>)
+    out.push(<mark key={'m' + m[0]} className={markClass} title={markTitle}>{inside.map(node)}</mark>)
   }
   return <>{out}</>
 }

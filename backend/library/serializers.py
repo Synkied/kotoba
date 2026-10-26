@@ -131,11 +131,12 @@ class SourceSerializer(Owned, serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
     media = serializers.SerializerMethodField()
     lessons = serializers.SerializerMethodField()
+    story = serializers.SerializerMethodField()
 
     class Meta:
         model = Source
         fields = ["id", "kind", "status", "title", "text", "category", "labels", "image", "media",
-                  "duration", "job", "job_error", "created_at", "sentences", "lessons"]
+                  "duration", "job", "job_error", "created_at", "sentences", "lessons", "story"]
         read_only_fields = ["kind", "image", "media", "duration", "job", "job_error", "created_at"]
 
     def get_image(self, s):
@@ -147,6 +148,12 @@ class SourceSerializer(Owned, serializers.ModelSerializer):
     def get_lessons(self, s):
         """the lessons this source is studied in, so its page can lead back to them"""
         return [{"id": l.id, "title": l.title, "done": l.done_at is not None} for l in s.lessons.all()]
+
+    def get_story(self, s):
+        if s.kind != Source.Kind.STORY:
+            return None
+        from .stories import public
+        return public(s)
 
     def validate_labels(self, value):
         return clean_labels(value)

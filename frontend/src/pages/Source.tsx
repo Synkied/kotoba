@@ -1,7 +1,8 @@
-import { BookOpen, ChevronLeft, Play, Volume2, Pencil, Check, Archive, Inbox as InboxIcon, Scissors, SkipBack, SkipForward, ListEnd, ListOrdered } from 'lucide-react'
+import { BookAudio, BookOpen, ChevronLeft, Play, Volume2, Pencil, Check, Archive, Inbox as InboxIcon, Scissors, SkipBack, SkipForward, ListEnd, ListOrdered, LoaderCircle, RotateCcw, TriangleAlert } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { api, type Sentence, type Source } from '../lib/api'
+import { api, type Sentence, type Source, type Story, type StoryOutside } from '../lib/api'
+import { STORY_BUSY, STORY_STATE } from '../lib/stories'
 import { useIndexWait } from '../lib/wordIndex'
 import { stopAudio } from '../lib/audio'
 import { WaveformPlayer, type PlayerHandle } from '../components/SentenceAudio'
@@ -47,6 +48,13 @@ function SourcePageDetail({ id }: { id: number }) {
   const toast = useToast()
   const action = useAction()
   useEffect(() => () => stopAudio(), [id])
+  // a story being written: its lines, then its voice, arrive as each step finishes
+  const writing = !!s?.story?.state && STORY_BUSY.includes(s.story.state)
+  useEffect(() => {
+    if (!writing) return
+    const t = window.setTimeout(reload, 2500)
+    return () => window.clearTimeout(t)
+  }, [writing, s, reload])
   if (error) return <ErrorNotice error={error} action={<Button onClick={reload}>Try again</Button>} />
   if (!s) return <Skeleton rows={3} />
 
@@ -72,13 +80,14 @@ function SourcePageDetail({ id }: { id: number }) {
       <fieldset className="action-scope" disabled={action.busy} aria-busy={action.busy}>
       <header className="page-head">
         <ButtonLink variant="ghost" icon to={backTo ?? (s.status === 'inbox' ? '/inbox' : '/sources')} aria-label="Back"><ChevronLeft aria-hidden="true" /></ButtonLink>
-        <h1>{s.title || (s.kind === 'capture' ? 'Capture' : 'Source')} <span className="meta num">{{ capture: 'Capture', audio: 'Audio', video: 'Video', subtitle: 'Subtitles', text: 'Text' }[s.kind]} · {s.sentences.length} sentences</span></h1>
+        <h1>{s.title || (s.kind === 'capture' ? 'Capture' : 'Source')} <span className="meta num">{{ capture: 'Capture', audio: 'Audio', video: 'Video', subtitle: 'Subtitles', text: 'Text', story: 'Story' }[s.kind]} · {s.sentences.length} sentences</span></h1>
         <span className="grow" />
         {s.status !== 'kept' && <Button onClick={() => status('kept')}><Check aria-hidden="true" />Keep</Button>}
         {s.status === 'kept' && <Button variant="ghost" onClick={() => status('inbox')}><InboxIcon aria-hidden="true" />Back to inbox</Button>}
         {s.status !== 'archived' && <Button variant="ghost" onClick={() => status('archived')}><Archive aria-hidden="true" />Archive</Button>}
         {(s.job === 'waiting' || s.job === 'running') && <ButtonLink to="/sources/queue"><ListOrdered aria-hidden="true" />{s.job === 'running' ? 'Transcribing… see queue' : 'In the queue'}</ButtonLink>}
         {s.media && (s.kind === 'audio' || s.kind === 'video') && <ButtonLink to={`/sources/${s.id}/cleanup`}><Scissors aria-hidden="true" />Clean up</ButtonLink>}
+        {s.story && <ButtonLink to={`/sources/stories?syllabus=${s.story.syllabus}&unit=${s.story.unit}`}><BookAudio aria-hidden="true" />Another story</ButtonLink>}
         {s.sentences.length > 0 && <DeckPicker sentenceIds={() => s.sentences.map((x) => x.id)} />}
         {s.sentences.length > 0 && <ButtonLink variant="primary" to={`/practice?source=${s.id}`}><Play aria-hidden="true" />Practise all</ButtonLink>}
       </header>
@@ -101,6 +110,7 @@ function SourcePageDetail({ id }: { id: number }) {
               {s.lessons.map(l => <Link key={l.id} to={`/lessons/${l.id}`}><BookOpen aria-hidden="true" />{l.title}{l.done && <span className="sr"> (done)</span>}{l.done && <Check aria-hidden="true" className="source-lesson-done" />}</Link>)}
             </dd></>}
           </dl>
+          {s.story && <StoryPanel s={s} story={s.story} onChange={set} />}
           {s.sentences.length > 0 && <Coverage id={s.id} />}
           <div style={{ display: 'grid', gap: 8 }}>
             {labels === null ? (
@@ -128,11 +138,11 @@ function SourcePageDetail({ id }: { id: number }) {
           {aids.translation && <TranslateAll sentences={s.sentences} />}
         </div>}
         <ol className="rows" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-          {s.sentences.map(x => <SentenceRow key={x.id} x={x} furigana={aids.furigana} roman={aids.roman} translation={aids.translation} audio={!!s.media && x.start != null}
+          {s.sentences.map(x => <SentenceRow key={x.id} x={x} beyond={s.story?.outside?.filter((o) => o.sentence === x.id && x.text.slice(o.start, o.end) === o.surface)} furigana={aids.furigana} roman={aids.roman} translation={aids.translation} audio={!!s.media && x.start != null}
             current={current === x.id} past={head != null && x.end != null && timed.includes(x) && x.end <= head.t && current !== x.id}
             playing={current === x.id && !!head?.playing} follow={!!head?.playing && follow}
             onPlay={() => play(x)} onPlayFrom={() => playFrom(x)} onSaved={(nx) => set((prev) => ({ ...prev, sentences: prev.sentences.map((y) => (y.id === nx.id ? nx : y)) }))} />)}
-          {!s.sentences.length && <li className="empty"><h2>No sentences yet</h2><p>{s.job ? 'They appear once the audio is transcribed.' : 'This source has no text.'}</p></li>}
+          {!s.sentences.length && <li className="empty"><h2>No sentences yet</h2><p>{s.job ? 'They appear once the audio is transcribed.' : writing ? 'They appear once the story is written and checked.' : 'This source has no text.'}</p></li>}
         </ol>
         </div>
       </div>
@@ -141,8 +151,8 @@ function SourcePageDetail({ id }: { id: number }) {
   )
 }
 
-function SentenceRow({ x, furigana, roman, translation, audio, current, past, playing, follow, onPlay, onPlayFrom, onSaved }: {
-  x: Sentence; furigana: boolean; roman: boolean; translation: boolean; audio: boolean; current: boolean; past: boolean; playing: boolean; follow: boolean
+function SentenceRow({ x, beyond, furigana, roman, translation, audio, current, past, playing, follow, onPlay, onPlayFrom, onSaved }: {
+  x: Sentence; beyond?: StoryOutside[]; furigana: boolean; roman: boolean; translation: boolean; audio: boolean; current: boolean; past: boolean; playing: boolean; follow: boolean
   onPlay: () => void; onPlayFrom: () => void; onSaved: (x: Sentence) => void
 }) {
   const [editing, setEditing] = useState(false)
@@ -172,7 +182,8 @@ function SentenceRow({ x, furigana, roman, translation, audio, current, past, pl
         </div>
       )}
       <SentenceText>
-        <Furigana text={x.text} pairs={x.furigana} show={furigana} />
+        <Furigana text={x.text} pairs={x.furigana} show={furigana} marks={beyond?.map((o) => [o.start, o.end])}
+          markClass="story-beyond" markTitle={beyond?.length ? 'Not in the syllabus yet, or written there in kana' : undefined} />
         {roman && x.roman && <span className="roman">{x.roman.split('\t')[0]}</span>}
         {translation && <Translation s={x} onTranslated={onSaved} />}
       </SentenceText>
@@ -186,6 +197,38 @@ function SentenceRow({ x, furigana, roman, translation, audio, current, past, pl
       </div>
     </li>
   )
+}
+
+/** What a story was written within and by, how writing it is going, and what it checked. */
+function StoryPanel({ s, story, onChange }: { s: Source; story: Story; onChange: (s: Source) => void }) {
+  const action = useAction()
+  const state = story.state ?? 'done'
+  const outside = story.outside ?? []
+  const level = outside.filter((o) => o.reason === 'level'), kanji = outside.filter((o) => o.reason === 'kanji')
+  const words = (list: StoryOutside[]) => [...new Map(list.map((o) => [o.surface, o])).values()]
+  return <section className="story-panel" aria-label="The story">
+    {story.title_tr && <p className="story-title-tr">{story.title_tr}</p>}
+    <p className="meta" style={{ margin: 0 }}>
+      Written for <Link to={`/sources/stories/syllabi/${story.syllabus}`}>{story.unit_name}</Link>
+      {story.writer && <> by {story.writer}</>}{story.theme && <>, about “{story.theme}”</>}.
+    </p>
+    {STORY_BUSY.includes(state) && <p className="meta story-progress" role="status"><LoaderCircle className="loading-spinner" aria-hidden="true" />{STORY_STATE[state]}</p>}
+    {state === 'failed' && <div className="story-failed">
+      <p className="meta failed story-progress"><TriangleAlert aria-hidden="true" />{story.error || 'Writing this story stopped.'}</p>
+      <Button size="small" disabled={action.busy} onClick={() => action.run(async () => { await api.retryStory(s.id); onChange(await api.source(s.id)) })}>
+        <RotateCcw aria-hidden="true" />Try again{story.failed_at && story.failed_at !== 'writing' ? ` from ${STORY_STATE[story.failed_at].replace('…', '').toLowerCase()}` : ''}
+      </Button>
+      {action.error != null && <ErrorNotice error={action.error} />}
+    </div>}
+    {state === 'done' && story.checked === false && <p className="meta">Its words weren't checked: the syllabus has no word lists, or kotoba can't read Japanese words on this machine.</p>}
+    {level.length > 0 && <p className="meta" style={{ margin: 0 }}>Beyond the syllabus, marked in the text: {words(level).map((o, i) => <span key={o.surface}>{i > 0 && '、'}<span lang="ja">{o.surface}</span></span>)}</p>}
+    {kanji.length > 0 && <p className="meta" style={{ margin: 0 }}>Studied in kana: {words(kanji).map((o, i) => <span key={o.surface}>{i > 0 && '、'}<span lang="ja">{o.surface}</span> ({o.kana})</span>)}</p>}
+    {state === 'done' && story.checked && !outside.length && <p className="meta" style={{ margin: 0 }}><Check aria-hidden="true" className="story-ok" />Every word is in the syllabus{story.repaired ? ` (the writer fixed ${story.repaired} line${story.repaired === 1 ? '' : 's'})` : ''}.</p>}
+    {!!story.grammar?.length && <details className="story-grammar">
+      <summary className="meta">Grammar it uses</summary>
+      <ul>{story.grammar.map((g) => <li key={g.pattern}><span lang="ja">{g.pattern}</span>{g.lines.length > 0 && <span className="meta num"> · line{g.lines.length > 1 ? 's' : ''} {g.lines.join(', ')}</span>}</li>)}</ul>
+    </details>}
+  </section>
 }
 
 /** How much of the source's vocabulary you have, and the new words that come up most in it. */

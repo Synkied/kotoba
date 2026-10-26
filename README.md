@@ -121,9 +121,20 @@ spelling once it's in (Get the dictionary on the Words page).
 through everything at once: words by spelling, reading, romaji or English meaning (`library`
 finds 図書館), sentences by text, reading or translation, and sources, lessons and decks by name.
 
-**Sources** has four tabs: the sources themselves, **Recordings** (your own takes and any audio
-or video, each opening the clean-up editor), every **Sentence** in one list, and the
+**Sources** has five tabs: the sources themselves, **Recordings** (your own takes and any audio
+or video, each opening the clean-up editor), every **Sentence** in one list, **Stories**, and the
 transcription **Queue**. The old `/recordings` and `/transcriptions` links still work.
+
+**Stories** are short texts written for you with only the words and grammar you've studied, then
+read aloud. Pick a syllabus and how far you've got: a JLPT level (N5 to N1; the word lists come
+with kotoba, from Jonathan Waller's lists, CC BY), or a course you fill in yourself under
+**Syllabi**, unit by unit (Minna no Nihongo lesson 1, 2, …: paste each lesson's words and grammar,
+or import a CSV). A story may use every unit up to the one you pick and features that one's new
+words. Your translator writes it (or another of your LLMs: **Writes stories** on the Add-ons page;
+a capable model matters here), kotoba checks every word against the syllabus and has the writer
+fix the lines that stray, once, then marks what still does; a voice (VOICEVOX, else Kokoro)
+reads it. A story is a source like any other: furigana, lookups, translations, practice. Link a
+unit to the lesson you study it in, and the lesson page offers **Make a story**.
 
 Select any stretch of a sentence (a few words, a clause, the whole line) and an **Explain**
 button comes up beside it. It opens the stretch with its reading in kana and romaji, its meanings

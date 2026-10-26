@@ -182,8 +182,9 @@ def remove_translator(user, tid: str):
     _saved(user, tid)
     store = _load(user)
     store["translators"] = [x for x in store.get("translators", []) if x.get("id") != tid]
-    if store.get("translator") == tid:
-        store.pop("translator")
+    for role in ("translator", "writer"):
+        if store.get(role) == tid:
+            store.pop(role)
     _save(user, store)
 
 
@@ -191,6 +192,37 @@ def activate(user, tid: str):
     if not any(t["id"] == tid for t in translators(user)):
         raise KeyError(tid)
     _save(user, {**_load(user), "translator": tid})
+
+
+# --- who writes stories: one of the same saved LLMs, the translator in use unless another is chosen
+
+def chosen_writer(user) -> str | None:
+    chosen = _load(user).get("writer")
+    return chosen if any(t["id"] == chosen for t in translators(user)) else None
+
+
+def writer_id(user) -> str | None:
+    return chosen_writer(user) or active_id(user)
+
+
+def writer(user) -> dict:
+    chosen = writer_id(user)
+    cfg = next((t for t in translators(user) if t["id"] == chosen), None)
+    if not cfg:
+        raise TranslateError("Nothing to write stories with yet: add an LLM on the Add-ons page.")
+    return cfg
+
+
+def set_writer(user, tid: str):
+    """tid "" follows the translator in use again."""
+    store = _load(user)
+    if not tid:
+        store.pop("writer", None)
+    elif any(t["id"] == tid for t in translators(user)):
+        store["writer"] = tid
+    else:
+        raise KeyError(tid)
+    _save(user, store)
 
 
 def draft(user, data: dict) -> dict:
@@ -302,18 +334,19 @@ def _prompt(text: str, before: list[str], after: list[str], lang: str) -> tuple[
     return system, "\n".join(parts)
 
 
-def _ask(cfg: dict, system: str, user: str) -> str:
+def _ask(cfg: dict, system: str, user: str, max_tokens: int = 2000, effort: str = "low", temperature: float = 0.2,
+         timeout: float = TIMEOUT) -> str:
     if cfg["kind"] == "anthropic":
         try:
             import anthropic
         except ImportError as e:
             raise TranslateError("Claude needs the claude extra: make install EXTRAS=\"whisper voice claude\".") from e
-        client = anthropic.Anthropic(api_key=cfg["key"] or None, timeout=TIMEOUT)
+        client = anthropic.Anthropic(api_key=cfg["key"] or None, timeout=timeout)
         try:
             response = client.beta.messages.create(
-                model=_model(cfg), max_tokens=2000, system=system,
+                model=_model(cfg), max_tokens=max_tokens, system=system,
                 messages=[{"role": "user", "content": user}],
-                output_config={"effort": "low"},
+                output_config={"effort": effort},
                 betas=["server-side-fallback-2026-07-01"], fallbacks="default",
             )
         except anthropic.AuthenticationError as e:
@@ -330,18 +363,18 @@ def _ask(cfg: dict, system: str, user: str) -> str:
             raise TranslateError("Claude declined to translate this sentence.")
         return "".join(b.text for b in response.content if b.type == "text")
     body = {
-        "model": _model(cfg), "temperature": 0.2, "stream": False,
+        "model": _model(cfg), "temperature": temperature, "stream": False,
         "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
     }
     # a thinking model would reason for hundreds of tokens before each one-line translation:
     # ask local servers not to (Ollama reads reasoning_effort, llama-server the template kwarg)
     quiet = {"reasoning_effort": "none", "chat_template_kwargs": {"enable_thinking": False}} if _local(cfg["url"]) else {}
     try:
-        data = _openai(cfg, "/chat/completions", {**body, **quiet})
+        data = _openai(cfg, "/chat/completions", {**body, **quiet}, timeout=timeout)
     except TranslateError as e:
         if not quiet or "answered 4" not in str(e):
             raise
-        data = _openai(cfg, "/chat/completions", body)  # a server that rejects those switches
+        data = _openai(cfg, "/chat/completions", body, timeout=timeout)  # a server that rejects those switches
     try:
         return data["choices"][0]["message"]["content"] or ""
     except (KeyError, IndexError, TypeError) as e:

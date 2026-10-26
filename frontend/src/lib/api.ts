@@ -6,14 +6,43 @@ export type Sentence = {
   note: string; translations: Record<string, string>; reading_overrides: [string, string][]; has_audio: boolean; image: string | null; due: string | null; reps: number; lapses: number
   best: number | null; last: number | null; stamps: Stamp[]; decks: { id: number; name: string }[]; created_at: string
 }
-export type SourceKind = 'capture' | 'audio' | 'video' | 'subtitle' | 'text'
+export type SourceKind = 'capture' | 'audio' | 'video' | 'subtitle' | 'text' | 'story'
 export type Source = {
   id: number; kind: SourceKind; status: 'inbox' | 'kept' | 'archived'; title: string; text: string
   category: string; labels: string[]; image: string | null; media: string | null; duration: number | null
   job: '' | 'waiting' | 'running' | 'failed'; job_error: string; created_at: string; sentences: Sentence[]
   /** the lessons it's studied in */
   lessons: { id: number; title: string; done: boolean }[]
+  /** a story's request, how writing it went and what its check found; null for any other kind */
+  story: Story | null
 }
+export type StoryState = 'queued' | 'writing' | 'checking' | 'voicing' | 'done' | 'failed'
+export type StoryLength = 'short' | 'medium' | 'long'
+export type StoryRegister = '' | 'polite' | 'plain'
+/** a word a story uses that its syllabus doesn't allow: not studied yet (level), or studied in kana (kanji) */
+export type StoryOutside = { sentence: number; start: number; end: number; surface: string; lemma: string; reading: string; reason: 'level' | 'kanji'; kana?: string }
+export type Story = {
+  syllabus: string | number; syllabus_name: string; unit: number; unit_name: string
+  length: StoryLength; register: StoryRegister; theme: string; voice: string; lang: string
+  state?: StoryState; error?: string; failed_at?: StoryState | null
+  writer?: string; cloud?: boolean; title?: string; title_tr?: string
+  lines?: { ja: string; tr: string }[]; grammar?: { pattern: string; lines: number[] }[]
+  outside?: StoryOutside[]; repaired?: number; checked?: boolean
+}
+export type StoryRow = {
+  id: number; title: string; created_at: string; status: Source['status']; duration: number | null; sentences: number
+  story: Pick<Story, 'syllabus' | 'syllabus_name' | 'unit' | 'unit_name' | 'length' | 'register' | 'theme' | 'state' | 'error' | 'failed_at' | 'title_tr' | 'writer' | 'cloud'> & { outside: number }
+}
+/** A syllabus as menus see it: its units' sizes, not their lists. JLPT comes with kotoba (bundled). */
+export type UnitSummary = { number: number; title: string; vocab: number; grammar: number; lesson: number | null; lesson_title: string | null }
+export type Syllabus = { id: string | number; name: string; bundled: boolean; units: UnitSummary[] }
+export type SyllabusUnit = { number: number; title: string; vocab: [string, string, string][]; grammar: [string, string][]; lesson: number | null; lesson_title?: string | null }
+export type StoryOptions = {
+  syllabi: Syllabus[]; writer: { id: string; name: string; cloud: boolean; model: string } | null
+  voices: { id: string; name: string; engine: string }[]; voice: string | null
+  lengths: Record<StoryLength, number>; registers: Exclude<StoryRegister, ''>[]; lang: string
+}
+export type StoryRequest = { syllabus: string | number; unit: number; length: StoryLength; register: StoryRegister; theme: string; voice: string }
 export type Deck = { id: number; name: string; description: string; folder: string; created_at: string; size: number; due: number; practised: number; average: number | null }
 export type Stats = { inbox: number; due: number; sentences: number; decks: number; lessons: number; attempts_today: number; waiting: number }
 export type Facets = { categories: { name: string; count: number }[]; labels: { name: string; count: number }[] }
@@ -25,7 +54,7 @@ export type Score = {
 export type EngineState = 'missing' | 'idle' | 'loading' | 'ready' | 'error'
 export type EngineStatus = { state: EngineState; error: string | null; loaded: string[] | null; key: string[]; readings: boolean }
 export type Job = {
-  id: number; kind: 'transcribe' | 'render'; source: number; title: string
+  id: number; kind: 'transcribe' | 'render' | 'story'; source: number; title: string
   state: 'queued' | 'running' | 'done' | 'error'; log: string[]; progress: number | null; error: string | null
   result: Record<string, unknown> | null
 }
@@ -74,6 +103,8 @@ export type TranslationStatus = Language & TranslatorCheck & {
   languages: { code: string; name: string }[]; translated: number; sentences: number
   /** null until there's a translator to use */
   active: string | null; translators: Translator[]; defaults: Record<TranslatorKind, string>
+  /** the one chosen to write stories; null: the translator in use writes them */
+  writer: string | null
 }
 export type DictionaryStatus = { state: 'missing' | 'downloading' | 'ready' | 'error'; error: string | null; lang: string; version?: string }
 export type DictEntry = {
@@ -177,6 +208,8 @@ export type Lesson = {
   files: LessonFile[]; sources: LessonSource[]; can_transcribe: boolean
   /** the Markdown notes written for it, oldest first */
   linked_notes: { id: number; title: string; excerpt: string }[]
+  /** the syllabus units studied in it, each a story away */
+  units: { syllabus: number; syllabus_name: string; number: number; title: string }[]
 }
 
 export type Account = { id: number; username: string; staff: boolean }
@@ -310,6 +343,24 @@ export const api = {
   translation: () => req<TranslationStatus>('translation'),
   setLanguage: (to: string) => req<TranslationStatus>('translation', json('PATCH', { to })),
   chooseTranslator: (active: string) => req<TranslationStatus>('translation', json('PATCH', { active })),
+  /** '' lets the translator in use write stories */
+  chooseWriter: (writer: string) => req<TranslationStatus>('translation', json('PATCH', { writer })),
+  stories: () => req<StoryRow[]>('stories'),
+  storyOptions: () => req<StoryOptions>('stories/options'),
+  writeStory: (r: StoryRequest) => req<StoryRow>('stories', json('POST', r)),
+  retryStory: (id: number) => req<StoryRow>(`stories/${id}/retry`, json('POST', {})),
+  syllabi: () => req<Syllabus[]>('syllabi'),
+  syllabus: (id: string | number) => req<Syllabus>(`syllabi/${id}`),
+  createSyllabus: (name: string) => req<Syllabus>('syllabi', json('POST', { name })),
+  renameSyllabus: (id: string | number, name: string) => req<Syllabus>(`syllabi/${id}`, json('PATCH', { name })),
+  deleteSyllabus: (id: string | number) => req<void>(`syllabi/${id}`, { method: 'DELETE' }),
+  unit: (id: string | number, n: number) => req<SyllabusUnit>(`syllabi/${id}/units/${n}`),
+  /** vocab and grammar as pasted text, one per line */
+  saveUnit: (id: string | number, n: number, data: { title?: string; vocab?: string; grammar?: string; lesson?: number | null }) =>
+    req<SyllabusUnit>(`syllabi/${id}/units/${n}`, json('PUT', data)),
+  deleteUnit: (id: string | number, n: number) => req<void>(`syllabi/${id}/units/${n}`, { method: 'DELETE' }),
+  importSyllabus: (id: string | number, csv: string) => req<Syllabus & { imported: number }>(`syllabi/${id}/csv`, json('POST', { csv })),
+  syllabusCsvUrl: (id: string | number) => `/api/syllabi/${id}/csv`,
   addTranslator: (t: TranslatorDraft, activate: boolean) => req<Translator>('translation/translators', json('POST', { ...t, activate })),
   updateTranslator: (id: string, t: TranslatorDraft, activate: boolean) => req<Translator>(`translation/translators/${id}`, json('PATCH', { ...t, activate })),
   removeTranslator: (id: string) => req<void>(`translation/translators/${id}`, { method: 'DELETE' }),

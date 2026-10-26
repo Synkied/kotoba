@@ -21,6 +21,8 @@ import LibraryPage from './pages/Lessons'
 import LessonPage from './pages/Lesson'
 import TranscriptionsPage from './pages/Transcriptions'
 import SentencesPage from './pages/Sentences'
+import StoriesPage from './pages/Stories'
+import SyllabiPage, { SyllabusPage } from './pages/Syllabi'
 import WordsPage, { NextSentencesPage } from './pages/Words'
 import WordPage from './pages/Word'
 import DictPage from './pages/Dict'
@@ -123,6 +125,9 @@ function Shell({ account }: { account: Account }) {
             <Route path="/sources/recordings" element={<RecordingsPage />} />
             <Route path="/sources/sentences" element={<SentencesPage />} />
             <Route path="/sources/queue" element={<TranscriptionsPage />} />
+            <Route path="/sources/stories" element={<StoriesPage />} />
+            <Route path="/sources/stories/syllabi" element={<SyllabiPage />} />
+            <Route path="/sources/stories/syllabi/:id" element={<SyllabusPage />} />
             <Route path="/sources/:id/cleanup" element={<CleanupPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/words" element={<WordsPage />} />
