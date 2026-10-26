@@ -78,7 +78,7 @@ A word's page can play the word as native speakers say it, from YouTube channels
 ```bash
 make import-ocr         # screen_ocr's history.db (make docker-import-ocr for the container)
 make import-jpcut       # jp-shadow-cut's recordings, with their transcriptions, scripts and edited cuts
-make ocr-client         # install the screen-ocr capture client, then: screen-ocr --server http://localhost:8780 (it needs your capture key; see Accounts)
+make ocr-client         # install the screen-ocr capture client, then: screen-ocr --server http://localhost:8780 --key <capture key> (from the Account page; or set SCREEN_OCR_KEY)
 ```
 
 Uploaded audio and video are transcribed in the background. `make transcribe` does the waiting ones now, with progress in the terminal.
@@ -122,10 +122,10 @@ through everything at once: words by spelling, reading, romaji or English meanin
 finds 図書館), sentences by text, reading or translation, and sources, lessons and decks by name.
 
 **Sources** has five tabs: the sources themselves, **Recordings** (your own takes and any audio
-or video, each opening the clean-up editor), every **Sentence** in one list, **Stories**, and the
+or video, each opening the clean-up editor), every **Sentence** in one list, your **Decks**, and the
 transcription **Queue**. The old `/recordings` and `/transcriptions` links still work.
 
-**Stories** are short texts written for you with only the words and grammar you've studied, then
+**Stories** (物語, their own section) are short texts written for you with only the words and grammar you've studied, then
 read aloud. Pick a syllabus and how far you've got: a JLPT level (N5 to N1; the word lists come
 with kotoba, from Jonathan Waller's lists, CC BY), or a course you fill in yourself under
 **Syllabi**, unit by unit (Minna no Nihongo lesson 1, 2, …: paste each lesson's words and grammar,

@@ -120,6 +120,7 @@ function CaptureKey() {
           <CopyButton text={token} />
         </div>
       )}
+      {token && <p>Start screen-ocr with it: <code className="inline">screen-ocr --server {window.location.origin} --key {token}</code>, or set <code className="inline">SCREEN_OCR_KEY</code>.</p>}
       {action.error != null && <ErrorNotice error={action.error} />}
       <ButtonRow><Button size="small" disabled={action.busy || !token} aria-busy={action.busy} onClick={renew}><RotateCw aria-hidden="true" />Make a new key</Button></ButtonRow>
     </Sheet>

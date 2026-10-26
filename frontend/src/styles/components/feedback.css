@@ -1,6 +1,6 @@
 /* Feedback: empty states, skeletons, notices, toasts. */
 .empty {
-  display: grid; justify-items: start; gap: var(--s-3); max-width: 34rem; padding: var(--s-7) 0;
+  display: grid; justify-items: start; gap: var(--s-3); max-width: 34rem; padding: var(--s-5) 0 var(--s-7);
 }
 .empty h2 { font-size: var(--t-l); font-weight: var(--w-medium); }
 .empty p { color: var(--ink-2); }

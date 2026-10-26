@@ -82,7 +82,7 @@ translate: ## Translate sentences that have none yet (TO=fr for another language
 
 ocr-client: ## Install the screen-ocr capture client on this computer (needs uv and Tesseract)
 	uv tool install --force "screen-ocr[desktop] @ $(if $(findstring ://,$(OCR_SRC)),$(OCR_SRC),file://$(abspath $(OCR_SRC)))"
-	@echo "Capture with: screen-ocr --server http://localhost:$(PORT)"
+	@echo "Capture with: screen-ocr --server http://localhost:$(PORT) --key <your capture key, from the Account page>"
 
 ## Docker (GPU=1, VOICEVOX=1)
 

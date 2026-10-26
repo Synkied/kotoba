@@ -5,7 +5,6 @@ import { api, type StoryLength, type StoryOptions, type StoryRegister, type Stor
 import { STORY_BUSY, STORY_LENGTH, STORY_STATE, unitLabel } from '../lib/stories'
 import { fmtTime } from '../components/SourcePanel'
 import { ErrorNotice, PageHome, Skeleton, dayLabel, useAction, useAsync, usePref } from '../components/ui'
-import { SourcesTabs } from '../components/SourcesTabs'
 import { Button, ButtonLink, ButtonRow, EmptyState, Field, Input, Notice, Plate, Segmented, Select, buttonClass } from '../components/ds'
 
 const BUSY = STORY_BUSY, STATE_NAME = STORY_STATE, LENGTH_NAME = STORY_LENGTH
@@ -31,13 +30,12 @@ export default function StoriesPage() {
 
   return <>
     <header className="page-head">
-      <h1><PageHome to="/sources/stories">Stories</PageHome></h1>
+      <h1><PageHome to="/stories">Stories</PageHome></h1>
       <span className="grow" />
       {/* on a phone the stories come first, so the form is a jump away */}
       {list.data && list.data.length > 0 && <a className={buttonClass({ variant: 'primary', icon: true }, 'stories-jump')} href="#new-story" aria-label="New story" title="New story"><Plus aria-hidden="true" /></a>}
-      <ButtonLink to="/sources/stories/syllabi"><ListChecks aria-hidden="true" />Syllabi</ButtonLink>
+      <ButtonLink to="/stories/syllabi"><ListChecks aria-hidden="true" />Syllabi</ButtonLink>
     </header>
-    <SourcesTabs />
     <p className="meta stories-lead">Short stories written with only the words and grammar you've studied, read aloud, with furigana, translations and lookups like any source.</p>
     <div className="stories">
       {options.error != null ? <ErrorNotice error={options.error} action={<Button size="small" onClick={options.reload}>Try again</Button>} />
@@ -100,7 +98,7 @@ function NewStory({ o, onWritten }: { o: StoryOptions; onWritten: (row: StoryRow
             {syl.units.map((x) => <option key={x.number} value={x.number}>{unitLabel(syl, x)}</option>)}
           </Select>
         </Field>
-        <p className="meta story-scope">{!syl.units.length ? <>No units yet. <Link to={`/sources/stories/syllabi/${syl.id}`}>Add the words you've studied</Link>.</>
+        <p className="meta story-scope">{!syl.units.length ? <>No units yet. <Link to={`/stories/syllabi/${syl.id}`}>Add the words you've studied</Link>.</>
           : u && <>{plural(words, 'word')} to draw on{u.vocab && u.vocab < words ? `, featuring the ${u.vocab.toLocaleString()} new in ${syl.bundled ? u.title : `unit ${u.number}`}` : ''}.</>}</p>
         <div className="field"><span id="story-length">Length</span>
           <Segmented name="story-length" aria-labelledby="story-length" role="radiogroup" value={length} onChange={setLength}

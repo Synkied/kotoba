@@ -2,11 +2,12 @@
 .shell { display: grid; grid-template-columns: var(--rail-w) minmax(0, 1fr); min-height: 100dvh; }
 /* the rail's grey runs the full height of the page, however long it scrolls */
 .shell::before { content: ''; position: fixed; inset: 0 auto 0 0; width: var(--rail-w); background: var(--rail); z-index: -1; }
-.page { min-width: 0; padding: var(--s-7) clamp(var(--s-4), 4.4vw, var(--s-8)) var(--s-8); }
+/* the title starts level with the brand block in the rail, not a gap below it */
+.page { min-width: 0; padding: var(--s-5) clamp(var(--s-4), 4.4vw, var(--s-8)) var(--s-8); }
 /* the page head: title and its subline, then facts and actions, closed by the 2px ink rule */
 .page-head {
   display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s-3) var(--s-4);
-  padding-bottom: var(--s-5); margin-bottom: var(--s-5);
+  padding-bottom: var(--s-4); margin-bottom: var(--s-5);
   border-bottom: var(--frame-head) solid var(--ink);
 }
 .page-head h1 { min-width: 0; overflow-wrap: anywhere; flex-wrap: wrap; display: flex; align-items: baseline; gap: var(--s-2) var(--s-4); }
@@ -35,25 +36,32 @@
 }
 .brand small { font-weight: var(--w-medium); font-size: var(--t-tag); letter-spacing: .05em; }
 .brand:focus-visible { outline-offset: 3px; }
-.rail nav { display: flex; flex-direction: column; }
-/* Japanese first, the English beside it in small type */
+/* the sections on three shelves (today, study, material), a hairline between them */
+.rail nav { display: grid; gap: var(--s-3); }
+.rail-shelf { list-style: none; margin: 0; padding: 0; }
+.rail-shelf + .rail-shelf::before { content: ''; display: block; height: var(--frame); margin: 0 var(--s-5) var(--s-3); background: var(--rule-strong); }
+/* a contents page: the Japanese in its own column, the English lined up beside it, the count at the right */
 .rail nav a {
-  position: relative; display: flex; align-items: baseline; gap: 10px;
-  padding: 9px var(--s-5); color: var(--ink-2); text-decoration: none; font-size: var(--t-sub);
+  position: relative; display: grid; grid-template-columns: 3.2em minmax(0, 1fr) auto; align-items: baseline; column-gap: var(--s-2);
+  padding: 8px var(--s-5); color: var(--ink-2); text-decoration: none; font-size: var(--t-sub); letter-spacing: .03em;
   transition: color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
 }
-.rail nav a small { font-size: var(--t-s); color: var(--ink-3); }
+.rail nav a small { font-size: var(--t-s); color: var(--ink-3); letter-spacing: 0; transition: color var(--t-fast) var(--ease); }
 .rail nav a:hover { color: var(--ink); background: var(--rail-hover); }
-/* the current section: ink, bold, and a short burgundy marker at the edge */
-.rail nav a[aria-current='page'] { color: var(--ink); font-weight: 700; }
+.rail nav a:hover small { color: var(--ink-2); }
+/* the open section is cut from the page's own sheet, a tab joined to it, with a short burgundy marker at the edge */
+.rail nav a[aria-current='page'] { color: var(--ink); font-weight: 700; background: var(--page); }
+.rail nav a[aria-current='page'] small { color: var(--ink); font-weight: var(--w-medium); }
 .rail nav a[aria-current='page']::before {
   content: ''; position: absolute; left: 0; top: 50%; translate: 0 -50%; width: 3px; height: 16px; background: var(--accent);
 }
-.rail nav .count { margin-left: auto; font-size: var(--t-s); font-weight: 400; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.rail nav .count { font-size: var(--t-s); font-weight: 400; letter-spacing: 0; font-variant-numeric: tabular-nums; color: var(--ink-3); }
+.rail nav a[aria-current='page'] .count { color: var(--ink-2); }
 .rail nav .count.hot { color: var(--accent-ink); font-weight: 700; }
-.rail .foot { margin-top: auto; padding: var(--s-4) var(--s-5) 0; display: grid; gap: var(--s-2); }
+.rail .foot { margin: auto var(--s-5) 0; padding-top: var(--s-4); border-top: var(--frame) solid var(--rule-strong); display: grid; gap: var(--s-2); }
 .rail .foot a { color: var(--ink-2); text-decoration: none; font-size: var(--t-s); display: flex; gap: var(--s-2); align-items: center; }
 .rail .foot a:hover, .rail .foot a[aria-current='page'] { color: var(--ink); text-decoration: underline; text-underline-offset: .2em; }
+.rail .foot .meta { padding-top: var(--s-1); }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); flex: none; }
 .dot.ok { background: var(--ok); }
 .dot.warn { background: var(--warn); }
@@ -80,8 +88,8 @@
 @media (max-width: 760px) {
   .shell { grid-template-columns: 1fr; }
   .rail, .shell::before { display: none; }
-  .page { padding: var(--s-5) var(--s-4) calc(76px + env(safe-area-inset-bottom)); }
-  .page-head { margin-bottom: var(--s-4); padding-bottom: var(--s-4); }
+  .page { padding: var(--s-4) var(--s-4) calc(76px + env(safe-area-inset-bottom)); }
+  .page-head { margin-bottom: var(--s-4); padding-bottom: var(--s-3); }
   .page-head .search { flex-basis: 100%; }
   .page-head > form { width: 100%; }
   .page-head > form > label { flex: 1; min-width: 0; }

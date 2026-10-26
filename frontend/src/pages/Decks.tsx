@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api, byFolder, type Deck } from '../lib/api'
 import { ErrorNotice, Skeleton, useAsync, useAction, PageHome } from '../components/ui'
 import { Button, ButtonLink, ChipButton, EmptyState, Input, Plate } from '../components/ds'
+import { SourcesTabs } from '../components/SourcesTabs'
 
 export default function DecksPage() {
   const { data, error, loading, reload, set } = useAsync(() => api.decks(), [])
@@ -46,6 +47,7 @@ export default function DecksPage() {
           <Button variant="primary" aria-busy={action.busy} disabled={!name.trim() || action.busy}><Plus aria-hidden="true" />Create</Button>
         </form>
       </header>
+      <SourcesTabs />
       {action.error != null && <ErrorNotice error={action.error} />}
       {foldered && (
         <div className="filters">

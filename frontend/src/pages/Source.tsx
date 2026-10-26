@@ -87,7 +87,7 @@ function SourcePageDetail({ id }: { id: number }) {
         {s.status !== 'archived' && <Button variant="ghost" onClick={() => status('archived')}><Archive aria-hidden="true" />Archive</Button>}
         {(s.job === 'waiting' || s.job === 'running') && <ButtonLink to="/sources/queue"><ListOrdered aria-hidden="true" />{s.job === 'running' ? 'Transcribing… see queue' : 'In the queue'}</ButtonLink>}
         {s.media && (s.kind === 'audio' || s.kind === 'video') && <ButtonLink to={`/sources/${s.id}/cleanup`}><Scissors aria-hidden="true" />Clean up</ButtonLink>}
-        {s.story && <ButtonLink to={`/sources/stories?syllabus=${s.story.syllabus}&unit=${s.story.unit}`}><BookAudio aria-hidden="true" />Another story</ButtonLink>}
+        {s.story && <ButtonLink to={`/stories?syllabus=${s.story.syllabus}&unit=${s.story.unit}`}><BookAudio aria-hidden="true" />Another story</ButtonLink>}
         {s.sentences.length > 0 && <DeckPicker sentenceIds={() => s.sentences.map((x) => x.id)} />}
         {s.sentences.length > 0 && <ButtonLink variant="primary" to={`/practice?source=${s.id}`}><Play aria-hidden="true" />Practise all</ButtonLink>}
       </header>
@@ -209,7 +209,7 @@ function StoryPanel({ s, story, onChange }: { s: Source; story: Story; onChange:
   return <section className="story-panel" aria-label="The story">
     {story.title_tr && <p className="story-title-tr">{story.title_tr}</p>}
     <p className="meta" style={{ margin: 0 }}>
-      Written for <Link to={`/sources/stories/syllabi/${story.syllabus}`}>{story.unit_name}</Link>
+      Written for <Link to={`/stories/syllabi/${story.syllabus}`}>{story.unit_name}</Link>
       {story.writer && <> by {story.writer}</>}{story.theme && <>, about “{story.theme}”</>}.
     </p>
     {STORY_BUSY.includes(state) && <p className="meta story-progress" role="status"><LoaderCircle className="loading-spinner" aria-hidden="true" />{STORY_STATE[state]}</p>}

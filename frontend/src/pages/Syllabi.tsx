@@ -15,7 +15,7 @@ export default function SyllabiPage() {
   const nav = useNavigate()
   return <>
     <header className="page-head">
-      <ButtonLink variant="ghost" icon to="/sources/stories" aria-label="Back to stories"><ChevronLeft aria-hidden="true" /></ButtonLink>
+      <ButtonLink variant="ghost" icon to="/stories" aria-label="Back to stories"><ChevronLeft aria-hidden="true" /></ButtonLink>
       <h1>Syllabi</h1>
     </header>
     <p className="meta stories-lead">A story may use the words and grammar of the unit you pick and every unit before it. JLPT comes with kotoba;
@@ -24,13 +24,13 @@ export default function SyllabiPage() {
     {!data && error == null && <Skeleton rows={3} />}
     {data && <ul className="syllabi">
       {data.map((s) => <li key={s.id}>
-        <Link to={`/sources/stories/syllabi/${s.id}`}><b>{s.name}</b></Link>
+        <Link to={`/stories/syllabi/${s.id}`}><b>{s.name}</b></Link>
         <span className="meta num">{s.bundled ? 'Comes with kotoba · ' : ''}{plural(s.units.length, 'unit')} · {plural(s.units.reduce((n, u) => n + u.vocab, 0), 'word')}</span>
       </li>)}
     </ul>}
     <form className="edit-line syllabus-new" onSubmit={(e) => {
       e.preventDefault()
-      action.run(async () => { const s = await api.createSyllabus(name); nav(`/sources/stories/syllabi/${s.id}`) })
+      action.run(async () => { const s = await api.createSyllabus(name); nav(`/stories/syllabi/${s.id}`) })
     }}>
       <Field style={{ flex: 1 }}><span>New syllabus</span><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Minna no Nihongo I" maxLength={200} /></Field>
       <Button disabled={!name.trim() || action.busy}><Plus aria-hidden="true" />Add</Button>
@@ -62,7 +62,7 @@ export function SyllabusPage() {
   return <>
     {action.error != null && <ErrorNotice error={action.error} />}
     <header className="page-head">
-      <ButtonLink variant="ghost" icon to="/sources/stories/syllabi" aria-label="Back to syllabi"><ChevronLeft aria-hidden="true" /></ButtonLink>
+      <ButtonLink variant="ghost" icon to="/stories/syllabi" aria-label="Back to syllabi"><ChevronLeft aria-hidden="true" /></ButtonLink>
       {renaming === null ? <h1>{s.name} <span className="meta num">{plural(s.units.length, 'unit')}</span></h1> : (
         <form className="edit-line" style={{ flex: 1 }} onSubmit={(e) => { e.preventDefault(); action.run(async () => { set(await api.renameSyllabus(s.id, renaming)); setRenaming(null) }) }}>
           <label style={{ flex: 1 }}><span className="sr">Name</span><Input autoFocus value={renaming} onChange={(e) => setRenaming(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && setRenaming(null)} /></label>
@@ -76,7 +76,7 @@ export function SyllabusPage() {
         <Button variant="ghost" icon aria-label="Rename" title="Rename" onClick={() => setRenaming(s.name)}><Pencil aria-hidden="true" /></Button>
         <Button variant="ghost" icon aria-label={`Delete ${s.name}`} title="Delete" onClick={() => {
           if (window.confirm(`Delete “${s.name}” and its ${plural(s.units.length, 'unit')}? Stories already written stay.`))
-            action.run(async () => { await api.deleteSyllabus(s.id); nav('/sources/stories/syllabi') })
+            action.run(async () => { await api.deleteSyllabus(s.id); nav('/stories/syllabi') })
         }}><Trash2 aria-hidden="true" /></Button>
       </>}
     </header>
@@ -113,7 +113,7 @@ export function SyllabusPage() {
               <span className="meta num">{plural(u.vocab, 'word')} · {plural(u.grammar, 'grammar point')}{u.lesson_title && <> · <Link to={`/lessons/${u.lesson}`}>{u.lesson_title}</Link></>}</span>
             </span>
             <span className="grow" />
-            <ButtonLink size="small" variant="ghost" to={`/sources/stories?syllabus=${s.id}&unit=${u.number}`}>Make a story</ButtonLink>
+            <ButtonLink size="small" variant="ghost" to={`/stories?syllabus=${s.id}&unit=${u.number}`}>Make a story</ButtonLink>
             <Button size="small" variant="ghost" onClick={() => setOpen(u.number)}>{s.bundled ? 'Show' : 'Edit'}</Button>
           </div>}
       </li>)}

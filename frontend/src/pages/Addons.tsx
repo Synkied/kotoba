@@ -473,7 +473,7 @@ function TranslationAddon() {
             {t.translators.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
           </Select>
         </label>
-        <span className="meta">Stories need a capable model: small local ones break the level they're asked for. <Link to="/sources/stories">Stories</Link></span>
+        <span className="meta">Stories need a capable model: small local ones break the level they're asked for. <Link to="/stories">Stories</Link></span>
       </ButtonRow>}
       {error != null && <ErrorNotice error={error} />}
       {t.ready && t.translated < t.sentences && <Install cmds={['# sentences are translated when you ask; to do all of them now:', 'make translate']} />}

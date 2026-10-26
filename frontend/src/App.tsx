@@ -1,4 +1,4 @@
-import { Inbox, Library as LibraryIcon, Layers, RotateCcw, Plus, Puzzle, ScrollText, Languages, Search as SearchIcon, NotebookPen, UserRound } from 'lucide-react'
+import { BookAudio, Inbox, Library as LibraryIcon, RotateCcw, Plus, Puzzle, ScrollText, Languages, Search as SearchIcon, NotebookPen, UserRound } from 'lucide-react'
 import { createContext, lazy, Suspense, useContext, useEffect, useState } from 'react'
 import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { api, SIGNED_OUT, type Account, type AccountState, type Stats } from './lib/api'
@@ -32,25 +32,37 @@ import AccountPage, { SignInPage } from './pages/Account'
 import { Button, EmptyState, buttonClass } from './components/ds'
 
 type Section = { to: string; name: string; ja: string; short?: string; key: string; icon: typeof Inbox; count?: (s: Stats) => number; hot?: boolean }
-const SECTIONS: Section[] = [
-  { to: '/inbox', name: 'Inbox', ja: '受信', key: 'inbox', icon: Inbox, count: (s) => s.inbox },
-  { to: '/library', name: 'Library', ja: '資料', key: 'library', icon: LibraryIcon, count: (s) => s.lessons },
-  { to: '/words', name: 'Words', ja: '単語', key: 'words', icon: Languages },
-  { to: '/decks', name: 'Decks', ja: 'デッキ', key: 'decks', icon: Layers },
-  { to: '/review', name: 'Review', ja: '復習', key: 'review', icon: RotateCcw, count: (s) => s.due, hot: true },
-  { to: '/sources', name: 'Sources', ja: '素材', key: 'sources', icon: ScrollText },
-  { to: '/notes', name: 'Notes', ja: 'ノート', key: 'notes', icon: NotebookPen },
-  { to: '/collect', name: 'Collect', ja: '収集', key: 'collect', icon: Plus },
+/** The rail's three shelves: what's waiting today, what you study, and the material it comes from. */
+const SHELVES: { name: string; sections: Section[] }[] = [
+  { name: 'Today', sections: [
+    { to: '/inbox', name: 'Inbox', ja: '受信', key: 'inbox', icon: Inbox, count: (s) => s.inbox },
+    { to: '/review', name: 'Review', ja: '復習', key: 'review', icon: RotateCcw, count: (s) => s.due, hot: true },
+  ] },
+  { name: 'Study', sections: [
+    { to: '/library', name: 'Library', ja: '資料', key: 'library', icon: LibraryIcon, count: (s) => s.lessons },
+    { to: '/words', name: 'Words', ja: '単語', key: 'words', icon: Languages },
+    { to: '/stories', name: 'Stories', ja: '物語', key: 'stories', icon: BookAudio },
+    { to: '/notes', name: 'Notes', ja: 'ノート', key: 'notes', icon: NotebookPen },
+  ] },
+  { name: 'Material', sections: [
+    { to: '/sources', name: 'Sources', ja: '素材', key: 'sources', icon: ScrollText },
+    { to: '/collect', name: 'Collect', ja: '収集', key: 'collect', icon: Plus },
+  ] },
 ]
+const SECTIONS = SHELVES.flatMap((s) => s.sections)
 const NotesPage = lazy(() => import('./pages/Notes'))
 
 const StatsCtx = createContext<{ stats: Stats | null; refresh: () => void }>({ stats: null, refresh: () => {} })
 export const useStats = () => useContext(StatsCtx)
 
-/** Recordings and the transcription queue moved into Sources: old links still land. */
+/** Recordings and the transcription queue moved into Sources, and Stories out of it: old links still land. */
 function Moved({ to }: { to: string }) {
   const loc = useLocation()
   return <Navigate to={to + loc.search} replace />
+}
+function ToStories() {
+  const loc = useLocation()
+  return <Navigate to={loc.pathname.replace(/^\/sources\/stories/, '/stories') + loc.search} replace />
 }
 function ToCleanup() {
   return <Navigate to={`/sources/${useParams().id}/cleanup`} replace />
@@ -64,7 +76,7 @@ function ToLibrary() {
 
 function sectionFor(path: string) {
   if (path.startsWith('/practice')) return 'practice'
-  if (path.startsWith('/sentences')) return 'sources'
+  if (path.startsWith('/sentences') || path.startsWith('/decks')) return 'sources'
   if (/^\/sources\/\d+\/cleanup/.test(path)) return 'recordings'
   if (path.startsWith('/lessons')) return 'library'
   if (path.startsWith('/addons') || path.startsWith('/account')) return 'collect'
@@ -100,16 +112,22 @@ function Shell({ account }: { account: Account }) {
           </NavLink>
           <GlobalSearch />
           <nav aria-label="Sections">
-            {SECTIONS.map((s) => {
-              const n = stats && s.count ? s.count(stats) : 0
-              return (
-                <Link key={s.to} to={s.to} aria-current={s.key === section ? 'page' : undefined}>
-                  <span lang="ja" aria-hidden="true">{s.ja}</span>
-                  <small>{s.name}</small>
-                  {n > 0 && <span className={'count' + (s.hot ? ' hot' : '')} aria-label={`${n} ${s.hot ? 'due' : 'waiting'}`}>{n}</span>}
-                </Link>
-              )
-            })}
+            {SHELVES.map((shelf) => (
+              <ul key={shelf.name} className="rail-shelf" aria-label={shelf.name}>
+                {shelf.sections.map((s) => {
+                  const n = stats && s.count ? s.count(stats) : 0
+                  return (
+                    <li key={s.to}>
+                      <Link to={s.to} aria-current={s.key === section ? 'page' : undefined}>
+                        <span lang="ja" aria-hidden="true">{s.ja}</span>
+                        <small>{s.name}</small>
+                        {n > 0 && <span className={'count' + (s.hot ? ' hot' : '')} aria-label={`${n} ${s.hot ? 'due' : 'waiting'}`}>{n}</span>}
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
+            ))}
           </nav>
           <div className="foot">
             <NavLink to="/addons"><Puzzle size={14} aria-hidden="true" />Add-ons</NavLink>
@@ -125,9 +143,10 @@ function Shell({ account }: { account: Account }) {
             <Route path="/sources/recordings" element={<RecordingsPage />} />
             <Route path="/sources/sentences" element={<SentencesPage />} />
             <Route path="/sources/queue" element={<TranscriptionsPage />} />
-            <Route path="/sources/stories" element={<StoriesPage />} />
-            <Route path="/sources/stories/syllabi" element={<SyllabiPage />} />
-            <Route path="/sources/stories/syllabi/:id" element={<SyllabusPage />} />
+            <Route path="/stories" element={<StoriesPage />} />
+            <Route path="/stories/syllabi" element={<SyllabiPage />} />
+            <Route path="/stories/syllabi/:id" element={<SyllabusPage />} />
+            <Route path="/sources/stories/*" element={<ToStories />} />
             <Route path="/sources/:id/cleanup" element={<CleanupPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/words" element={<WordsPage />} />

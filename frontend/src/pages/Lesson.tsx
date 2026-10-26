@@ -90,7 +90,7 @@ function LessonDetail({ id }: { id: number }) {
         </>}
         <div className="lesson-actions">
           {/* the syllabus unit studied here: a story with its words, and everything before it */}
-          {l.units.slice(0, 1).map((u) => <ButtonLink key={u.syllabus} to={`/sources/stories?syllabus=${u.syllabus}&unit=${u.number}`}
+          {l.units.slice(0, 1).map((u) => <ButtonLink key={u.syllabus} to={`/stories?syllabus=${u.syllabus}&unit=${u.number}`}
             title={`A story with ${u.syllabus_name}'s words up to unit ${u.number}`}><BookAudio aria-hidden="true" />Make a story</ButtonLink>)}
           <Button variant="ghost" icon className="card-pin" aria-pressed={l.pinned} disabled={busy} onClick={() => actions.pin(l)}
             aria-label="Pin to the top of the library" title={l.pinned ? 'Pinned to the top of the library' : 'Pin to the top of the library'}><Pin aria-hidden="true" /></Button>
