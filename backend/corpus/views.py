@@ -199,6 +199,71 @@ def line_context(request, pk):
     return Response({"lines": heard.context(_line(request, pk), request.user, radius, request.query_params.get("key") or None)})
 
 
+def _video_json(v: Video, lines: int, kept: int, source: int | None) -> dict:
+    return {"id": v.id, "yt_id": v.yt_id, "title": v.title, "uploader": v.uploader, "duration": v.duration,
+            "published": v.published, "url": v.url(), "gone": v.gone_at is not None, "lines": lines, "kept": kept, "source": source}
+
+
+@api_view(["GET"])
+def video_list(request):
+    """?channel=<id>|found&q=&offset=&limit=: the videos with Japanese subtitles you hear lines from,
+    newest first, and the channels to pick from (found: the ones Find more turned up). q finds a
+    video by its title or channel, or by something said in it: such a video comes with the first
+    line that says it and how many do."""
+    user, p = request.user, request.query_params
+    try:
+        offset, limit = max(int(p.get("offset", 0)), 0), min(max(int(p.get("limit", 30)), 1), 100)
+    except ValueError:
+        return Response({"error": "offset and limit are numbers"}, status=400)
+    followed = Channel.objects.filter(followers=user)
+    channels = followed.exclude(kind=Channel.Kind.SEARCH)
+    ok = Video.objects.filter(subs=Video.Subs.OK)
+    found = ok.filter(channels__in=followed.filter(kind=Channel.Kind.SEARCH)).exclude(channels__in=channels)
+    pick = p.get("channel", "")
+    mine = (found if pick == "found" else ok.filter(channels__in=channels.filter(pk=int(pick))) if pick.isdigit()
+            else ok.filter(channels__in=followed))
+    q = p.get("q", "").strip()
+    if q:
+        said_in = Line.objects.filter(text__icontains=q).values("video")
+        mine = mine.filter(Q(title__icontains=q) | Q(uploader__icontains=q) | Q(id__in=said_in))
+    videos = Video.objects.filter(id__in=mine.values("id")).annotate(n=Count("lines")).order_by("-published", "-id")
+    total = videos.count()
+    page = list(videos[offset:offset + limit])
+    ids = [v.id for v in page]
+    kept = dict(Line.sentences.through.objects.filter(line__video__in=ids, sentence__source__owner=user)
+                .values("line__video").annotate(n=Count("id")).values_list("line__video", "n"))
+    sources = heard.video_sources(user, ids)
+    said = {}
+    if q:
+        for ln in Line.objects.filter(video__in=ids, text__icontains=q).order_by("video", "position").only("id", "video", "text"):
+            hit = said.setdefault(ln.video_id, {"lines": 0, "line": {"id": ln.id, "text": ln.text}})
+            hit["lines"] += 1
+    by_channel = dict(Video.channels.through.objects.filter(channel__in=channels, video__subs=Video.Subs.OK)
+                      .values("channel").annotate(n=Count("video")).values_list("channel", "n"))
+    return Response({"enabled": heard.enabled(user), "total": total, "reading": _reading(),
+                     "channels": [{"id": c.id, "title": c.title or c.url, "videos": by_channel.get(c.id, 0)} for c in channels],
+                     "found": found.distinct().count(),
+                     "videos": [{**_video_json(v, v.n, kept.get(v.id, 0), sources.get(v.id)), "said": said.get(v.id)}
+                                for v in page]})
+
+
+@api_view(["GET"])
+def video(request, pk):
+    """A video and every line of it in order, with the ones you kept (as your sentences)."""
+    user = request.user
+    # a channel you stopped following still leads from the source you kept its lines in
+    v = get_object_or_404(Video.objects.filter(Q(channels__followers=user) | Q(sources__owner=user)).distinct(), pk=pk)
+    lines = list(v.lines.all())
+    kept = dict(Line.sentences.through.objects.filter(line__video=v, sentence__source__owner=user)
+                .values_list("line_id", "sentence_id"))
+    channels = v.channels.filter(followers=user).exclude(kind=Channel.Kind.SEARCH)
+    return Response({**_video_json(v, len(lines), len(kept), heard.video_sources(user, [v.id]).get(v.id)),
+                     "subs": v.subs, "here": heard.audio_path(v) is not None,
+                     "channels": [{"id": c.id, "title": c.title or c.url} for c in channels],
+                     "lines": [{"id": ln.id, "text": ln.text, "furigana": ln.furigana, "start": ln.start, "end": ln.end,
+                                "sentence": kept.get(ln.id)} for ln in lines]})
+
+
 @api_view(["GET", "POST"])
 def video_audio(request, pk):
     """The video's audio, for playing its lines from (with Range). It's fetched from YouTube the

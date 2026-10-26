@@ -12,7 +12,7 @@ import { Button, Chip, Plate } from './ds'
 const plural = (n: number, word: string) => `${n.toLocaleString()} ${word}${n === 1 ? '' : 's'}`
 const PAD = 0.3 // seconds of air either side of a line
 /** a title as a label: no emoji (🇯🇵, ⛰️), which the label's typeface doesn't draw */
-const plain = (t: string) => t.replace(/[\p{Extended_Pictographic}\p{Regional_Indicator}\u{FE0F}\u{200D}]/gu, '').replace(/\s+([|｜·])/g, ' $1').replace(/\s{2,}/g, ' ').trim()
+export const plain = (t: string) => t.replace(/[\p{Extended_Pictographic}\p{Regional_Indicator}\u{FE0F}\u{200D}]/gu, '').replace(/\s+([|｜·])/g, ' $1').replace(/\s{2,}/g, ' ').trim()
 const PAGE = 5
 
 /** Playing heard lines, one at a time. A video's audio comes from YouTube the first time one of
@@ -82,16 +82,18 @@ function KeepHeard({ l, onKept }: { l: HeardLine; onKept: (sentence: number) => 
 }
 
 /** The video a line is from, pinned under it as a kraft tag: channel · title · time, opening
- *  YouTube at that moment. */
+ *  the video with its subtitles at that line; the arrow opens YouTube at that moment. */
 function VideoTag({ l }: { l: HeardLine }) {
   const v = l.video
   return (
     <Chip className="source-tag heard-tag" data-dye="media">
-      <a href={v.url} target="_blank" rel="noreferrer" title={`Watch on YouTube from ${fmtTime(l.start)}`}>
+      <Link to={`/sources/youtube/${v.id}?at=${l.id}`} title={`Watch it with its subtitles from ${fmtTime(l.start)}`}>
         {v.uploader && <b>{v.uploader}</b>}{v.uploader && ' · '}{plain(v.title) || v.yt_id}
-      </a>
+      </Link>
       <span className="num">{fmtTime(l.start)}</span>
-      <ExternalLink aria-hidden="true" />
+      <a href={v.url} target="_blank" rel="noreferrer" className="heard-tag-out" aria-label="Watch on YouTube" title={`Watch on YouTube from ${fmtTime(l.start)}`}>
+        <ExternalLink aria-hidden="true" />
+      </a>
     </Chip>
   )
 }

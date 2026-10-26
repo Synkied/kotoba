@@ -132,11 +132,12 @@ class SourceSerializer(Owned, serializers.ModelSerializer):
     media = serializers.SerializerMethodField()
     lessons = serializers.SerializerMethodField()
     story = serializers.SerializerMethodField()
+    video = serializers.SerializerMethodField()
 
     class Meta:
         model = Source
         fields = ["id", "kind", "status", "title", "text", "category", "labels", "image", "media",
-                  "duration", "job", "job_error", "created_at", "sentences", "lessons", "story"]
+                  "duration", "job", "job_error", "created_at", "sentences", "lessons", "story", "video"]
         read_only_fields = ["kind", "image", "media", "duration", "job", "job_error", "created_at"]
 
     def get_image(self, s):
@@ -148,6 +149,10 @@ class SourceSerializer(Owned, serializers.ModelSerializer):
     def get_lessons(self, s):
         """the lessons this source is studied in, so its page can lead back to them"""
         return [{"id": l.id, "title": l.title, "done": l.done_at is not None} for l in s.lessons.all()]
+
+    def get_video(self, s):
+        """the YouTube video its lines were kept from, so its page can lead to the whole video"""
+        return next((v.id for v in s.heard_videos.all()), None)
 
     def get_story(self, s):
         if s.kind != Source.Kind.STORY:

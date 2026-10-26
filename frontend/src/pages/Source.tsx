@@ -1,4 +1,4 @@
-import { BookAudio, BookOpen, ChevronLeft, Play, Volume2, Pencil, Check, Archive, Inbox as InboxIcon, Scissors, SkipBack, SkipForward, ListEnd, ListOrdered, LoaderCircle, RotateCcw, TriangleAlert } from 'lucide-react'
+import { BookAudio, BookOpen, ChevronLeft, MonitorPlay, Play, Volume2, Pencil, Check, Archive, Inbox as InboxIcon, Scissors, SkipBack, SkipForward, ListEnd, ListOrdered, LoaderCircle, RotateCcw, TriangleAlert } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, type Sentence, type Source, type Story, type StoryOutside } from '../lib/api'
@@ -19,6 +19,7 @@ import { CopyButton } from './Library'
 import { useBackTo } from '../lib/trail'
 import { Button, ButtonLink, Chip, Input, Plate } from '../components/ds'
 import { useOnPractised, usePractise } from '../lib/practise'
+import { useStats } from '../App'
 
 export default function SourcePage() {
   const id = Number(useParams().id)
@@ -27,6 +28,7 @@ export default function SourcePage() {
 
 function SourcePageDetail({ id }: { id: number }) {
   const { data: s, error, set, reload } = useAsync(() => api.source(id), [id])
+  const stats = useStats()
   // this source's own practice, clean-up and sentence pages lead back here, so Back skips past them
   const backTo = useBackTo(`source:${id}`, (p) => p.startsWith('/practice') || p.startsWith('/sentences/') || p === `/sources/${id}/cleanup` || p === `/sources/${id}`)
   const aids = useAids()
@@ -89,6 +91,7 @@ function SourcePageDetail({ id }: { id: number }) {
         {s.status === 'kept' && <Button variant="ghost" onClick={() => status('inbox')}><InboxIcon aria-hidden="true" />Back to inbox</Button>}
         {s.status !== 'archived' && <Button variant="ghost" onClick={() => status('archived')}><Archive aria-hidden="true" />Archive</Button>}
         {(s.job === 'waiting' || s.job === 'running') && <ButtonLink to="/sources/queue"><ListOrdered aria-hidden="true" />{s.job === 'running' ? 'Transcribing… see queue' : 'In the queue'}</ButtonLink>}
+        {s.video != null && <ButtonLink to={`/sources/youtube/${s.video}`} title="The whole video, its lines following the voice"><MonitorPlay aria-hidden="true" />Watch the video</ButtonLink>}
         {s.media && (s.kind === 'audio' || s.kind === 'video') && <ButtonLink to={`/sources/${s.id}/cleanup`}><Scissors aria-hidden="true" />Clean up</ButtonLink>}
         {s.story && <ButtonLink to={`/stories?syllabus=${s.story.syllabus}&unit=${s.story.unit}`}><BookAudio aria-hidden="true" />Another story</ButtonLink>}
         {s.sentences.length > 0 && <DeckPicker sentenceIds={() => s.sentences.map((x) => x.id)} />}
@@ -144,7 +147,8 @@ function SourcePageDetail({ id }: { id: number }) {
           {s.sentences.map(x => <SentenceRow key={x.id} x={x} beyond={s.story?.outside?.filter((o) => o.sentence === x.id && x.text.slice(o.start, o.end) === o.surface)} furigana={aids.furigana} roman={aids.roman} translation={aids.translation} audio={!!s.media && x.start != null}
             current={current === x.id} past={head != null && x.end != null && timed.includes(x) && x.end <= head.t && current !== x.id}
             playing={current === x.id && !!head?.playing} follow={!!head?.playing && follow}
-            onPlay={() => play(x)} onPlayFrom={() => playFrom(x)} onSaved={(nx) => set((prev) => ({ ...prev, sentences: prev.sentences.map((y) => (y.id === nx.id ? nx : y)) }))} />)}
+            onPlay={() => play(x)} onPlayFrom={() => playFrom(x)} onSaved={(nx) => set((prev) => ({ ...prev, sentences: prev.sentences.map((y) => (y.id === nx.id ? nx : y)) }))}
+            onDeleted={() => { set((prev) => ({ ...prev, sentences: prev.sentences.filter((y) => y.id !== x.id) })); stats.refresh() }} />)}
           {!s.sentences.length && <li className="empty"><h2>No sentences yet</h2><p>{s.job ? 'They appear once the audio is transcribed.' : writing ? 'They appear once the story is written and checked.' : 'This source has no text.'}</p></li>}
         </ol>
         </div>
@@ -154,9 +158,9 @@ function SourcePageDetail({ id }: { id: number }) {
   )
 }
 
-function SentenceRow({ x, beyond, furigana, roman, translation, audio, current, past, playing, follow, onPlay, onPlayFrom, onSaved }: {
+function SentenceRow({ x, beyond, furigana, roman, translation, audio, current, past, playing, follow, onPlay, onPlayFrom, onSaved, onDeleted }: {
   x: Sentence; beyond?: StoryOutside[]; furigana: boolean; roman: boolean; translation: boolean; audio: boolean; current: boolean; past: boolean; playing: boolean; follow: boolean
-  onPlay: () => void; onPlayFrom: () => void; onSaved: (x: Sentence) => void
+  onPlay: () => void; onPlayFrom: () => void; onSaved: (x: Sentence) => void; onDeleted: () => void
 }) {
   const [editing, setEditing] = useState(false)
   const practise = usePractise()
@@ -191,7 +195,7 @@ function SentenceRow({ x, beyond, furigana, roman, translation, audio, current, 
         {roman && x.roman && <span className="roman">{x.roman.split('\t')[0]}</span>}
         {translation && <Translation s={x} onTranslated={onSaved} />}
       </SentenceText>
-      {editing && <SentenceEditor sentence={x} onSaved={onSaved} onClose={() => setEditing(false)} />}
+      {editing && <SentenceEditor sentence={x} onSaved={onSaved} onClose={() => setEditing(false)} onDeleted={onDeleted} />}
       <div className="acts">
         <ButtonLink variant="ghost" size="small" {...practise.link({ sentence: x.id })} title="Practise this sentence only"><Play aria-hidden="true" />Practise</ButtonLink>
         <ButtonLink variant="ghost" size="small" to={`/sentences/${x.id}`}>Details</ButtonLink>

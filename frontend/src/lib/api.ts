@@ -15,6 +15,8 @@ export type Source = {
   lessons: { id: number; title: string; done: boolean }[]
   /** a story's request, how writing it went and what its check found; null for any other kind */
   story: Story | null
+  /** the YouTube video its lines were kept from */
+  video: number | null
 }
 export type StoryState = 'queued' | 'writing' | 'checking' | 'voicing' | 'done' | 'failed'
 export type StoryLength = 'short' | 'medium' | 'long'
@@ -187,6 +189,22 @@ export type YouTube = {
 export type Term = {
   key: string; lemma: string; reading: string; romaji: string; entries: DictEntry[]; dictionary: DictionaryStatus['state']
   word: { id: number; sentences: number; status: WordStatus } | null
+}
+/** A YouTube video with Japanese subtitles: how many lines it has, how many you kept, and the source they went into */
+export type HeardVideoRow = {
+  id: number; yt_id: string; title: string; uploader: string; duration: number | null; published: string | null
+  url: string; gone: boolean; lines: number; kept: number; source: number | null
+  /** with a search: how many of its lines say it, and the first */
+  said?: { lines: number; line: { id: number; text: string } } | null
+}
+export type HeardVideos = {
+  enabled: boolean; total: number; reading: { busy: boolean; waiting: number; unread: number }
+  channels: { id: number; title: string; videos: number }[]; found: number; videos: HeardVideoRow[]
+}
+/** One subtitle cue of a video; sentence: the sentence of yours it became, if you kept it */
+export type VideoLine = { id: number; text: string; furigana: [string, string][]; start: number; end: number; sentence: number | null }
+export type HeardVideoDetail = Omit<HeardVideoRow, 'lines' | 'said'> & {
+  subs: SubsState; here: boolean; channels: { id: number; title: string }[]; lines: VideoLine[]
 }
 export type HeardSearch = { enabled: boolean; total: number; terms: { key: string; lemma: string; reading: string; lines: number }[]; lines: HeardLine[] }
 export type NextSentence = { sentence: Sentence; word: WordRow; sentences: number; spans: [number, number][] }
@@ -403,6 +421,8 @@ export const api = {
   heardContext: (line: number, key?: string, radius = 6) => req<{ lines: HeardLine[] }>(`youtube/lines/${line}/context` + qs({ key, radius })),
   /** fetch the video's audio from YouTube now (a few seconds the first time) */
   heardAudio: (video: number) => req<{ ready: boolean }>(`youtube/videos/${video}/audio`, json('POST', {})),
+  heardVideos: (channel = '', q = '', offset = 0, limit = 30) => req<HeardVideos>('youtube/videos' + qs({ channel: channel || undefined, q: q.trim() || undefined, offset, limit })),
+  heardVideo: (id: number) => req<HeardVideoDetail>(`youtube/videos/${id}`),
   keepLine: (line: number) => req<{ sentence: number; source: number; audio: string | null }>(`youtube/lines/${line}/keep`, json('POST', {})),
   term: (key: string) => req<Term>(`dict/${encodeURIComponent(key)}`),
   transcriptions: (signal?: AbortSignal) => req<TranscriptionQueue>('transcriptions', { signal }),

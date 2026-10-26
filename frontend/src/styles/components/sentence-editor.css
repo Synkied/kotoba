@@ -18,6 +18,8 @@
 /* a reading you set yourself: the kanji underlined in the accent, like a correction in the margin */
 .reading-fields label[data-own] > span { text-decoration: underline 2px var(--accent-ink); text-underline-offset: 4px; }
 .sentence-editor-actions { padding-top: var(--s-2); }
+/* deleting is the way out of the sheet that doesn't come back: set apart at the far end */
+.sentence-editor-actions .sentence-editor-delete { margin-left: auto; }
 @media (max-width: 480px) {
   .sentence-editor { width: 100vw; max-width: 100vw; max-height: 100dvh; height: 100dvh; border: 0; }
   .sentence-editor form { padding: var(--s-4); }

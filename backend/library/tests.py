@@ -80,6 +80,22 @@ class SentenceDetailTests(SignedIn):
         self.assertEqual(response.json()['furigana'], pairs)
         self.assertEqual(response.json()['translations'], {'en': 'Then three of us went home.'})
 
+    def test_delete_takes_its_tries_and_deck_places_but_not_the_source(self):
+        from django.contrib.auth import get_user_model
+        from .models import Deck, DeckItem
+        Attempt.objects.create(sentence=self.sentence, overall=40, accuracy=40, clarity=40, fluency=40)
+        deck = Deck.objects.create(owner=self.user, name='Lesson 18')
+        DeckItem.objects.create(deck=deck, sentence=self.sentence)
+        other = get_user_model().objects.create_user('someone', password='another-long-password')
+        theirs = Sentence.objects.create(source=Source.objects.create(owner=other, kind='text', text='はい。'), text='はい。')
+        self.assertEqual(self.client.delete(f'/api/sentences/{theirs.id}').status_code, 404)
+        self.assertEqual(self.client.delete(self.url).status_code, 204)
+        self.assertFalse(Sentence.objects.filter(id=self.sentence.id).exists())
+        self.assertFalse(Attempt.objects.exists())
+        self.assertFalse(DeckItem.objects.exists())
+        self.assertTrue(Source.objects.filter(id=self.source.id).exists())
+        self.assertTrue(Sentence.objects.filter(id=theirs.id).exists())
+
 
 @override_settings(MEDIA_ROOT=tempfile.mkdtemp())
 class KeptTakeTests(SignedIn):

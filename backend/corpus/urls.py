@@ -12,6 +12,8 @@ urlpatterns = [
     path("youtube/find", views.find),
     path("youtube/search", views.search),
     path("youtube/lines/<int:pk>/context", views.line_context),
+    path("youtube/videos", views.video_list),
+    path("youtube/videos/<int:pk>", views.video),
     path("youtube/videos/<int:pk>/audio", views.video_audio),
     path("youtube/lines/<int:pk>/keep", views.line_keep),
     path("dict/<path:key>", views.term),

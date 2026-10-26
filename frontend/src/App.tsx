@@ -16,6 +16,7 @@ import ReviewPage from './pages/Review'
 import CollectPage from './pages/Collect'
 import AddonsPage from './pages/Addons'
 import RecordingsPage from './pages/Recordings'
+import YouTubePage, { VideoPage } from './pages/YouTube'
 import CleanupPage from './pages/Cleanup'
 import LibraryPage from './pages/Lessons'
 import LessonPage from './pages/Lesson'
@@ -142,6 +143,8 @@ function Shell({ account }: { account: Account }) {
             <Route path="/inbox" element={<InboxPage />} />
             <Route path="/sources" element={<SourcesPage />} />
             <Route path="/sources/recordings" element={<RecordingsPage />} />
+            <Route path="/sources/youtube" element={<YouTubePage />} />
+            <Route path="/sources/youtube/:id" element={<VideoPage />} />
             <Route path="/sources/sentences" element={<SentencesPage />} />
             <Route path="/sources/queue" element={<TranscriptionsPage />} />
             <Route path="/stories" element={<StoriesPage />} />

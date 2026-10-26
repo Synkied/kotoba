@@ -1,5 +1,5 @@
 import { ChevronLeft, Pencil } from 'lucide-react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useState } from 'react'
 import { api, type Sentence, type SentenceWords } from '../lib/api'
 import { SentenceText } from '../components/SentenceText'
@@ -14,6 +14,7 @@ import { Button, ButtonLink, ButtonRow } from '../components/ds'
 import { useIndexWait } from '../lib/wordIndex'
 import { useBackTo } from '../lib/trail'
 import { usePractise } from '../lib/practise'
+import { useStats } from '../App'
 
 export default function SentencePage() {
   const id = Number(useParams().id)
@@ -31,6 +32,8 @@ function Detail({ id }: { id: number }) {
   const toast = useToast()
   const backTo = useBackTo(`sentence:${id}`, (p) => p.startsWith('/practice'))
   const practise = usePractise()
+  const nav = useNavigate()
+  const stats = useStats()
   if (detail.error) return <ErrorNotice error={detail.error} action={<Link to="/sources">Open Sources</Link>} />
   if (!detail.data || detail.loading) return <Skeleton rows={3} />
   const { sentence: s, source } = detail.data
@@ -51,7 +54,8 @@ function Detail({ id }: { id: number }) {
       <Button onClick={() => setEditing(true)}><Pencil aria-hidden="true" />Edit</Button>
       <DeckPicker sentenceIds={() => [s.id]} onDone={detail.reload} />
       </div>
-      {editing && <SentenceEditor sentence={s} onSaved={updated => detail.set({ source, sentence: updated })} onClose={() => setEditing(false)} />}
+      {editing && <SentenceEditor sentence={s} onSaved={updated => detail.set({ source, sentence: updated })} onClose={() => setEditing(false)}
+        onDeleted={() => { stats.refresh(); nav(backTo ?? `/sources/${source.id}`, { replace: true }) }} />}
       </section>
       {source.media ? <SentenceAudio sentence={s} source={source} /> : <p className="meta">This sentence has no source audio.</p>}
       {s.image && <img className="sentence-image" src={s.image} alt="Original source capture" />}

@@ -83,7 +83,7 @@ class SourceViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        qs = Source.objects.of(user).prefetch_related("sentences__attempts", "sentences__decks", "lessons")
+        qs = Source.objects.of(user).prefetch_related("sentences__attempts", "sentences__decks", "lessons", "heard_videos")
         p = self.request.query_params
         if p.get("status"):
             qs = qs.filter(status=p["status"])

@@ -169,6 +169,35 @@ class HeardCase(SignedIn):
         self.assertEqual(Sentence.objects.get().text, "猫が好きです。")
         self.assertEqual(Line.objects.filter(video__yt_id="bbbbbbbbbbb").count(), 0)
 
+    def test_videos_list_newest_first_and_a_video_has_every_line_and_what_you_kept(self):
+        self.v1.published = timezone.localdate()
+        self.v1.save()
+        Video.objects.create(yt_id="ccccccccccc", subs="none").channels.add(self.channel)  # no subtitles: not listed
+        with patch.object(heard, "give_source_audio"):
+            sentence = heard.keep(self.v1.lines.get(position=1), self.user)
+        r = self.client.get("/api/youtube/videos").json()
+        self.assertEqual([(v["yt_id"], v["lines"], v["kept"]) for v in r["videos"]], [("aaaaaaaaaaa", 3, 1), ("bbbbbbbbbbb", 2, 0)])
+        self.assertEqual((r["total"], r["channels"], r["videos"][0]["source"]), (2, [{"id": self.channel.id, "title": "A", "videos": 2}], sentence.source_id))
+        self.assertEqual(self.client.get("/api/youtube/videos", {"channel": "found"}).json()["total"], 0)
+        self.assertEqual(self.client.get("/api/youtube/videos", {"limit": 1, "offset": 1}).json()["videos"][0]["yt_id"], "bbbbbbbbbbb")
+        # a search finds a video by what's said in it (with the first line saying it), or by its title
+        r = self.client.get("/api/youtube/videos", {"q": "図書館"}).json()
+        self.assertEqual([(v["yt_id"], v["said"]) for v in r["videos"]],
+                         [("aaaaaaaaaaa", {"lines": 1, "line": {"id": self.v1.lines.get(position=2).id, "text": "図書館で本を読む。"}})])
+        r = self.client.get("/api/youtube/videos", {"q": "猫"}).json()
+        self.assertEqual([(v["yt_id"], v["said"]["lines"]) for v in r["videos"]], [("aaaaaaaaaaa", 2), ("bbbbbbbbbbb", 1)])
+        r = self.client.get("/api/youtube/videos", {"q": "video b"}).json()
+        self.assertEqual([(v["yt_id"], v["said"]) for v in r["videos"]], [("bbbbbbbbbbb", None)])
+        r = self.client.get(f"/api/youtube/videos/{self.v1.id}").json()
+        self.assertEqual([(l["text"], l["start"], l["sentence"]) for l in r["lines"]],
+                         [("猫が好きです。", 0.0, None), ("犬も猫も本を読む。", 3.0, sentence.id), ("図書館で本を読む。", 6.0, None)])
+        self.assertEqual((r["source"], r["channels"], r["here"]), (sentence.source_id, [{"id": self.channel.id, "title": "A"}], False))
+        self.assertEqual(self.client.get(f"/api/sources/{sentence.source_id}").json()["video"], self.v1.id)
+        # after unfollowing, the video you kept lines from still opens; the other one doesn't
+        self.channel.followers.remove(self.user)
+        self.assertEqual(self.client.get(f"/api/youtube/videos/{self.v1.id}").status_code, 200)
+        self.assertEqual(self.client.get(f"/api/youtube/videos/{self.v2.id}").status_code, 404)
+
     def test_a_word_page_for_a_word_not_yet_met(self):
         r = self.client.get("/api/dict/j:1").json()
         self.assertEqual((r["lemma"], r["reading"], r["word"]), ("図書館", "としょかん", None))

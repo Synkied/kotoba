@@ -1,0 +1,95 @@
+/* YouTube: the subtitled videos of the channels you follow, and one video watched with its lines
+   beside it (the listening panel's player and transcript, from lesson.css). */
+
+/* the list: channel filters on the left, grid or list on the right */
+.video-tools { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--s-2) var(--s-4); margin-bottom: var(--s-5); }
+.video-channels { display: flex; flex-wrap: wrap; flex: 1; gap: var(--s-1) var(--s-2); min-width: 0; }
+.video-channels .chip .num { margin-left: 2px; opacity: .7; }
+.video-view { margin-left: auto; flex: none; }
+.video-list { list-style: none; margin: 0; padding: 0; }
+.video-row { position: relative; min-width: 0; }
+.video-thumb { position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: var(--wash); outline: var(--frame) solid var(--rule); outline-offset: -1px; }
+.video-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; transition: scale var(--t-state) var(--ease); }
+.video-thumb .num { position: absolute; right: 6px; bottom: 6px; padding: 0 5px; font-size: var(--t-tag); font-weight: 700; line-height: 18px; background: var(--ink); color: var(--on-ink); }
+.video-main { display: grid; gap: var(--s-1); min-width: 0; align-content: start; }
+.video-name { font-weight: var(--w-medium); line-height: 1.5; text-decoration: none; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.video-main .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--s-3); }
+.video-row:hover .video-name { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.video-row:hover .video-thumb img { scale: 1.03; }
+/* found by something said in it: the line that says it, the words marked like a looked-up word */
+.video-said { display: grid; gap: 2px; margin-top: var(--s-1); padding: var(--s-1) var(--s-2); background: var(--wash); border-left: var(--frame) solid var(--rule-strong); color: var(--ink); text-decoration: none; }
+.video-said > [lang] { line-height: 1.6; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.video-said mark { background: var(--kraft); color: var(--kraft-ink); padding: 0 1px; }
+.video-said:hover { border-left-color: var(--ink); }
+.video-more { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-5) 0; }
+
+/* grid: the picture first, large, like a shelf of tapes */
+.video-list[data-view='grid'] { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: var(--s-6) var(--gutter); }
+.video-list[data-view='grid'] .video-row { display: flex; flex-direction: column; gap: var(--s-3); }
+/* list: one video a row, a small picture beside the title, for running down many */
+.video-list[data-view='list'] { border-top: var(--frame-head) solid var(--ink); }
+.video-list[data-view='list'] .video-row { display: grid; grid-template-columns: 10rem minmax(0, 1fr); gap: var(--s-4); align-items: start; padding: var(--s-3) 0; border-bottom: 1px solid var(--rule); }
+.video-list[data-view='list'] .video-thumb .num { right: 4px; bottom: 4px; padding: 0 4px; line-height: 16px; }
+
+/* one video: the player on the left, its lines on the right */
+.video-head .video-title { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.video-head h1 { display: block; font-size: var(--t-l); line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.video-head .meta { margin: 0; }
+.video-desk { display: grid; grid-template-columns: minmax(0, 2fr) minmax(22rem, 1fr); gap: var(--gutter); align-items: start; }
+.video-player { position: sticky; top: var(--s-3); }
+.video-player .listen-deck { border-bottom: 0; }
+.video-frame { aspect-ratio: 16 / 9; background: #000; border-bottom: var(--frame) solid var(--rule-strong); }
+.video-frame iframe { display: block; width: 100%; height: 100%; border: 0; }
+.video-audio { display: flex; align-items: center; gap: var(--s-2); min-height: 44px; padding: var(--s-2) var(--s-3); color: var(--ink-2); border-bottom: var(--frame) solid var(--rule-strong); }
+.video-audio > svg { width: 16px; height: 16px; flex: none; }
+.video-audio span { display: inline-flex; align-items: center; gap: var(--s-2); }
+.video-audio .loading-spinner { width: 14px; height: 14px; }
+/* the line being said, as subtitles under the picture: the current row's wash, set large and centred */
+.video-caption {
+  display: grid; place-items: center; min-height: calc(2 * 1.8em + 2 * var(--s-3)); padding: var(--s-3) var(--s-5);
+  font-size: var(--t-read); font-weight: var(--w-medium); line-height: 1.8; text-align: center; text-wrap: balance; overflow-wrap: anywhere;
+  background: var(--wash); border-bottom: var(--frame) solid var(--rule-strong);
+}
+.video-caption .meta { font-size: var(--t-s); font-weight: 400; }
+.video-mode span { height: var(--control-h-s); }
+.video-script { position: sticky; top: var(--s-3); height: min(52rem, calc(100dvh - 2 * var(--s-3))); }
+.video-script .listen-script { min-height: 0; }
+/* keeping a line: the row's quiet action (the quote button's look), and a tick once kept */
+.video-keep:disabled { opacity: .5; cursor: default; }
+.video-kept { display: grid; place-items: center; width: 32px; height: 28px; margin: -4px 0; align-self: center; color: var(--ink-2); }
+.video-kept svg { width: 16px; height: 16px; }
+.video-kept:hover { color: var(--ink); }
+
+/* a desktop screen: the whole video page in one viewport, like the lesson desk. The head shrinks
+   to a line, the picture takes the width it can, the caption takes what height is left, and only
+   the lines scroll. */
+@media (min-width: 961px) and (min-height: 560px) {
+  .page:has(.video-desk) { height: 100dvh; display: flex; flex-direction: column; padding-top: var(--s-4); padding-bottom: var(--s-4); }
+  .video-page { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .video-head { flex: none; align-items: center; padding-bottom: var(--s-3); margin-bottom: var(--s-3); }
+  .video-desk { flex: 1; min-height: 0; align-items: stretch; }
+  .video-player, .video-script { position: static; height: auto; min-height: 0; }
+  .video-player .video-frame { flex: 0 1 auto; min-height: 12rem; }
+  .video-player .video-caption { flex: 1 0 auto; font-size: var(--t-l); }
+  .video-player .listen-deck { flex: none; }
+  .video-script .listen-script { flex: 1; }
+}
+
+@media (max-width: 960px) {
+  .video-desk { grid-template-columns: minmax(0, 1fr); }
+  .video-player, .video-script { position: static; }
+  .video-script { height: 60dvh; }
+}
+@media (max-width: 760px) {
+  .video-tools { margin-bottom: var(--s-4); }
+  .video-list[data-view='list'] .video-row { grid-template-columns: 7rem minmax(0, 1fr); gap: var(--s-3); }
+  .video-head h1 { font-size: var(--t-m); white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .video-thumb img { transition: none; }
+  .video-row:hover .video-thumb img { scale: none; }
+}
+@media (pointer: coarse) {
+  .video-mode span { min-height: 44px; }
+  .video-kept { width: 44px; height: 44px; }
+}

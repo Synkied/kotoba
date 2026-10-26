@@ -33,6 +33,8 @@
 .heard-tag a { max-width: 34em; flex: 0 1 auto; white-space: nowrap; }
 .heard-tag b { font-weight: 700; }
 .heard-tag svg { width: 12px; height: 12px; flex: none; align-self: center; opacity: .7; }
+.heard-tag .heard-tag-out { display: inline-flex; flex: none; color: inherit; }
+.heard-tag .heard-tag-out:hover svg { opacity: 1; }
 
 /* fetching the video's audio: the speaker breathes until it plays */
 .heard-row .btn[aria-busy='true'] svg { animation: heard-fetch 1.1s var(--ease) infinite alternate; }

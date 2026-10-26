@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { RotateCcw } from 'lucide-react'
+import { RotateCcw, Trash2 } from 'lucide-react'
 import { api, type Sentence } from '../lib/api'
 import { Furigana } from './Furigana'
 import { useLanguage } from './ReadingAids'
@@ -18,8 +18,9 @@ const keys = (pairs: Pairs) => {
 }
 
 /** Fix a sentence in one place: its text, the furigana over its kanji and its translation.
- *  The readings follow the text as you type; the ones you change are kept and marked. */
-export function SentenceEditor({ sentence: s, onSaved, onClose }: { sentence: Sentence; onSaved: (s: Sentence) => void; onClose: () => void }) {
+ *  The readings follow the text as you type; the ones you change are kept and marked.
+ *  With onDeleted, a sentence that shouldn't be there at all (an OCR misread, a stray line) can go. */
+export function SentenceEditor({ sentence: s, onSaved, onClose, onDeleted }: { sentence: Sentence; onSaved: (s: Sentence) => void; onClose: () => void; onDeleted?: () => void }) {
   const lang = useLanguage()
   const toast = useToast()
   const action = useAction()
@@ -74,6 +75,17 @@ export function SentenceEditor({ sentence: s, onSaved, onClose }: { sentence: Se
     toast({ text: 'Sentence saved' })
     onClose()
   })
+  const remove = () => {
+    const tries = s.stamps.length, decks = s.decks.length
+    const goes = [tries && `its ${tries === 1 ? 'try' : `${tries} tries`}`, decks && `its place in ${decks === 1 ? 'a deck' : `${decks} decks`}`].filter(Boolean).join(' and ')
+    if (!window.confirm(`Delete this sentence${goes ? ` with ${goes}` : ''}? Its source stays. This can’t be undone.`)) return
+    void action.run(async () => {
+      await api.deleteSentence(s.id)
+      toast({ text: 'Sentence deleted' })
+      onClose()
+      onDeleted!()
+    })
+  }
 
   return createPortal(
     <dialog ref={dialog} className="sentence-editor" aria-labelledby="sentence-editor-title"
@@ -118,6 +130,7 @@ export function SentenceEditor({ sentence: s, onSaved, onClose }: { sentence: Se
         <ButtonRow className="sentence-editor-actions">
           <Button variant="primary" disabled={action.busy || !ready || !trimmed || !dirty} aria-busy={action.busy}>{action.busy ? 'Saving…' : 'Save'} <Kbd>{mac ? '⌘↵' : 'ctrl ↵'}</Kbd></Button>
           <Button type="button" variant="ghost" disabled={action.busy} onClick={close}>Cancel <Kbd>esc</Kbd></Button>
+          {onDeleted && <Button type="button" variant="ghost" className="sentence-editor-delete" disabled={action.busy} onClick={remove}><Trash2 aria-hidden="true" />Delete sentence</Button>}
         </ButtonRow>
       </form>
     </dialog>,
