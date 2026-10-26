@@ -21,6 +21,8 @@
 .listen-pick .select { width: 100%; font-weight: 700; }
 .listen-head .meta { white-space: nowrap; }
 .listen-source { margin-left: auto; flex: none; }
+.listen-practise { flex: none; }
+.listen-source + .listen-practise { margin-left: calc(-1 * var(--s-1)); }
 .listen-video { display: block; width: 100%; max-height: 12rem; background: #000; border-bottom: var(--frame) solid var(--rule-strong); }
 .listen-deck { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-1); padding: var(--s-2) var(--s-3) var(--s-1); border-bottom: var(--frame) solid var(--rule-strong); }
 /* the rail: the recording's lines laid end to end, so you see where you are in the dialogue */

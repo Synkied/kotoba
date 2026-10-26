@@ -7,6 +7,7 @@ import { ReadingAids, Translation, useAids } from './ReadingAids'
 import { ErrorNotice, shortcutBlocked, useAction, useAsync, usePref } from './ui'
 import { Button, ButtonLink, Select } from './ds'
 import { KindTile } from './Kind'
+import { usePractise } from '../lib/practise'
 
 /** Something to listen to: a recording kept with the lesson (its transcript is the source
  *  made from it, once transcribed) or a linked source that has audio of its own. */
@@ -45,6 +46,9 @@ export function Listen({ l, tracks, onChange, controlRef, onQuote }: {
   const i = Math.max(0, tracks.findIndex(t => t.key === key))
   const track = tracks[i]
   const player = useRef<ListenControl | null>(null)
+  const practise = usePractise()
+  // a linked source says how many lines it has; a recording's transcript is practisable once it's done
+  const lines = l.sources.find(s => s.id === track.source)?.sentences
   // a time in another recording: switch to it, then play from there once it has loaded
   const startAt = useRef<number | null>(null)
   useEffect(() => {
@@ -79,6 +83,8 @@ export function Listen({ l, tracks, onChange, controlRef, onQuote }: {
         </> : <h2 className="listen-name" lang="ja">{track.name}</h2>}
         {track.source != null && <ButtonLink variant="ghost" size="small" className="listen-source" to={`/sources/${track.source}`} title="Open this recording’s source, its transcript and sentences">
           <FileText aria-hidden="true" />Source</ButtonLink>}
+        {track.source != null && !pending(track.job) && lines !== 0 && <ButtonLink variant="ghost" size="small" className="listen-practise"
+          {...practise.link({ source: track.source })} title="Practise this recording’s lines beside the worksheet"><Play aria-hidden="true" />Practise</ButtonLink>}
       </div>
       <Player key={track.key} l={l} track={track} onChange={onChange} controlRef={player} startAtRef={startAt} onQuote={onQuote}
         onNextTrack={i + 1 < tracks.length ? () => setKey(tracks[i + 1].key) : undefined} />
