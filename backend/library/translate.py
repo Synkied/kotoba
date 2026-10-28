@@ -336,6 +336,12 @@ def _prompt(text: str, before: list[str], after: list[str], lang: str) -> tuple[
 
 def _ask(cfg: dict, system: str, user: str, max_tokens: int = 2000, effort: str = "low", temperature: float = 0.2,
          timeout: float = TIMEOUT) -> str:
+    return _converse(cfg, system, [{"role": "user", "content": user}], max_tokens, effort, temperature, timeout)
+
+
+def _converse(cfg: dict, system: str, messages: list[dict], max_tokens: int = 2000, effort: str = "low",
+              temperature: float = 0.2, timeout: float = TIMEOUT) -> str:
+    """One reply to a conversation of {"role": "user" | "assistant", "content": str} turns."""
     if cfg["kind"] == "anthropic":
         try:
             import anthropic
@@ -345,7 +351,7 @@ def _ask(cfg: dict, system: str, user: str, max_tokens: int = 2000, effort: str 
         try:
             response = client.beta.messages.create(
                 model=_model(cfg), max_tokens=max_tokens, system=system,
-                messages=[{"role": "user", "content": user}],
+                messages=messages,
                 output_config={"effort": effort},
                 betas=["server-side-fallback-2026-07-01"], fallbacks="default",
             )
@@ -360,11 +366,11 @@ def _ask(cfg: dict, system: str, user: str, max_tokens: int = 2000, effort: str 
         except anthropic.APIConnectionError as e:
             raise TranslateError("Couldn't reach Claude. Check the network connection.") from e
         if response.stop_reason == "refusal":
-            raise TranslateError("Claude declined to translate this sentence.")
+            raise TranslateError("Claude declined to answer this.")
         return "".join(b.text for b in response.content if b.type == "text")
     body = {
         "model": _model(cfg), "temperature": temperature, "stream": False,
-        "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+        "messages": [{"role": "system", "content": system}, *messages],
     }
     # a thinking model would reason for hundreds of tokens before each one-line translation:
     # ask local servers not to (Ollama reads reasoning_effort, llama-server the template kwarg)

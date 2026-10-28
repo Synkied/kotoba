@@ -1,4 +1,4 @@
-import { BookAudio, Inbox, Library as LibraryIcon, RotateCcw, Plus, Puzzle, ScrollText, Languages, Search as SearchIcon, NotebookPen, UserRound } from 'lucide-react'
+import { BookAudio, Inbox, MessagesSquare, Library as LibraryIcon, RotateCcw, Plus, Puzzle, ScrollText, Languages, Search as SearchIcon, NotebookPen, UserRound } from 'lucide-react'
 import { createContext, lazy, Suspense, useContext, useEffect, useState } from 'react'
 import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { api, SIGNED_OUT, type Account, type AccountState, type Stats } from './lib/api'
@@ -23,6 +23,7 @@ import LessonPage from './pages/Lesson'
 import TranscriptionsPage from './pages/Transcriptions'
 import SentencesPage from './pages/Sentences'
 import StoriesPage from './pages/Stories'
+import ChatPage from './pages/Chat'
 import SyllabiPage, { SyllabusPage } from './pages/Syllabi'
 import WordsPage, { NextSentencesPage } from './pages/Words'
 import WordPage from './pages/Word'
@@ -44,6 +45,7 @@ const SHELVES: { name: string; sections: Section[] }[] = [
     { to: '/words', name: 'Words', ja: '単語', key: 'words', icon: Languages },
     { to: '/stories', name: 'Stories', ja: '物語', key: 'stories', icon: BookAudio },
     { to: '/notes', name: 'Notes', ja: 'ノート', key: 'notes', icon: NotebookPen },
+    { to: '/chat', name: 'Chat', ja: '会話', key: 'chat', icon: MessagesSquare },
   ] },
   { name: 'Material', sections: [
     { to: '/sources', name: 'Sources', ja: '素材', key: 'sources', icon: ScrollText },
@@ -148,6 +150,7 @@ function Shell({ account }: { account: Account }) {
             <Route path="/sources/sentences" element={<SentencesPage />} />
             <Route path="/sources/queue" element={<TranscriptionsPage />} />
             <Route path="/stories" element={<StoriesPage />} />
+            <Route path="/chat" element={<ChatPage />} />
             <Route path="/stories/syllabi" element={<SyllabiPage />} />
             <Route path="/stories/syllabi/:id" element={<SyllabusPage />} />
             <Route path="/sources/stories/*" element={<ToStories />} />

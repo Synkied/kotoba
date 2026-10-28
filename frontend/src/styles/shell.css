@@ -95,7 +95,7 @@
   .page-head > form > label { flex: 1; min-width: 0; }
   .page-head > form .input { max-width: 100%; }
   .tabbar {
-    position: fixed; inset: auto 0 0; z-index: 30; display: grid; grid-template-columns: repeat(9, minmax(48px, 1fr)); overflow-x: auto;
+    position: fixed; inset: auto 0 0; z-index: 30; display: grid; grid-template-columns: repeat(10, minmax(48px, 1fr)); overflow-x: auto;
     background: var(--rail); border-top: var(--frame) solid var(--rule); padding-bottom: env(safe-area-inset-bottom);
   }
   .tabbar a {

@@ -122,6 +122,11 @@ export type Word = {
 }
 /** What a selected stretch means in its sentence, from the translator in use. */
 export type Explanation = { translation: string; notes: string[]; to: string; name: string; translator: string; cloud: boolean }
+/** One turn of a chat; a reply remembers which LLM wrote it. The conversation lives in the browser:
+ *  images are data URLs, and `lost` counts those the browser had no room to keep. */
+export type ChatMessage = { role: 'user' | 'assistant'; content: string; name?: string; images?: string[]; lost?: number }
+export type ChatOptions = { llms: Translator[]; active: string | null }
+export type ChatReply = { reply: string; llm: string; name: string }
 export type Page<T> = { count: number; results: T[] }
 export type NoteSource = { id: number; title: string; kind: SourceKind }
 export type Note = { id: number; title: string; body: string; folder: number | null; lesson: number | null; lesson_title: string | null; position: number; sources: NoteSource[]; created_at: string; updated_at: string }
@@ -385,6 +390,9 @@ export const api = {
   updateTranslator: (id: string, t: TranslatorDraft, activate: boolean) => req<Translator>(`translation/translators/${id}`, json('PATCH', { ...t, activate })),
   removeTranslator: (id: string) => req<void>(`translation/translators/${id}`, { method: 'DELETE' }),
   testTranslator: (t: TranslatorDraft) => req<TranslatorCheck>('translation/translators/test', json('POST', t)),
+  chatOptions: () => req<ChatOptions>('chat'),
+  chat: (llm: string, messages: ChatMessage[], signal?: AbortSignal) =>
+    req<ChatReply>('chat', { ...json('POST', { llm, messages: messages.map(({ role, content, images }) => ({ role, content, images })) }), signal }),
   deleteSentence: (id: number) => req<void>(`sentences/${id}`, { method: 'DELETE' }),
   decks: () => req<Page<Deck>>('decks?limit=500'),
   deck: (id: number) => req<Deck>(`decks/${id}`),
