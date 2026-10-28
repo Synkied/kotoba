@@ -44,8 +44,12 @@ export function plainText(markdown: string) {
 
 /** A note's Markdown as a page: GitHub tables and checklists, @mentions as source chips,
  *  and quoted time codes that play the recording again when the page can (`onTime`). */
-export function NoteMarkdown({ body, empty, className = '', onTime }: { body: string; empty?: string; className?: string; onTime?: (track: string, t: number) => void }) {
-  const components = useMemo<Components>(() => ({ a: linkTo(onTime) }), [onTime])
+export function NoteMarkdown({ body, empty, className = '', onTime, components: more }: {
+  body: string; empty?: string; className?: string; onTime?: (track: string, t: number) => void
+  /** elements drawn the caller's way (chat sets Japanese paragraphs for lookup); keep it stable */
+  components?: Components
+}) {
+  const components = useMemo<Components>(() => ({ ...more, a: linkTo(onTime) }), [onTime, more])
   return <article className={'note-markdown ' + className}>
     <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>{body || (empty ? `*${empty}*` : '')}</ReactMarkdown>
   </article>

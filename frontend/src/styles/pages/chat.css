@@ -1,5 +1,5 @@
 /* Chat: one conversation with a saved LLM. The page takes the window: the conversation scrolls
-   in its own area, held to a reading column, and the composer stays at the foot, never moving. */
+   in its own area across the page's width, and the composer stays at the foot, never moving. */
 .page:has(.chat) { height: 100dvh; display: flex; flex-direction: column; }
 .page:has(.chat) > * { flex: none; }
 @media (min-width: 761px) { .page:has(.chat) { padding-bottom: var(--s-4); } }
@@ -8,16 +8,17 @@
 .chat-llm .select { width: auto; max-width: 18rem; }
 
 .page > .chat { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.chat-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: var(--s-4); }
-.chat-column { display: grid; gap: var(--s-4); max-width: 46rem; }
+.chat-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: var(--s-4); display: grid; align-content: start; gap: var(--s-4); }
+.chat-scroll:focus { outline: none; }
+.chat-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .chat-log {
   list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-5);
   line-break: strict; word-break: auto-phrase; overflow-wrap: anywhere;
 }
-.chat-intro { max-width: var(--measure); margin: 0; line-height: 1.7; }
+.chat-intro { max-width: var(--measure); margin: 0; line-height: 1.7; text-wrap: pretty; }
 
 /* what you wrote: on the wash, at the right, as written, its images above the words */
-.chat-you { justify-self: end; display: grid; gap: var(--s-2); max-width: min(36em, 85%); padding: var(--s-2) var(--s-4); background: var(--wash); border: var(--frame) solid var(--rule); }
+.chat-you { justify-self: end; display: grid; gap: var(--s-2); max-width: min(46rem, 85%); padding: var(--s-2) var(--s-4); background: var(--wash); border: var(--frame) solid var(--rule); }
 .chat-you p { margin: 0; white-space: pre-wrap; line-height: 1.8; }
 .chat-images { display: flex; flex-wrap: wrap; gap: var(--s-2); margin-inline: calc(-1 * var(--s-2)); padding-top: var(--s-1); }
 .chat-images img { display: block; max-width: 100%; max-height: 18rem; width: auto; height: auto; border: var(--frame) solid var(--rule-strong); background: var(--paper); }
@@ -27,25 +28,51 @@
 .chat-who { display: inline-flex; align-items: center; gap: var(--s-1); font-size: var(--t-s); }
 .chat-who svg { width: 14px; height: 14px; }
 .chat-them .note-markdown { line-height: 1.8; }
+/* the conversation takes the width, its lines don't: a reply reads at a measure */
+.chat-them .note-markdown > :is(p, ul, ol, blockquote) { max-width: 46rem; }
+/* Japanese set as a sentence (the Sentence Rule): the largest, calmest thing on the sheet */
+.chat-log .chat-ja { font-size: var(--t-read); font-weight: var(--w-medium); line-height: 1.9; max-width: var(--measure); }
+.chat-log li.chat-ja { font-size: var(--t-m); }
+.chat-log li.chat-ja > .lookup { font-size: calc(var(--t-read) / var(--t-m) * 1em); }
+/* under a reply: copy it, or keep its Japanese as sentences. Quiet until the pointer comes, except on the last */
+.chat-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-3); margin-inline-start: calc(-1 * var(--s-2)); min-height: var(--control-h-s); }
+.chat-tools > .meta { padding-inline: var(--s-2); }
+@media (hover: hover) and (pointer: fine) {
+  .chat-them:not(:nth-last-child(1 of .chat-them)) .chat-tools { opacity: 0; transition: opacity var(--t-fast) var(--ease); }
+  .chat-them:hover .chat-tools, .chat-them:focus-within .chat-tools { opacity: 1; }
+}
+.chat-stopped { justify-self: start; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); }
 
 /* the composer: add images, write, send */
 .chat-compose {
   flex: none; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: end; gap: var(--s-2);
-  max-width: 46rem; padding-top: var(--s-3); border-top: var(--frame) solid var(--rule-strong);
+  padding-top: var(--s-3); border-top: var(--frame) solid var(--rule-strong);
   transition: border-color var(--t-fast) var(--ease);
 }
 .chat-compose[data-dropping] { border-top-color: var(--ink); }
 .chat-compose[data-dropping] .textarea { border-color: var(--ink); border-style: dashed; }
 .chat-compose .textarea { min-height: var(--control-h); max-height: 12rem; field-sizing: content; resize: none; line-height: 1.5; padding-block: 6px; }
 .chat-hint { grid-column: 1 / -1; margin: 0; font-size: var(--t-s); }
-/* the images about to go: small squares in a row, each with its remove button on the corner */
-.chat-attached { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: var(--s-2); list-style: none; margin: 0; padding: 0; }
+/* the images about to go: small squares in a row, each with a small remove mark on its corner */
+.chat-attached { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: end; gap: var(--s-2) var(--s-3); padding-top: var(--s-2); }
+.chat-attached ul { display: flex; flex-wrap: wrap; gap: var(--s-3); list-style: none; margin: 0; padding: 0; }
 .chat-attached li { position: relative; width: 72px; height: 72px; }
 .chat-attached img { display: block; width: 100%; height: 100%; object-fit: cover; border: var(--frame) solid var(--rule-strong); }
-.chat-attached .btn { position: absolute; top: calc(-1 * var(--s-2)); right: calc(-1 * var(--s-2)); width: 24px; min-height: 24px; height: 24px; }
-.chat-attached .btn svg { width: 14px; height: 14px; }
-.chat-attached { padding-top: var(--s-2); }
+.chat-unattach {
+  position: absolute; top: calc(-1 * var(--s-2)); right: calc(-1 * var(--s-2)); display: grid; place-items: center;
+  width: 24px; height: 24px; padding: 0; border: 0; border-radius: 0; background: var(--ink); color: var(--on-ink); cursor: pointer;
+  transition: background-color var(--t-fast) var(--ease);
+}
+/* a finger needs more than the mark: the hit area reaches 44px */
+.chat-unattach::before { content: ''; position: absolute; inset: -10px; }
+.chat-unattach:hover { background: var(--ink-2); }
+.chat-unattach:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.chat-unattach svg { width: 14px; height: 14px; }
 @media (max-width: 760px) {
-  .chat-hint { display: none; }
+  .chat-hint:not(:has(.num)) { display: none; }
+  .chat-compose .textarea { max-height: 6rem; }
   .chat-you { max-width: 92%; }
 }
+/* toasts (Undo after New chat, Kept) rise above the composer rather than over it */
+body:has(.chat-compose) .toast { bottom: calc(var(--s-5) + 88px); }
+@media (max-width: 760px) { body:has(.chat-compose) .toast { bottom: calc(84px + 72px + env(safe-area-inset-bottom)); } }
