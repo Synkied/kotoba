@@ -1,21 +1,109 @@
-/* Chat: one conversation with a saved LLM. The page takes the window: the conversation scrolls
-   in its own area across the page's width, and the composer stays at the foot, never moving. */
+/* Chat: the history of chats beside the open one. The page takes the window: the history and the
+   conversation each scroll in their own area, and the composer stays at the foot, never moving. */
 .page:has(.chat) { height: 100dvh; display: flex; flex-direction: column; }
 .page:has(.chat) > * { flex: none; }
 @media (min-width: 761px) { .page:has(.chat) { padding-bottom: var(--s-4); } }
+.page-head .chat-title { min-width: 0; max-width: 32rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .chat-llm { display: inline-flex; align-items: center; gap: var(--s-2); min-width: 0; }
 .chat-llm .select { width: auto; max-width: 18rem; }
 
-.page > .chat { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.chat-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: var(--s-4); display: grid; align-content: start; gap: var(--s-4); }
+.page > .chat-page { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(14rem, 17rem) minmax(0, 1fr); gap: var(--s-5); }
+.chat-page[data-side='closed'] { grid-template-columns: minmax(0, 1fr); }
+.chat-page[data-side='closed'] .chat-side { display: none; }
+
+/* the history: New chat and a find field on top, then the chats grouped by when you last talked
+   (pinned first), one line each; a hairline between it and the chat */
+/* one inset for everything written in it (the find mark, group heads, names, the archive line), so they share an edge */
+.chat-side { --side-in: var(--s-2); display: flex; flex-direction: column; min-width: 0; min-height: 0; padding-right: var(--s-3); border-right: var(--frame) solid var(--rule); }
+/* minmax(0, 1fr): the column sets the width, never what is in it (a search field's default width, in Firefox) */
+.chat-side-top { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-2); padding-bottom: var(--s-2); }
+.chat-new { justify-content: flex-start; width: 100%; }
+.chat-side-back { display: none; }
+/* finding a chat: an underlined line, as the rail's search is */
+.chat-find {
+  display: flex; align-items: center; gap: var(--s-2); height: 38px; padding-inline: var(--side-in);
+  border-bottom: var(--frame) solid var(--rule-strong); color: var(--ink-3);
+  transition: border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+.chat-find:focus-within { border-bottom-color: var(--ink); color: var(--ink); }
+.chat-find svg { width: 14px; height: 14px; flex: none; }
+.chat-find input { flex: 1; width: 0; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: var(--t-s); outline: none; }
+.chat-find input::placeholder { color: var(--ink-3); opacity: 1; }
+.chat-find input::-webkit-search-cancel-button { display: none; }
+.chat-side-sub { padding-top: var(--s-2); }
+.chat-side-sub .btn { margin-inline-start: calc(-1 * var(--s-2)); }
+.chat-groups { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: var(--s-3); scrollbar-width: thin; scrollbar-color: var(--rule-strong) transparent; }
+.chat-side-empty { margin: var(--s-3) 0 0; font-size: var(--t-s); line-height: 1.6; text-wrap: pretty; }
+.chat-group h3 {
+  margin: var(--s-4) 0 var(--s-1); padding-inline: var(--side-in);
+  font-size: var(--t-s); font-weight: var(--w-medium); color: var(--ink-3);
+}
+.chat-items { list-style: none; margin: 0; padding: 0; }
+/* a row is its name across the full width; the ⋯ menu lies over its right end and the name gives way only while it shows */
+.chat-item { position: relative; display: flex; min-height: var(--control-h); transition: background-color var(--t-fast) var(--ease); }
+.chat-item:hover { background: var(--wash); }
+.chat-open {
+  flex: 1; min-width: 0; padding: 0 var(--side-in); border: 0; background: transparent; text-align: left;
+  color: var(--ink-2); font-size: var(--t-sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;
+}
+.chat-item:hover .chat-open { color: var(--ink); }
+.chat-open:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+/* the open chat: the current row, on the wash with the burgundy marker, as in the rail */
+.chat-item:has([aria-current='page']) { background: var(--wash); box-shadow: inset 3px 0 0 var(--accent); }
+.chat-open[aria-current='page'] { color: var(--ink); font-weight: 700; }
+.chat-item-menu { position: absolute; inset-block: 0; right: 2px; align-items: center; }
+/* the open menu lies over the rows under it */
+.chat-item:has(.chat-item-menu [aria-expanded='true']) { z-index: 2; }
+.chat-item:is(:hover, :focus-within, :has([aria-current='page'])) .chat-open { padding-right: calc(var(--control-h-s) + var(--s-1)); }
+/* renaming: the row becomes the field, its words where the name was */
+.chat-rename {
+  flex: 1; min-width: 0; margin: 0; padding: 0 calc(var(--side-in) - var(--frame)); border: var(--frame) solid var(--ink); border-radius: 0;
+  background: var(--page); color: var(--ink); font: inherit; font-size: var(--t-sub); outline: none;
+}
+.chat-item:has(.chat-rename) { background: transparent; box-shadow: none; }
+.chat-item:has(.chat-rename) .chat-item-menu { display: none; }
+/* a row's menu: quiet until the pointer comes, always there for a finger */
+@media (hover: hover) and (pointer: fine) {
+  .chat-item-menu { opacity: 0; transition: opacity var(--t-fast) var(--ease); }
+  .chat-item:hover .chat-item-menu, .chat-item:focus-within .chat-item-menu, .chat-item:has([aria-current='page']) .chat-item-menu { opacity: 1; }
+}
+.chat-side-foot { display: inline-flex; align-items: center; gap: var(--s-2); margin-top: var(--s-1); padding: var(--s-2) var(--side-in); border: 0; border-top: var(--frame) solid var(--rule); background: transparent; color: var(--ink-3); font-size: var(--t-s); cursor: pointer; width: 100%; transition: color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease); }
+.chat-side-foot:hover { color: var(--ink); background: var(--wash); }
+.chat-side-foot:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+.chat-side-foot svg { width: 14px; height: 14px; }
+/* with the history beside it, New chat lives at its top rather than in the page head */
+@media (min-width: 1001px) { .page:has(.chat-page[data-side='open']) .chat-new-head { display: none; } }
+
+.chat-page > .chat { min-height: 0; display: flex; flex-direction: column; }
+/* the conversation and the composer share one centred column, whatever the width */
+.chat-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--rule-strong) transparent; }
 .chat-scroll:focus { outline: none; }
+.chat-column, .chat-compose, .chat-welcome, .chat-starters { width: 100%; max-width: 48rem; margin-inline: auto; }
+.chat-column { display: grid; align-content: start; gap: var(--s-4); padding-bottom: var(--s-5); }
 .chat-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .chat-log {
   list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-5);
   line-break: strict; word-break: auto-phrase; overflow-wrap: anywhere;
 }
-.chat-intro { max-width: var(--measure); margin: 0; line-height: 1.7; text-wrap: pretty; }
+
+/* a new chat: a greeting, the composer and ways to begin, together a little above the middle */
+/* in a short window it scrolls from the top rather than spilling over the page head */
+.chat[data-empty] { justify-content: safe center; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 8vh; }
+.chat-welcome { display: grid; gap: var(--s-2); padding-bottom: var(--s-5); }
+.chat-welcome h2 { margin: 0; font-size: var(--t-l); font-weight: var(--w-medium); line-height: 1.3; letter-spacing: .02em; }
+.chat-welcome p { margin: 0; max-width: 40rem; line-height: 1.7; text-wrap: pretty; }
+/* ways to begin: a ruled two-column list of plain lines, the Japanese over what it does */
+.chat-starters { list-style: none; margin-top: var(--s-5); padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--s-5); border-top: var(--frame) solid var(--rule); }
+.chat-starters li { border-bottom: var(--frame) solid var(--rule); }
+.chat-starters button {
+  display: grid; gap: 2px; width: 100%; padding: var(--s-3) var(--s-2); border: 0; background: transparent; text-align: left; color: var(--ink); cursor: pointer;
+  transition: background-color var(--t-fast) var(--ease);
+}
+.chat-starters button:hover { background: var(--wash); }
+.chat-starters button:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+.chat-starters [lang='ja'] { font-weight: var(--w-medium); }
+.chat-starters .meta { font-size: var(--t-s); }
 
 /* what you wrote: on the wash, at the right, as written, its images above the words */
 .chat-you { justify-self: end; display: grid; gap: var(--s-2); max-width: min(46rem, 85%); padding: var(--s-2) var(--s-4); background: var(--wash); border: var(--frame) solid var(--rule); }
@@ -43,18 +131,22 @@
 }
 .chat-stopped { justify-self: start; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); }
 
-/* the composer: add images, write, send */
-.chat-compose {
-  flex: none; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: end; gap: var(--s-2);
-  padding-top: var(--s-3); border-top: var(--frame) solid var(--rule-strong);
-  transition: border-color var(--t-fast) var(--ease);
+/* the composer: one framed box holding the images waiting, the words, then add images and send along its foot */
+.chat-compose { flex: none; padding-top: var(--s-2); }
+.chat-box {
+  display: grid; background: var(--page); border: var(--frame) solid var(--rule-strong);
+  transition: border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
 }
-.chat-compose[data-dropping] { border-top-color: var(--ink); }
-.chat-compose[data-dropping] .textarea { border-color: var(--ink); border-style: dashed; }
-.chat-compose .textarea { min-height: var(--control-h); max-height: 12rem; field-sizing: content; resize: none; line-height: 1.5; padding-block: 6px; }
-.chat-hint { grid-column: 1 / -1; margin: 0; font-size: var(--t-s); }
+.chat-box:focus-within { border-color: var(--ink); box-shadow: 0 6px 20px -14px rgb(0 0 0 / .35); }
+.chat-box[data-dropping] { border-color: var(--ink); border-style: dashed; }
+.chat-box .textarea {
+  min-height: 52px; max-height: 14rem; field-sizing: content; resize: none; line-height: 1.6;
+  padding: var(--s-3) var(--s-4) var(--s-1); border: 0; background: transparent; box-shadow: none; outline: none;
+}
+.chat-box-foot { display: flex; align-items: center; gap: var(--s-2); padding: 0 var(--s-2) var(--s-2); }
+.chat-hint { flex: 1; min-width: 0; margin: 0; font-size: var(--t-s); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* the images about to go: small squares in a row, each with a small remove mark on its corner */
-.chat-attached { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: end; gap: var(--s-2) var(--s-3); padding-top: var(--s-2); }
+.chat-attached { display: flex; flex-wrap: wrap; align-items: end; gap: var(--s-2) var(--s-3); padding: var(--s-4) var(--s-4) 0; }
 .chat-attached ul { display: flex; flex-wrap: wrap; gap: var(--s-3); list-style: none; margin: 0; padding: 0; }
 .chat-attached li { position: relative; width: 72px; height: 72px; }
 .chat-attached img { display: block; width: 100%; height: 100%; object-fit: cover; border: var(--frame) solid var(--rule-strong); }
@@ -68,11 +160,34 @@
 .chat-unattach:hover { background: var(--ink-2); }
 .chat-unattach:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .chat-unattach svg { width: 14px; height: 14px; }
+/* narrower: the history and the chat take turns, History and Back to the chat between them */
+@media (max-width: 1000px) {
+  .page > .chat-page, .chat-page[data-side='closed'] { grid-template-columns: minmax(0, 1fr); }
+  .chat-page[data-phone='chat'] .chat-side, .chat-page[data-phone='list'] .chat { display: none; }
+  .chat-page[data-phone='list'] .chat-side { display: flex; padding-right: 0; border-right: 0; }
+  .chat-side-top { grid-template-columns: minmax(0, 1fr) auto; }
+  .chat-side-back { display: inline-flex; }
+  .chat-find { grid-column: 1 / -1; }
+  .page:has(.chat-page[data-phone='list']) .chat-new-head { display: none; }
+}
+@media (max-width: 760px), (pointer: coarse) {
+  .chat-item { min-height: 44px; }
+  .chat-open { padding-right: calc(var(--control-h-s) + var(--s-1)); }
+  .chat-side-foot { min-height: 44px; }
+  .chat-find { height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-item, .chat-item-menu, .chat-box, .chat-starters button, .chat-find, .chat-side-foot { transition: none; }
+}
 @media (max-width: 760px) {
-  .chat-hint:not(:has(.num)) { display: none; }
-  .chat-compose .textarea { max-height: 6rem; }
+  .chat-hint:not(:has(.num)) { visibility: hidden; }
+  .chat-box .textarea { max-height: 8rem; }
   .chat-you { max-width: 92%; }
+  .chat[data-empty] { justify-content: flex-start; padding-bottom: 0; }
+  .chat-welcome { padding-top: var(--s-5); }
+  .chat-welcome h2 { font-size: var(--t-m); }
+  .chat-starters { grid-template-columns: minmax(0, 1fr); }
 }
 /* toasts (Undo after New chat, Kept) rise above the composer rather than over it */
-body:has(.chat-compose) .toast { bottom: calc(var(--s-5) + 88px); }
+body:has(.chat-compose) .toast { bottom: calc(var(--s-5) + 120px); }
 @media (max-width: 760px) { body:has(.chat-compose) .toast { bottom: calc(84px + 72px + env(safe-area-inset-bottom)); } }

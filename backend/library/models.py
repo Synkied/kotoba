@@ -415,3 +415,26 @@ class Profile(models.Model):
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile")
     settings = models.JSONField(default=dict, blank=True)
+
+
+class Conversation(models.Model):
+    """A chat with one of the LLMs, kept to read again and carry on. Its turns are kept as the page
+    shows them: role, content, the model's name on a reply, and a turn's images as data URLs.
+    updated_at moves when a turn is added, not when the chat is renamed or archived."""
+
+    OWNER = "owner"
+    owner = owner_field()
+    objects = OwnedQuerySet.as_manager()
+
+    title = models.CharField(max_length=200, blank=True)
+    messages = models.JSONField(default=list, blank=True)
+    pinned = models.BooleanField(default=False)  # held at the top of the history
+    archived = models.BooleanField(default=False)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-pinned", "-updated_at", "-id"]
+
+    def __str__(self):
+        return self.title or "Chat"

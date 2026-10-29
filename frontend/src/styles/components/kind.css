@@ -34,6 +34,7 @@
 }
 .menu-list[data-align='end'] { right: 0; }
 .menu-list[data-align='start'] { left: 0; }
+.menu-list[data-up] { top: auto; bottom: calc(100% + var(--s-1)); }
 .menu-item {
   display: flex; align-items: center; gap: var(--s-3); min-height: var(--control-h); padding: 0 var(--s-4) 0 var(--s-3);
   background: none; border: 0; color: var(--ink); font: inherit; font-size: var(--t-sub); text-align: left; white-space: nowrap; cursor: pointer;

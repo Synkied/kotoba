@@ -6,17 +6,12 @@ import { folderOptions, folderPath } from '../lib/lessonTree'
 import { Button, Select } from '../components/ds'
 import { Menu, MenuItem, MenuRule } from '../components/Menu'
 import { MentionTextarea, NoteMarkdown, plainText } from '../components/NoteMarkdown'
-import { dayLabel, usePref } from '../components/ui'
+import { shortDay, usePref } from '../components/ui'
 
 /** read: the note as a page (a click starts writing); write: its Markdown; split: both side by side */
 type View = 'read' | 'write' | 'split'
 const VIEWS: { value: View; label: string }[] = [{ value: 'read', label: 'Read' }, { value: 'write', label: 'Write' }, { value: 'split', label: 'Split' }]
 const same = (a: Note, b: Note) => a.title === b.title && a.body === b.body
-/** Today, Yesterday, else the date without the year unless it's another year's */
-const shortDay = (iso: string) => {
-  const d = new Date(iso)
-  return dayLabel(iso).rel || d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', ...(d.getFullYear() === new Date().getFullYear() ? {} : { year: 'numeric' }) })
-}
 
 export default function NotesPage() {
   const [params, setParams] = useSearchParams()

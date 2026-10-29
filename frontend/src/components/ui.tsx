@@ -139,4 +139,9 @@ export const dayLabel = (iso: string) => {
   const date = d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
   return { date, rel: diff === 0 ? 'Today' : diff === 1 ? 'Yesterday' : '' }
 }
+/** Today, Yesterday, else the date without the year unless it's another year's */
+export const shortDay = (iso: string) => {
+  const d = new Date(iso)
+  return dayLabel(iso).rel || d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', ...(d.getFullYear() === new Date().getFullYear() ? {} : { year: 'numeric' }) })
+}
 export const clock = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })

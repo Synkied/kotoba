@@ -1,8 +1,9 @@
-import { useEffect, useId, useRef, useState, type ComponentProps, type ReactNode } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import { Button, type ButtonLook } from './ds'
 
-/** A button that opens a short list of actions under it. Arrows move through the list,
- *  Escape closes it and returns to the button, a click elsewhere closes it. */
+/** A button that opens a short list of actions under it (over it, when there is no room below in
+ *  what scrolls around it). Arrows move through the list, Escape closes it and returns to the button,
+ *  a click elsewhere closes it. */
 export function Menu({ label, children, content, align = 'end', className, ...look }: ButtonLook & {
   /** the button's accessible name, and its text unless `content` is given */
   label: string
@@ -13,10 +14,22 @@ export function Menu({ label, children, content, align = 'end', className, ...lo
   children: ReactNode
 }) {
   const [open, setOpen] = useState(false)
+  const [up, setUp] = useState(false)
   const box = useRef<HTMLDivElement>(null)
   const button = useRef<HTMLButtonElement>(null)
   const id = useId()
   const items = () => [...box.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled)') ?? []]
+  useLayoutEffect(() => {
+    if (!open) { setUp(false); return }
+    const list = box.current?.querySelector<HTMLElement>('.menu-list')
+    if (!list) return
+    let floor = window.innerHeight
+    for (let el = box.current?.parentElement; el; el = el.parentElement) {
+      if (/(auto|scroll|hidden)/.test(getComputedStyle(el).overflowY)) { floor = Math.min(floor, el.getBoundingClientRect().bottom); break }
+    }
+    const below = list.getBoundingClientRect().bottom > floor
+    if (below && box.current!.getBoundingClientRect().top - list.offsetHeight > 0) setUp(true)
+  }, [open])
   useEffect(() => {
     if (!open) return
     items()[0]?.focus()
@@ -38,7 +51,7 @@ export function Menu({ label, children, content, align = 'end', className, ...lo
         aria-label={content ? label : undefined} title={content ? label : undefined} onClick={() => setOpen(o => !o)}>
         {content ?? label}
       </Button>
-      {open && <div role="menu" id={id} aria-label={label} className="menu-list" data-align={align}
+      {open && <div role="menu" id={id} aria-label={label} className="menu-list" data-align={align} data-up={up || undefined}
         onClick={e => { if ((e.target as HTMLElement).closest('[role="menuitem"]')) setOpen(false) }}>{children}</div>}
     </div>
   )

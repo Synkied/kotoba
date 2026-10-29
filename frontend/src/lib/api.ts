@@ -122,11 +122,12 @@ export type Word = {
 }
 /** What a selected stretch means in its sentence, from the translator in use. */
 export type Explanation = { translation: string; notes: string[]; to: string; name: string; translator: string; cloud: boolean }
-/** One turn of a chat; a reply remembers which LLM wrote it. The conversation lives in the browser:
- *  images are data URLs, and `lost` counts those the browser had no room to keep. */
-export type ChatMessage = { role: 'user' | 'assistant'; content: string; name?: string; images?: string[]; lost?: number }
+/** One turn of a chat; a reply remembers which LLM wrote it. Images are data URLs. */
+export type ChatMessage = { role: 'user' | 'assistant'; content: string; name?: string; images?: string[] }
 export type ChatOptions = { llms: Translator[]; active: string | null }
-export type ChatReply = { reply: string; llm: string; name: string }
+/** A chat kept to go back to; its turns come only when it is opened. updated_at: its latest turn. */
+export type Conversation = { id: number; title: string; pinned: boolean; archived: boolean; created_at: string; updated_at: string; messages?: ChatMessage[] }
+export type ChatReply = { reply: string; llm: string; name: string; conversation?: Conversation }
 export type Page<T> = { count: number; results: T[] }
 export type NoteSource = { id: number; title: string; kind: SourceKind }
 export type Note = { id: number; title: string; body: string; folder: number | null; lesson: number | null; lesson_title: string | null; position: number; sources: NoteSource[]; created_at: string; updated_at: string }
@@ -391,8 +392,13 @@ export const api = {
   removeTranslator: (id: string) => req<void>(`translation/translators/${id}`, { method: 'DELETE' }),
   testTranslator: (t: TranslatorDraft) => req<TranslatorCheck>('translation/translators/test', json('POST', t)),
   chatOptions: () => req<ChatOptions>('chat'),
-  chat: (llm: string, messages: ChatMessage[], signal?: AbortSignal) =>
-    req<ChatReply>('chat', { ...json('POST', { llm, messages: messages.map(({ role, content, images }) => ({ role, content, images })) }), signal }),
+  chat: (llm: string, conversation: number, messages: ChatMessage[], signal?: AbortSignal) =>
+    req<ChatReply>('chat', { ...json('POST', { llm, conversation, messages }), signal }),
+  conversations: (archived = false) => req<Conversation[]>('conversations' + qs({ archived: archived ? 'true' : undefined })),
+  conversation: (id: number) => req<Conversation>(`conversations/${id}`),
+  createConversation: (messages: ChatMessage[] = []) => req<Conversation>('conversations', json('POST', { messages })),
+  updateConversation: (id: number, data: Partial<Pick<Conversation, 'title' | 'pinned' | 'archived'>>) => req<Conversation>(`conversations/${id}`, json('PATCH', data)),
+  deleteConversation: (id: number) => req<void>(`conversations/${id}`, { method: 'DELETE' }),
   deleteSentence: (id: number) => req<void>(`sentences/${id}`, { method: 'DELETE' }),
   decks: () => req<Page<Deck>>('decks?limit=500'),
   deck: (id: number) => req<Deck>(`decks/${id}`),

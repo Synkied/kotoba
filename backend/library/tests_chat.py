@@ -2,9 +2,12 @@ import threading
 from unittest.mock import patch
 from http.server import HTTPServer
 
+from django.contrib.auth import get_user_model
 from django.test import override_settings
+from django.utils import timezone
 
-from .models import Source
+from . import translate
+from .models import Conversation, Source
 from .testing import SignedIn
 from .tests_translate import FakeLLM
 
@@ -57,6 +60,75 @@ class ChatTests(SignedIn):
                          [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello"}],
                          [{"role": "user", "content": "x" * 8001}]):
             self.assertEqual(self.post({"llm": "env", "messages": messages}).status_code, 400, messages)
+
+
+class KeptChatTests(ChatTests):
+    def convo(self, **kw):
+        return Conversation.objects.create(owner=self.user, **kw)
+
+    def test_keeps_the_turns_and_the_reply(self):
+        c = self.convo()
+        with patch.object(FakeLLM, "reply", "元気だよ"):
+            r = self.post({"llm": "env", "conversation": c.pk, "messages": [{"role": "user", "content": "元気？\nまた明日"}]})
+        self.assertEqual(r.json()["conversation"]["title"], "元気？")
+        c.refresh_from_db()
+        self.assertEqual(c.messages, [{"role": "user", "content": "元気？\nまた明日"},
+                                      {"role": "assistant", "content": "元気だよ", "name": "From the environment"}])
+
+    def test_keeps_what_you_wrote_when_the_model_fails(self):
+        c = self.convo(title="Mine", archived=True)
+        with patch.object(translate, "_converse", side_effect=translate.TranslateError("down")):
+            r = self.post({"llm": "env", "conversation": c.pk, "messages": [{"role": "user", "content": "hi", "images": [PNG]}]})
+        self.assertEqual(r.status_code, 503)
+        c.refresh_from_db()
+        self.assertEqual((c.title, c.archived, c.messages), ("Mine", False, [{"role": "user", "content": "hi", "images": [PNG]}]))
+
+    def test_a_reply_to_a_chat_that_changed_meanwhile_is_not_kept(self):
+        c = self.convo()
+
+        def meanwhile(*a, **kw):
+            Conversation.objects.filter(pk=c.pk).update(messages=[{"role": "user", "content": "newer"}], updated_at=timezone.now())
+            return "late"
+        with patch.object(translate, "_converse", side_effect=meanwhile):
+            self.assertEqual(self.post({"llm": "env", "conversation": c.pk, "messages": [{"role": "user", "content": "older"}]}).status_code, 200)
+        c.refresh_from_db()
+        self.assertEqual(c.messages, [{"role": "user", "content": "newer"}])
+
+    def test_another_persons_chat_is_not_found(self):
+        other = Conversation.objects.create(owner=get_user_model().objects.create_user("other", password="a-long-test-password"))
+        self.assertEqual(self.post({"llm": "env", "conversation": other.pk, "messages": [{"role": "user", "content": "hi"}]}).status_code, 404)
+        self.assertEqual(self.client.get(f"/api/conversations/{other.pk}").status_code, 404)
+
+
+class ConversationTests(SignedIn):
+    def test_lists_rename_archive_and_delete(self):
+        r = self.client.post("/api/conversations", {"messages": [{"role": "user", "content": "", "images": [PNG]},
+                                                                 {"role": "assistant", "content": "a cat", "name": "Claude"}]},
+                             content_type="application/json")
+        self.assertEqual(r.status_code, 201)
+        cid = r.json()["id"]
+        self.assertEqual(r.json()["title"], "An image")
+        listed = self.client.get("/api/conversations").json()
+        self.assertEqual([(c["id"], "messages" in c) for c in listed], [(cid, False)])
+        self.assertEqual(len(self.client.get(f"/api/conversations/{cid}").json()["messages"]), 2)
+
+        patch_ = lambda data: self.client.patch(f"/api/conversations/{cid}", data, content_type="application/json")
+        self.assertEqual(patch_({"title": "  "}).status_code, 400)
+        other = Conversation.objects.create(owner=self.user, title="newer")
+        self.assertTrue(patch_({"pinned": True}).json()["pinned"])
+        self.assertEqual([c["id"] for c in self.client.get("/api/conversations").json()], [cid, other.pk])  # pinned first
+        other.delete()
+        self.assertEqual(patch_({"title": " 猫 ", "archived": True, "messages": []}).json()["title"], "猫")
+        self.assertEqual(len(Conversation.objects.get(pk=cid).messages), 2)  # turns are written by chatting
+        self.assertEqual(self.client.get("/api/conversations").json(), [])
+        self.assertEqual([c["id"] for c in self.client.get("/api/conversations?archived=true").json()], [cid])
+
+        self.assertEqual(self.client.delete(f"/api/conversations/{cid}").status_code, 204)
+        self.assertFalse(Conversation.objects.exists())
+
+    def test_checks_turns_brought_over(self):
+        r = self.client.post("/api/conversations", {"messages": [{"role": "system", "content": "x"}]}, content_type="application/json")
+        self.assertEqual(r.status_code, 400)
 
 
 class ChatWithoutLLMTests(SignedIn):

@@ -11,6 +11,7 @@ router.register("lessons", lessons.LessonViewSet, basename="lesson")
 router.register("materials", lessons.MaterialViewSet, basename="material")
 router.register("lesson-folders", lessons.LessonFolderViewSet, basename="lesson-folder")
 router.register("notes", notes.NoteViewSet, basename="note")
+router.register("conversations", chat.ConversationViewSet, basename="conversation")
 
 urlpatterns = [
     path("account", accounts.account),
