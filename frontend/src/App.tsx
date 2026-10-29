@@ -22,6 +22,7 @@ import LibraryPage from './pages/Lessons'
 import LessonPage from './pages/Lesson'
 import TranscriptionsPage from './pages/Transcriptions'
 import SentencesPage from './pages/Sentences'
+import TakesPage from './pages/Takes'
 import StoriesPage from './pages/Stories'
 import ChatPage from './pages/Chat'
 import SyllabiPage, { SyllabusPage } from './pages/Syllabi'
@@ -148,6 +149,7 @@ function Shell({ account }: { account: Account }) {
             <Route path="/sources/youtube" element={<YouTubePage />} />
             <Route path="/sources/youtube/:id" element={<VideoPage />} />
             <Route path="/sources/sentences" element={<SentencesPage />} />
+            <Route path="/sources/takes" element={<TakesPage />} />
             <Route path="/sources/queue" element={<TranscriptionsPage />} />
             <Route path="/stories" element={<StoriesPage />} />
             <Route path="/chat" element={<ChatPage />} />

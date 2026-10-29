@@ -133,6 +133,22 @@ class KeptTakeTests(SignedIn):
         self.assertFalse(path.exists())
 
 
+    def test_takes_lists_only_kept_ones_and_filters(self):
+        self.assertEqual(self.client.get('/api/takes').json(), {'count': 0, 'results': []})
+        self.keep()
+        other = Sentence.objects.create(source=self.sentence.source, text='四時です。')
+        Attempt.objects.create(sentence=other, overall=50, accuracy=50, clarity=50, fluency=50)  # not kept
+        r = self.client.get('/api/takes').json()
+        self.assertEqual(r['count'], 1)
+        self.assertEqual(r['results'][0]['id'], self.attempt.id)
+        self.assertEqual(r['results'][0]['sentence']['text'], '三時です。')
+        self.assertTrue(r['results'][0]['audio'].startswith('/files/takes/'))
+        self.assertEqual(self.client.get(f'/api/takes?sentences={other.id}').json()['count'], 0)
+        self.assertEqual(self.client.get(f'/api/takes?sentences={self.sentence.id},{other.id}').json()['count'], 1)
+        self.assertEqual(self.client.get('/api/takes?q=三時').json()['count'], 1)
+        self.assertEqual(self.client.get('/api/takes?q=四時').json()['count'], 0)
+
+
 class UntranslatableTests(SignedIn):
     def test_bare_numbers_translate_as_themselves(self):
         from unittest import mock

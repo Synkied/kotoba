@@ -26,7 +26,7 @@ from .models import Attempt, Deck, DeckItem, Lesson, Sentence, Source, Word, Wor
 # not in every system mime table; browsers need it to play rendered takes
 mimetypes.add_type("audio/mp4", ".m4a")
 
-from .serializers import (AttemptSerializer, DeckSerializer, SentenceSerializer, SourceSerializer,
+from .serializers import (AttemptSerializer, DeckSerializer, SentenceSerializer, SourceSerializer, StampSerializer,
                           clean_labels, MAX_LABELS)
 
 AUDIO_EXT = {".wav", ".mp3", ".m4a", ".flac", ".ogg", ".opus", ".aac"}
@@ -607,6 +607,27 @@ def attempt_audio(request, pk):
         w.writeframes(pcm)
     attempt.audio.save(f"{attempt.sentence_id}-{attempt.id}.wav", ContentFile(buf.getvalue()))
     return Response(AttemptSerializer(attempt).data)
+
+
+@api_view(["GET"])
+def takes(request):
+    """Every take you kept, newest first, with the sentence it was said for. q searches those
+    sentences as Sentences does; sentences=1,2 keeps to a practice run's."""
+    p = request.query_params
+    qs = Attempt.objects.of(request.user).exclude(audio="").select_related("sentence__source")
+    if p.get("sentences"):
+        qs = qs.filter(sentence_id__in=[int(x) for x in p["sentences"].split(",") if x.isdigit()])
+    if p.get("q", "").strip():
+        qs = qs.filter(sentence__in=_sentence_search(Sentence.objects.of(request.user), p["q"].strip(), request.user))
+    limit = min(int(p.get("limit", 100)), 500)
+    offset = int(p.get("offset", 0))
+    out = []
+    for a in qs[offset:offset + limit]:
+        s = a.sentence
+        out.append({**StampSerializer(a).data, "sentence": {
+            "id": s.id, "text": s.text, "furigana": s.furigana, "source": s.source_id,
+            "source_title": str(s.source), "start": s.start}})
+    return Response({"count": qs.count(), "results": out})
 
 
 @api_view(["GET"])

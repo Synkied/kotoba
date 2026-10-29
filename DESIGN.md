@@ -170,6 +170,7 @@ A lesson page is a desk for reading and listening at once.
 - **The side column** (sticky, ≥18rem) is the model and how you did against it: the source panel (waveform or screenshot, with its kraft kind tag) and its link, then the score slot (a fresh big stamp with Accuracy / Clarity / Fluency and Heard / Missed / Unclear, else "Last time" with a 56px stamp and earlier stamps under Before, else a one-line empty state, plus self-grading without Whisper), then the keys. The score is in the first viewport on desktop. In a narrow column the three scores stack as a tally beside the stamp.
 - **The stage** is the take: the previous sentence as one dimmed line, the big balloon, the level meter (a 3px rule filling in burgundy), Listen / Say it / Next with the silence note, then the next sentence as one dimmed line (hidden on phones, where Next is in thumb reach). Say it is the burgundy accent button. The translation folds inside the big balloon under a dashed rule; T opens it.
 - When stacked, a fresh score scrolls into view clear of the docked controls.
+- **Kept takes** (S, or the head's Kept takes button) opens a sheet under the progress rule: this run's kept takes or all of them, searchable, each with play, Go to it (jumps the run), download and let go. Sources › Kept takes is the same list as a page, with Practise these.
 
 ## Interface refinements
 

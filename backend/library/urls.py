@@ -35,6 +35,7 @@ urlpatterns = [
     path("explain", views.explain),
     path("attempts", views.attempts),
     path("attempts/<int:pk>/audio", views.attempt_audio),
+    path("takes", views.takes),
     path("review", views.review),
     path("search", views.search),
     path("words", views.word_list),

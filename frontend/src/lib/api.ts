@@ -1,5 +1,7 @@
 /** one scored try; audio is the take itself, when it was kept */
 export type Stamp = { id: number; created_at: string; overall: number; accuracy: number; clarity: number; fluency: number; model: string; audio: string | null }
+/** a take you kept, with the sentence it was said for */
+export type KeptTake = Stamp & { audio: string; sentence: { id: number; text: string; furigana: [string, string][]; source: number; source_title: string; start: number | null } }
 export type Sentence = {
   id: number; source: number; source_kind: SourceKind; source_title: string; position: number
   text: string; roman: string; furigana: [string, string][]; start: number | null; end: number | null
@@ -414,6 +416,8 @@ export const api = {
   keepTake: (attempt: number, pcm: Int16Array) =>
     req<Stamp>(`attempts/${attempt}/audio`, { method: 'PUT', body: pcm.buffer as ArrayBuffer, headers: { 'Content-Type': 'application/octet-stream' } }),
   dropTake: (attempt: number) => req<void>(`attempts/${attempt}/audio`, { method: 'DELETE' }),
+  takes: (p: { q?: string; sentences?: number[]; limit?: number; offset?: number } = {}) =>
+    req<{ count: number; results: KeptTake[] }>('takes' + qs({ ...p, sentences: p.sentences?.join(',') })),
   collectText: (text: string, title = '', labels: string[] = []) => req<Source>('collect/text', json('POST', { text, title, labels })),
   collectFile: (file: File, media?: File | null) => {
     const f = new FormData(); f.append('file', file); if (media) f.append('media', media)

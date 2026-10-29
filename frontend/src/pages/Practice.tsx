@@ -1,17 +1,18 @@
 import { AlertTriangle, ChevronLeft, Link2, ChevronRight, Mic, Square, Volume2, RotateCcw, X, AudioLines, Bot, LoaderCircle, Play, ArrowLeftRight, Bookmark, BookmarkCheck, Download } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { api, allSentences, type Score, type Sentence, type Stamp as StampT } from '../lib/api'
+import { api, allSentences, type KeptTake, type Score, type Sentence, type Stamp as StampT } from '../lib/api'
 import { PRACTISED, parseSpec, specParam, type PractiseSpec } from '../lib/practise'
 import { Recorder, playClip, playUrl, speak, stopAudio, wav } from '../lib/audio'
 import { Balloon } from '../components/Balloon'
 import { Furigana, Units } from '../components/Furigana'
 import { SourcePanel, fmtTime } from '../components/SourcePanel'
 import { Stamp, Stamps } from '../components/Stamp'
+import { ago, takeName, KeptTakeRows } from '../components/KeptTakes'
 import { ErrorNotice, Skeleton, useAsync, usePref, useToast, useVoiceLoading, shortcutBlocked } from '../components/ui'
 import { useStats } from '../App'
 import { MeaningHint, ReadingAids, useAids } from '../components/ReadingAids'
-import { Button, ButtonLink, ButtonRow, buttonClass, ChipButton, EmptyState, Kbd, Notice, Panel, Segmented, Select } from '../components/ds'
+import { Button, ButtonLink, ButtonRow, buttonClass, ChipButton, EmptyState, Input, Kbd, Notice, Panel, Segmented, Select, Sheet } from '../components/ds'
 
 /** A run's sentences and title; back is where its page's Back goes. */
 async function loadPractice(p: PractiseSpec, from?: string | null) {
@@ -138,6 +139,7 @@ export function PracticeSession({ title, back = '/sources', sentences: initial, 
   const [takes, setTakes] = useState<Record<number, Take>>({})
   const [hearing, setHearing] = useState<'take' | 'compare' | null>(null)
   const [keeping, setKeeping] = useState(false)
+  const [shelf, setShelf] = useState(false)  // the kept takes, over the run
   const hearRun = useRef(0)  // bumped to cut a take (or a compare) short
   const [model, setModel] = usePref<'native' | 'tts'>('model', 'native')
   const [voice, setVoice] = usePref<string>('voice', 'browser')
@@ -243,6 +245,12 @@ export function PracticeSession({ title, back = '/sources', sentences: initial, 
     finally { setKeeping(false) }
   }, [s, take, keeping, toast])
 
+  // a take let go from the shelf: off its sentence's history, and off the take bar if it's the last take
+  const dropped = useCallback((t: KeptTake) => {
+    setSentences((list) => list.map((x) => (x.id === t.sentence.id ? { ...x, stamps: x.stamps.map((st) => (st.id === t.id ? { ...st, audio: null } : st)) } : x)))
+    setTakes((m) => (m[t.sentence.id]?.attempt === t.id ? { ...m, [t.sentence.id]: { ...m[t.sentence.id], kept: false } } : m))
+  }, [])
+
   const startRec = useCallback(async () => {
     if (!s || starting.current || rec.current.active || scoring || saving || engine === 'loading') return
     starting.current = true; setErr(null); setUnsaved(null); hush()
@@ -321,13 +329,14 @@ export function PracticeSession({ title, back = '/sources', sentences: initial, 
     setI((x) => Math.max(0, Math.min(sentences.length, x + d)))
   }, [sentences.length, recording, scoring, saving])
 
-  // keyboard: L listen, Space record/stop, Esc discard, M my take, C compare, K keep, N/→ next, P/← previous, F furigana, R romaji, T meaning
+  // keyboard: L listen, Space record/stop, Esc discard, M my take, C compare, K keep, S kept takes, N/→ next, P/← previous, F furigana, R romaji, T meaning
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (keys && !keys(e)) return
       // Esc (discard the take, or put away an error) still works with the record button focused, which it is after a click
       const inField = e.target instanceof Element && !!e.target.closest('input, textarea, select, [role="dialog"]')
       if (e.key === 'Escape' && !e.defaultPrevented && !inField && (recording || err)) { e.preventDefault(); if (recording) discardRec(); else dismissErr(); return }
+      if (e.key === 'Escape' && !e.defaultPrevented && !inField && shelf) { e.preventDefault(); setShelf(false); return }
       if (e.key === 'Escape' && !e.defaultPrevented && !inField && onEscape) { e.preventDefault(); onEscape(); return }
       if (shortcutBlocked(e) || done || scoring || saving) return
       if (e.key === ' ') { e.preventDefault(); if (recording) stopRec(); else if (!scoring) startRec() }
@@ -335,6 +344,7 @@ export function PracticeSession({ title, back = '/sources', sentences: initial, 
       else if (e.key === 'm') hear(false)
       else if (e.key === 'c') hear(true)
       else if (e.key === 'k') toggleKeep()
+      else if (e.key === 's') setShelf((x) => !x)
       else if (e.key === 'n' || e.key === 'ArrowRight') { e.preventDefault(); go(1) }
       else if (e.key === 'p' || e.key === 'ArrowLeft') { e.preventDefault(); go(-1) }
       else if (e.key === 'f') setFurigana(!furigana)
@@ -345,7 +355,7 @@ export function PracticeSession({ title, back = '/sources', sentences: initial, 
     const on = keys ? document : window
     on.addEventListener('keydown', onKey as EventListener)
     return () => on.removeEventListener('keydown', onKey as EventListener)
-  }, [recording, scoring, startRec, stopRec, discardRec, err, dismissErr, listen, hear, toggleKeep, go, furigana, setFurigana, roman, setRoman, translation, setTranslation, meaningFor, s, done, saving, keys, onEscape])
+  }, [recording, scoring, startRec, stopRec, discardRec, err, dismissErr, listen, hear, toggleKeep, go, furigana, setFurigana, roman, setRoman, translation, setTranslation, meaningFor, s, done, saving, keys, onEscape, shelf])
   useEffect(() => () => { stopAudio(); if (rec.current.active) rec.current.stop() }, [])
 
   if (!sentences.length) {
@@ -366,6 +376,8 @@ export function PracticeSession({ title, back = '/sources', sentences: initial, 
         {!onClose && <ButtonLink variant="ghost" icon to={back} aria-label="Back"><ChevronLeft aria-hidden="true" /></ButtonLink>}
         <h1>{title} <span className="meta num">{done ? 'Finished' : `${i + 1} / ${sentences.length}`}</span></h1>
         <span className="grow" />
+        <Button variant="ghost" size="small" className="kept-toggle" onClick={() => setShelf(!shelf)} aria-expanded={shelf} aria-controls="kept-shelf"
+          aria-label="Kept takes" title="Every take you kept, to hear again (S)"><BookmarkCheck aria-hidden="true" /><span className="word">Kept takes</span></Button>
         {onAt && !done && <Button variant="ghost" size="small" onClick={copyLink} title="Copy a link that opens this practice on this sentence"><Link2 aria-hidden="true" />Copy link</Button>}
         <EngineLine engine={engine} onLoad={loadEngine} />
         {onClose && <Button variant="ghost" icon className="practice-close" onClick={onClose} aria-label="Close practice" title="Close (Esc)"><X aria-hidden="true" /></Button>}
@@ -377,6 +389,9 @@ export function PracticeSession({ title, back = '/sources', sentences: initial, 
           return <i key={x.id} className={k === i ? 'now' : r ? (r.overall < 70 ? 'weak' : 'done') : ''} />
         })}
       </div>
+
+      {shelf && <TakesShelf sentences={sentences} at={done ? null : s.id} onDropped={dropped} onClose={() => setShelf(false)}
+        onGo={(k) => { if (recording || scoring || saving) return; hush(); setPlaying(false); setPlayhead(null); setErr(null); setI(k); setShelf(false) }} />}
 
       {done ? (
         <Summary sentences={sentences} results={results} back={back}
@@ -507,7 +522,7 @@ export function PracticeSession({ title, back = '/sources', sentences: initial, 
 
 /** The keyboard, at the foot of the side column, under the source and the score. */
 function Keys({ meaning }: { meaning: boolean }) {
-  const keys: [string, string][] = [['L', 'listen'], ['Space', 'record / stop'], ['Esc', 'discard'], ['M', 'my take'], ['C', 'compare'], ['K', 'keep take'], ['N', 'next'], ['P', 'previous'],
+  const keys: [string, string][] = [['L', 'listen'], ['Space', 'record / stop'], ['Esc', 'discard'], ['M', 'my take'], ['C', 'compare'], ['K', 'keep take'], ['S', 'kept takes'], ['N', 'next'], ['P', 'previous'],
     ['F', 'furigana'], ['R', 'romaji'], ...(meaning ? [['T', 'meaning'] as [string, string]] : [])]
   return (
     <dl className="keys" aria-label="Keyboard shortcuts">
@@ -562,19 +577,6 @@ function History({ s }: { s: Sentence }) {
   )
 }
 
-function ago(at: string) {
-  const when = new Date(at)
-  const days = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(when).setHours(0, 0, 0, 0)) / 864e5)
-  return days === 0 ? 'today' : days === 1 ? 'yesterday' : days < 7 ? `${days} days ago` : when.toLocaleDateString()
-}
-
-/** A take's file name: which sentence, its first words, the score and the day. */
-function takeName(s: Sentence, overall?: number, at = new Date().toISOString()) {
-  const words = s.text.replace(/[\\/:*?"<>|\s。、.,!?！？「」]+/g, '').slice(0, 16)
-  const day = new Date(at).toLocaleDateString('sv')  // YYYY-MM-DD, in local time
-  return ['kotoba', s.id, words, overall, day].filter((x) => x !== undefined && x !== '').join('-') + '.wav'
-}
-
 /** Hand the browser a file to save. A blob URL is let go once the download has started. */
 function saveFile(url: string, name: string, blob = false) {
   const a = document.createElement('a')
@@ -611,6 +613,47 @@ function KeptTakes({ s, stamps }: { s: Sentence; stamps: StampT[] }) {
         </span>
       ))}
     </div>
+  )
+}
+
+/** The takes you kept, over the run: this run's sentences, or all of them. A take of a sentence
+ *  in the run goes to it; the page lists every one, with search. */
+function TakesShelf({ sentences, at, onGo, onDropped, onClose }: {
+  sentences: Sentence[]; at: number | null; onGo: (index: number) => void; onDropped: (t: KeptTake) => void; onClose: () => void
+}) {
+  const [scope, setScope] = useState<'run' | 'all'>('run')
+  const [q, setQ] = useState('')
+  const [furigana] = usePref('furigana', true)
+  const ids = sentences.map((x) => x.id)
+  const { data, error, loading, reload, set } = useAsync(
+    () => api.takes({ q: q.trim(), sentences: scope === 'run' ? ids : undefined, limit: 200 }), [scope, q, ids.join()])
+  const items = data?.results ?? []
+  return (
+    <Sheet id="kept-shelf" className="kept-shelf" aria-label="Kept takes">
+      <div className="kept-shelf-head">
+        <h2>Kept takes {data && <span className="meta num">{data.count}</span>}</h2>
+        <Button variant="ghost" size="small" icon className="kept-close" onClick={onClose} aria-label="Close kept takes" title="Close (Esc)"><X aria-hidden="true" /></Button>
+        <Segmented name="kept-scope" value={scope} onChange={setScope} options={[
+          { value: 'run', label: 'This run' }, { value: 'all', label: 'All' }]} />
+        <label className="grow"><span className="sr">Find a kept take</span>
+          <Input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find by sentence or reading" /></label>
+        <Link to="/sources/takes" className="meta">Open the page</Link>
+      </div>
+      {error ? <ErrorNotice error={error} action={<Button size="small" onClick={reload}>Try again</Button>} /> :
+        loading && !data ? <Skeleton rows={2} /> :
+        !items.length ? <p className="meta">{q ? 'No kept take matches.' : scope === 'run' ? 'No kept takes for these sentences yet. Press Keep (K) after a take.' : 'No kept takes yet. Press Keep (K) after a take.'}</p> : (
+          <div className="kept-shelf-list">
+            <KeptTakeRows takes={items} furigana={furigana}
+              go={(t) => {
+                const k = ids.indexOf(t.sentence.id)
+                if (k < 0) return <Link className={buttonClass({ variant: 'ghost', size: 'small' })} to={`/sentences/${t.sentence.id}`}>Details</Link>
+                return t.sentence.id === at ? <span className="meta">This one</span>
+                  : <Button variant="ghost" size="small" onClick={() => onGo(k)}>Go to it <span className="num">{k + 1}</span></Button>
+              }}
+              onDropped={(t) => { onDropped(t); set((d) => ({ count: d.count - 1, results: d.results.filter((x) => x.id !== t.id) })) }} />
+          </div>
+        )}
+    </Sheet>
   )
 }
 

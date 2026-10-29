@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { useStats } from '../App'
 
 /** The views of Sources: the sources themselves, the recordings you clean up, the YouTube videos
- *  of the channels you follow, every sentence, the decks they're gathered into, and the
+ *  of the channels you follow, every sentence, the takes you kept while practising, the decks they're gathered into, and the
  *  transcription queue (with how much is in it). */
 export function SourcesTabs() {
   const { stats } = useStats()
@@ -13,6 +13,7 @@ export function SourcesTabs() {
       <NavLink to="/sources/recordings">Recordings</NavLink>
       <NavLink to="/sources/youtube">YouTube</NavLink>
       <NavLink to="/sources/sentences">Sentences</NavLink>
+      <NavLink to="/sources/takes">Kept takes</NavLink>
       <NavLink to="/decks">Decks</NavLink>
       <NavLink to="/sources/queue">Queue{waiting > 0 && <span className="n num" aria-label={`${waiting} waiting`}>{waiting}</span>}</NavLink>
     </nav>

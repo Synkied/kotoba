@@ -117,3 +117,5 @@ body:has(.selection-dock) .toast { bottom: calc(var(--s-5) + 72px); }
 @media (prefers-reduced-motion: reduce) {
   .toolbar.selection-dock { animation: none; }
 }
+/* kept takes: play, the sentence with its source, then the tools and the take's stamp */
+.kept-rows .row .acts .stamp { margin-left: var(--s-2); }

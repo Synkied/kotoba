@@ -197,3 +197,18 @@ html:has(.practice-dialog:modal) { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .practice-dialog[open] { animation: none; }
 }
+/* the kept takes, over the run: S opens it under the session bar */
+.kept-shelf { margin-bottom: var(--s-5); gap: var(--s-3); }
+.kept-shelf-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); }
+.kept-shelf-head h2 { margin: 0; font-size: var(--t-m); }
+.kept-shelf-head .kept-close { order: 9; }
+.kept-shelf-head label.grow { min-width: 12rem; }
+.kept-shelf-head label.grow input { width: 100%; }
+.kept-shelf-list { max-height: min(24rem, 45vh); overflow-y: auto; }
+.kept-shelf .row { padding: var(--s-3) 0; }
+@media (max-width: 760px) {
+  .practice-head .kept-toggle .word { display: none; }
+  .kept-shelf-head h2 { flex: 1; }
+  .kept-shelf-head .kept-close { order: 0; }
+  .kept-shelf-head label.grow { flex-basis: 100%; }
+}
