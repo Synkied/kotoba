@@ -1,4 +1,4 @@
-import { BookAudio, BookOpen, ChevronLeft, MonitorPlay, Play, Volume2, Pencil, Check, Archive, Inbox as InboxIcon, Scissors, SkipBack, SkipForward, ListEnd, ListOrdered, LoaderCircle, RotateCcw, TriangleAlert } from 'lucide-react'
+import { BookAudio, BookOpen, ChevronLeft, Ellipsis, Info, Mic, MonitorPlay, Play, Volume2, Pencil, Check, Archive, Inbox as InboxIcon, Scissors, SkipBack, SkipForward, ListEnd, ListOrdered, LoaderCircle, RotateCcw, TriangleAlert } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, type Sentence, type Source, type Story, type StoryOutside } from '../lib/api'
@@ -10,7 +10,9 @@ import { SentenceText } from '../components/SentenceText'
 import { Furigana } from '../components/Furigana'
 import { SentenceEditor } from '../components/SentenceEditor'
 import { MAX_LABELS, parseLabels } from '../lib/labels'
-import { SourcePanel, fmtTime } from '../components/SourcePanel'
+import { KIND_ICON, SourcePanel, fmtTime } from '../components/SourcePanel'
+import { KindTile } from '../components/Kind'
+import { Menu, MenuItem } from '../components/Menu'
 import { Stamps } from '../components/Stamp'
 import { DeckPicker } from '../components/DeckPicker'
 import { ErrorNotice, Skeleton, clock, dayLabel, useAsync, useToast, useAction } from '../components/ui'
@@ -83,19 +85,27 @@ function SourcePageDetail({ id }: { id: number }) {
     <>
       {action.error != null && <ErrorNotice error={action.error} />}
       <fieldset className="action-scope" disabled={action.busy} aria-busy={action.busy}>
-      <header className="page-head">
+      <header className="page-head source-head">
         <ButtonLink variant="ghost" icon to={backTo ?? (s.status === 'inbox' ? '/inbox' : '/sources')} aria-label="Back"><ChevronLeft aria-hidden="true" /></ButtonLink>
-        <h1>{s.title || (s.kind === 'capture' ? 'Capture' : 'Source')} <span className="meta num">{{ capture: 'Capture', audio: 'Audio', video: 'Video', subtitle: 'Subtitles', text: 'Text', story: 'Story' }[s.kind]} · {s.sentences.length} sentences</span></h1>
-        <span className="grow" />
-        {s.status !== 'kept' && <Button onClick={() => status('kept')}><Check aria-hidden="true" />Keep</Button>}
-        {s.status === 'kept' && <Button variant="ghost" onClick={() => status('inbox')}><InboxIcon aria-hidden="true" />Back to inbox</Button>}
-        {s.status !== 'archived' && <Button variant="ghost" onClick={() => status('archived')}><Archive aria-hidden="true" />Archive</Button>}
-        {(s.job === 'waiting' || s.job === 'running') && <ButtonLink to="/sources/queue"><ListOrdered aria-hidden="true" />{s.job === 'running' ? 'Transcribing… see queue' : 'In the queue'}</ButtonLink>}
-        {s.video != null && <ButtonLink to={`/sources/youtube/${s.video}`} title="The whole video, its lines following the voice"><MonitorPlay aria-hidden="true" />Watch the video</ButtonLink>}
-        {s.media && (s.kind === 'audio' || s.kind === 'video') && <ButtonLink to={`/sources/${s.id}/cleanup`}><Scissors aria-hidden="true" />Clean up</ButtonLink>}
-        {s.story && <ButtonLink to={`/stories?syllabus=${s.story.syllabus}&unit=${s.story.unit}`}><BookAudio aria-hidden="true" />Another story</ButtonLink>}
-        {s.sentences.length > 0 && <DeckPicker sentenceIds={() => s.sentences.map((x) => x.id)} />}
-        {s.sentences.length > 0 && <ButtonLink variant="primary" {...practise.link({ source: s.id })}><Play aria-hidden="true" />Practise all</ButtonLink>}
+        <KindTile dye="source" icon={KIND_ICON[s.kind]} size="large" />
+        <div className="source-heading">
+          <h1>{s.title || (s.kind === 'capture' ? 'Capture' : 'Source')}</h1>
+          <p className="meta num">{{ capture: 'Capture', audio: 'Audio', video: 'Video', subtitle: 'Subtitles', text: 'Text', story: 'Story' }[s.kind]} · {s.sentences.length} sentences</p>
+        </div>
+        <div className="source-actions">
+          {(s.job === 'waiting' || s.job === 'running') && <ButtonLink variant="ghost" to="/sources/queue"><ListOrdered aria-hidden="true" />{s.job === 'running' ? 'Transcribing… see queue' : 'In the queue'}</ButtonLink>}
+          {s.video != null && <ButtonLink to={`/sources/youtube/${s.video}`} title="The whole video, its lines following the voice"><MonitorPlay aria-hidden="true" />Watch the video</ButtonLink>}
+          {s.media && (s.kind === 'audio' || s.kind === 'video') && <ButtonLink to={`/sources/${s.id}/cleanup`}><Scissors aria-hidden="true" />Clean up</ButtonLink>}
+          {s.story && <ButtonLink to={`/stories?syllabus=${s.story.syllabus}&unit=${s.story.unit}`}><BookAudio aria-hidden="true" />Another story</ButtonLink>}
+          {s.status !== 'kept' && <Button variant={s.sentences.length ? undefined : 'primary'} onClick={() => status('kept')}><Check aria-hidden="true" />Keep</Button>}
+          {s.sentences.length > 0 && <ButtonLink variant="primary" {...practise.link({ source: s.id })}><Play aria-hidden="true" />Practise all</ButtonLink>}
+          {/* filed away: sending it back or archiving it is rare here, so it waits behind the menu */}
+          {s.status === 'kept' && <Menu label="More for this source" variant="ghost" icon content={<Ellipsis aria-hidden="true" />}>
+            <MenuItem onClick={() => status('inbox')}><InboxIcon aria-hidden="true" />Back to inbox</MenuItem>
+            <MenuItem onClick={() => status('archived')}><Archive aria-hidden="true" />Archive</MenuItem>
+          </Menu>}
+          {s.status === 'inbox' && <Button variant="ghost" onClick={() => status('archived')}><Archive aria-hidden="true" />Archive</Button>}
+        </div>
       </header>
 
       <div className="source-layout">
@@ -108,19 +118,10 @@ function SourcePageDetail({ id }: { id: number }) {
               <Button icon aria-label="Previous line" title="Previous line" disabled={!prevLine && at < 0} onClick={() => playFrom(prevLine ?? timed[0])}><SkipBack aria-hidden="true" /></Button>
               <Button icon aria-label="Next line" title="Next line" disabled={!nextLine} onClick={() => nextLine && playFrom(nextLine)}><SkipForward aria-hidden="true" /></Button>
             </>} />}
-          <dl className="meta" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 16px', margin: 0 }}>
-            <dt>Collected</dt><dd style={{ margin: 0 }}>{date}, {clock(s.created_at)}</dd>
-            <dt>Status</dt><dd style={{ margin: 0 }}>{{ inbox: 'In the inbox', kept: 'In Sources', archived: 'Archived' }[s.status]}</dd>
-            {s.duration && <><dt>Length</dt><dd style={{ margin: 0 }} className="num">{fmtTime(s.duration)}</dd></>}
-            {s.lessons.length > 0 && <><dt>{s.lessons.length === 1 ? 'Lesson' : 'Lessons'}</dt><dd style={{ margin: 0 }} className="source-lessons">
-              {s.lessons.map(l => <Link key={l.id} to={`/lessons/${l.id}`}><BookOpen aria-hidden="true" />{l.title}{l.done && <span className="sr"> (done)</span>}{l.done && <Check aria-hidden="true" className="source-lesson-done" />}</Link>)}
-            </dd></>}
-          </dl>
-          {s.story && <StoryPanel s={s} story={s.story} onChange={set} />}
-          {s.sentences.length > 0 && <Coverage id={s.id} />}
-          <div style={{ display: 'grid', gap: 8 }}>
+          {/* what it is and what it holds; on phones it follows the script */}
+          <section className="source-about" aria-label="About this source">
             {labels === null ? (
-              <div className="chips" style={{ alignItems: 'center' }}>
+              <div className="chips source-labels">
                 {s.category && <Plate>{s.category}</Plate>}
                 {s.labels.map((l) => <Chip key={l}>{l}</Chip>)}
                 <Button variant="ghost" size="small" onClick={() => setLabels(s.labels.join(', '))}><Pencil aria-hidden="true" />{s.labels.length ? 'Edit labels' : 'Add labels'}</Button>
@@ -132,7 +133,17 @@ function SourcePageDetail({ id }: { id: number }) {
                 <Button variant="primary" size="small">Save</Button>
               </form>
             )}
-          </div>
+            {s.story && <StoryPanel s={s} story={s.story} onChange={set} />}
+            {s.sentences.length > 0 && <Coverage id={s.id} />}
+            <dl className="meta source-facts">
+              <dt>Collected</dt><dd>{date}, {clock(s.created_at)}</dd>
+              <dt>Status</dt><dd>{{ inbox: 'In the inbox', kept: 'In Sources', archived: 'Archived' }[s.status]}</dd>
+              {s.duration && <><dt>Length</dt><dd className="num">{fmtTime(s.duration)}</dd></>}
+              {s.lessons.length > 0 && <><dt>{s.lessons.length === 1 ? 'Lesson' : 'Lessons'}</dt><dd className="source-lessons">
+                {s.lessons.map(l => <Link key={l.id} to={`/lessons/${l.id}`}><BookOpen aria-hidden="true" />{l.title}{l.done && <span className="sr"> (done)</span>}{l.done && <Check aria-hidden="true" className="source-lesson-done" />}</Link>)}
+              </dd></>}
+            </dl>
+          </section>
         </div>
 
         <div className="source-content">
@@ -141,7 +152,10 @@ function SourcePageDetail({ id }: { id: number }) {
         )}
         {s.sentences.length > 0 && <div className="aids-bar">
           <ReadingAids aids={aids} roman={s.sentences.some((x) => x.roman)} />
-          {aids.translation && <TranslateAll sentences={s.sentences} />}
+          <div className="aids-bar-end">
+            {aids.translation && <TranslateAll sentences={s.sentences} />}
+            <DeckPicker small sentenceIds={() => s.sentences.map((x) => x.id)} />
+          </div>
         </div>}
         <ol className="rows" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
           {s.sentences.map(x => <SentenceRow key={x.id} x={x} beyond={s.story?.outside?.filter((o) => o.sentence === x.id && x.text.slice(o.start, o.end) === o.surface)} furigana={aids.furigana} roman={aids.roman} translation={aids.translation} audio={!!s.media && x.start != null}
@@ -195,14 +209,17 @@ function SentenceRow({ x, beyond, furigana, roman, translation, audio, current, 
         {roman && x.roman && <span className="roman">{x.roman.split('\t')[0]}</span>}
         {translation && <Translation s={x} onTranslated={onSaved} />}
       </SentenceText>
-      {editing && <SentenceEditor sentence={x} onSaved={onSaved} onClose={() => setEditing(false)} onDeleted={onDeleted} />}
+      {/* the record over the tools, in one narrow column, so the sentence keeps the width */}
       <div className="acts">
-        <ButtonLink variant="ghost" size="small" {...practise.link({ sentence: x.id })} title="Practise this sentence only"><Play aria-hidden="true" />Practise</ButtonLink>
-        <ButtonLink variant="ghost" size="small" to={`/sentences/${x.id}`}>Details</ButtonLink>
-        <CopyButton text={x.text} />
-        <Button variant="ghost" size="small" icon aria-label="Edit the text, readings and translation" title="Edit sentence" onClick={() => setEditing(true)}><Pencil aria-hidden="true" /></Button>
         <span className="record"><Stamps stamps={x.stamps} max={3} /></span>
+        <span className="tools">
+          <ButtonLink variant="ghost" size="small" icon {...practise.link({ sentence: x.id })} aria-label="Practise this sentence" title="Practise this sentence only"><Mic aria-hidden="true" /></ButtonLink>
+          <ButtonLink variant="ghost" size="small" icon to={`/sentences/${x.id}`} aria-label="Details" title="Details"><Info aria-hidden="true" /></ButtonLink>
+          <CopyButton text={x.text} />
+          <Button variant="ghost" size="small" icon aria-label="Edit the text, readings and translation" title="Edit sentence" onClick={() => setEditing(true)}><Pencil aria-hidden="true" /></Button>
+        </span>
       </div>
+      {editing && <SentenceEditor sentence={x} onSaved={onSaved} onClose={() => setEditing(false)} onDeleted={onDeleted} />}
     </li>
   )
 }

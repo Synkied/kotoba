@@ -5,6 +5,8 @@ import { api, type Source, type SourceKind } from '../lib/api'
 import { DeckPicker } from '../components/DeckPicker'
 import { fmtTime } from '../components/SourcePanel'
 import { Stamp } from '../components/Stamp'
+import { KindTile } from '../components/Kind'
+import type { Dye } from '../lib/dyes'
 import { MAX_LABELS, mergeLabels, parseLabels } from '../lib/labels'
 import { ErrorNotice, SearchBox, Skeleton, clock, dayLabel, useAsync, useToast, useAction, PageHome } from '../components/ui'
 import { Button, ButtonLink, Checkbox, Chip, ChipButton, EmptyState, Field, Input, Plate, Select } from '../components/ds'
@@ -16,9 +18,9 @@ const KINDS: { id: SourceKind | ''; name: string }[] = [
   { id: 'video', name: 'Video' }, { id: 'subtitle', name: 'Subtitles' }, { id: 'text', name: 'Text' }, { id: 'story', name: 'Stories' },
 ]
 const KIND = {
-  capture: { name: 'Capture', Icon: Camera }, audio: { name: 'Audio', Icon: AudioLines }, video: { name: 'Video', Icon: Clapperboard },
-  subtitle: { name: 'Subtitles', Icon: Captions }, text: { name: 'Text', Icon: Type }, story: { name: 'Story', Icon: BookAudio },
-} satisfies Record<SourceKind, unknown>
+  capture: { name: 'Capture', Icon: Camera, dye: 'doc' }, audio: { name: 'Audio', Icon: AudioLines, dye: 'media' }, video: { name: 'Video', Icon: Clapperboard, dye: 'media' },
+  subtitle: { name: 'Subtitles', Icon: Captions, dye: 'doc' }, text: { name: 'Text', Icon: Type, dye: 'doc' }, story: { name: 'Story', Icon: BookAudio, dye: 'doc' },
+} satisfies Record<SourceKind, { name: string; Icon: unknown; dye: Dye }>
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
 
 export default function LibraryPage() {
@@ -160,8 +162,8 @@ export default function LibraryPage() {
           return (
             <section className="day" key={day.key} aria-label={date}>
               <div className="day-head"><span className="date">{date}</span>{rel && <span className="meta">{rel}</span>}</div>
-              <ul className="source-cards">
-                {day.items.map(({ s, n }) => <SourceCard key={s.id} s={s} n={n} q={q} selected={selected.has(s.id)} onToggle={() => toggle(s.id)}
+              <ul className="source-list">
+                {day.items.map(({ s, n }) => <SourceRow key={s.id} s={s} n={n} q={q} selected={selected.has(s.id)} onToggle={() => toggle(s.id)}
                   label={label} category={category} onLabel={filterLabel} onCategory={filterCategory} />)}
               </ul>
             </section>
@@ -172,44 +174,53 @@ export default function LibraryPage() {
   )
 }
 
-/** One source as a small card: what it is, a line of it, how far practice has got. The whole card opens the source. */
-function SourceCard({ s, n, q, selected, onToggle, label, category, onLabel, onCategory }: {
+/** One source as a ruled row: what it is (its screenshot, or its kind's tile), a line of it, its labels, and how far
+ *  practice has got, sentence by sentence. The whole row opens the source. */
+function SourceRow({ s, n, q, selected, onToggle, label, category, onLabel, onCategory }: {
   s: Source; n: number; q: string; selected: boolean; onToggle: () => void
   label: string; category: string; onLabel: (l: string) => void; onCategory: (c: string) => void
 }) {
-  const { name: kindName, Icon } = KIND[s.kind]
+  const { name: kindName, Icon, dye } = KIND[s.kind]
   const needle = q.trim()
   // when searching, show the line that matched rather than the first one
   const line = (needle && s.sentences.find(x => x.text.includes(needle))) || s.sentences[0]
   const title = s.title || line?.text || s.text.slice(0, 80) || 'Untitled'
   const excerpt = s.title ? line?.text : s.sentences[1]?.text
+  const latest = (x: Source['sentences'][number]) => x.stamps.reduce<typeof x.stamps[number] | undefined>((a, b) => (!a || b.created_at > a.created_at ? b : a), undefined)
   const practised = s.sentences.filter(x => x.stamps.length).length
   const practise = usePractise()
   const last = s.sentences.flatMap(x => x.stamps).sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
   return (
-    <li className="source-card" data-selected={selected || undefined}>
-      {s.image && <img className="source-card-thumb" src={s.image} alt="" loading="lazy" />}
-      <div className="source-card-body">
-        <h3 lang={s.title ? undefined : 'ja'}><Link to={`/sources/${s.id}`} className="source-card-link">{title}</Link></h3>
-        <p className="meta source-card-meta num">
+    <li className="source-row" data-selected={selected || undefined}>
+      <Checkbox type="checkbox" className="source-row-check" checked={selected} onChange={onToggle} aria-label={`Select ${title}`} />
+      <div className="source-row-face">
+        {s.image ? <img className="source-row-shot" src={s.image} alt="" loading="lazy" /> : <KindTile dye={dye} icon={Icon} />}
+      </div>
+      <div className="source-row-main">
+        <h3 lang={s.title ? undefined : 'ja'}><Link to={`/sources/${s.id}`} className="source-row-link">{title}</Link></h3>
+        {excerpt && <p className="source-row-line" lang="ja">{excerpt}</p>}
+        <p className="meta source-row-meta num">
           <Icon aria-hidden="true" />{kindName}{s.duration ? ` · ${fmtTime(s.duration).replace(/\.\d$/, '')}` : ''} · {clock(s.created_at)}
           {n > 1 && <Plate tone="hollow" className="num" title={`Captured ${n} times`}>×{n}</Plate>}
         </p>
-        {excerpt && <p className="source-card-line" lang="ja">{excerpt}</p>}
-        {(s.category || s.labels.length > 0) && (
-          <div className="chips source-card-tags">
-            {s.category && <button className="plate plate-filter" aria-pressed={category === s.category} title={`Show only “${s.category}”`} onClick={() => onCategory(s.category)}>{s.category}</button>}
-            {s.labels.map((l) => <ChipButton key={l} aria-pressed={label === l} title={label === l ? 'Show all labels' : `Show only “${l}”`} onClick={() => onLabel(l)}>{l}</ChipButton>)}
-          </div>
-        )}
       </div>
-      <div className="source-card-foot">
+      <div className="chips source-row-tags">
+        {s.category && <button className="plate plate-filter" aria-pressed={category === s.category} title={`Show only “${s.category}”`} onClick={() => onCategory(s.category)}>{s.category}</button>}
+        {s.labels.map((l) => <ChipButton key={l} aria-pressed={label === l} title={label === l ? 'Show all labels' : `Show only “${l}”`} onClick={() => onLabel(l)}>{l}</ChipButton>)}
+      </div>
+      <div className="source-row-progress">
         {last && <Stamp s={last} />}
-        <span className="meta num">{s.sentences.length === 0 ? 'No sentences yet' : practised === 0 ? plural(s.sentences.length, 'sentence') : `${practised} of ${plural(s.sentences.length, 'sentence')} practised`}</span>
-        <span className="grow" />
+        <div>
+          <span className="meta num">{s.sentences.length === 0 ? 'No sentences yet' : practised === 0 ? plural(s.sentences.length, 'sentence') : `${practised} of ${plural(s.sentences.length, 'sentence')} practised`}</span>
+          {/* one segment per sentence, as practice's progress rule: practised in ink, a weak last try in burgundy */}
+          {s.sentences.length > 0 && <span className="practise-rule" aria-hidden="true" data-many={s.sentences.length > 24 || undefined}>
+            {s.sentences.slice(0, 120).map(x => { const t = latest(x); return <i key={x.id} data-state={!t ? undefined : t.overall < 70 ? 'weak' : 'done'} /> })}
+          </span>}
+        </div>
+      </div>
+      <div className="source-row-acts">
         {s.sentences.length > 0 && <ButtonLink variant="ghost" size="small" {...practise.link({ source: s.id })}><Play aria-hidden="true" />Practise</ButtonLink>}
       </div>
-      <Checkbox type="checkbox" className="source-card-check" checked={selected} onChange={onToggle} aria-label={`Select ${title}`} />
     </li>
   )
 }

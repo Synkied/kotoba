@@ -85,7 +85,7 @@ button.chip:hover { background: color-mix(in srgb, var(--kraft) 82%, var(--kraft
 .tabs button:focus-visible, .tabs a:focus-visible { outline-offset: 2px; }
 .sources-tabs { flex-wrap: wrap; gap: var(--s-2) var(--s-5); margin: calc(-1 * var(--s-2)) 0 var(--s-4); }
 /* five views don't fit a phone's width: they scroll sideways in one line rather than wrap one under */
-@media (max-width: 760px) { .sources-tabs { flex-wrap: nowrap; gap: var(--s-4); overflow-x: auto; scrollbar-width: none; margin-top: 0; margin-inline: calc(-1 * var(--gutter)); padding-inline: var(--gutter); } }
+@media (max-width: 760px) { .sources-tabs { flex-wrap: nowrap; gap: var(--s-4); overflow-x: auto; scrollbar-width: none; margin-top: 0; margin-inline: calc(-1 * var(--gutter)); padding-inline: var(--gutter); } .sources-tabs a { flex: none; white-space: nowrap; } }
 .tabs .n { font-weight: 400; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .deck-picker { max-width: 100%; }
 .deck-picker select { max-width: 100%; }

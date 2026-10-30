@@ -8,7 +8,7 @@ export const fmtTime = (t: number | null | undefined) => {
 }
 
 const KIND_LABEL: Record<SourceKind, string> = { capture: 'Capture', audio: 'Audio', video: 'Video', subtitle: 'Subs', text: 'Text', story: 'Story' }
-const KIND_ICON = { audio: AudioLines, video: Clapperboard, subtitle: Captions, text: Type, capture: Type, story: BookAudio }
+export const KIND_ICON = { audio: AudioLines, video: Clapperboard, subtitle: Captions, text: Type, capture: Type, story: BookAudio }
 
 /** The panel a sentence came from: the screenshot, or the span of native audio. */
 export function SourcePanel({ kind, image, start, end, big, alt = '' }: {

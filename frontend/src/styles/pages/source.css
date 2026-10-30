@@ -1,64 +1,104 @@
 /* Source page. */
-/* source detail */
-.source-layout { display: grid; grid-template-columns: minmax(300px, 4fr) minmax(0, 7fr); gap: var(--gutter) var(--s-6); align-items: start; }
-/* the player column stays put while the script scrolls; it scrolls itself rather than lose its foot */
+/* the head: the source's teal tile, its title over what it is, the actions at the right (as a lesson's head);
+   the title keeps its room, and the actions go under it when they can't share the line */
+.page-head.source-head { align-items: center; gap: var(--s-3) var(--s-4); }
+.source-heading { display: grid; gap: var(--s-1); flex: 1 1 20rem; min-width: 0; }
+.source-heading h1 { display: block; line-height: 1.25; }
+.source-heading p { margin: 0; }
+.source-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: var(--s-2); flex: none; margin-left: auto; }
+@media (max-width: 760px) {
+  .page-head.source-head { gap: var(--s-3); }
+  .source-head > .kind-tile { width: 36px; height: 36px; }
+  .source-heading { flex-basis: calc(100% - 36px - var(--control-h) - 2 * var(--s-3)); }
+  .source-actions { width: 100%; justify-content: flex-start; margin-left: 0; }
+  .source-actions > .btn.primary { flex: 1; }
+  .source-actions .menu { margin-left: auto; }
+}
+
+/* the player column at a set width beside the script, which takes whatever the screen has left */
+.source-layout { display: grid; grid-template-columns: clamp(17rem, 30%, 22rem) minmax(0, 1fr); gap: var(--gutter) var(--s-6); align-items: start; }
 /* scrolls vertically only: children shrink to the column, and 4px of inline padding keeps focus rings unclipped */
-.source-aside { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-4); position: sticky; top: var(--s-4); max-height: calc(100dvh - 2 * var(--s-4)); overflow: hidden auto; overscroll-behavior: contain; padding-inline: 4px; margin-inline: -4px; }
+.source-aside { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-5); align-content: start; padding-inline: 4px; margin-inline: -4px; }
 .source-aside > *, .source-aside fieldset { min-width: 0; }
 .source-layout .panel.big { aspect-ratio: 4 / 3; }
+.source-aside .source-audio { padding-top: 0; border-top: 0; }
+.source-aside .source-audio .sentence-wave { height: 120px; }
+.source-aside > audio { width: 100%; min-width: 0; }
+
+/* what it is and what it holds: labels, the story, its words, then the facts, one hairline above */
+.source-about { display: grid; gap: var(--s-4); padding-top: var(--s-4); border-top: var(--frame) solid var(--rule); }
+.source-about:first-child { padding-top: 0; border-top: 0; }
+.source-labels { align-items: center; }
+.source-facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--s-1) var(--s-4); margin: 0; }
+.source-facts dd { margin: 0; }
+/* a source studied in lessons leads back to them */
+.source-lessons { display: grid; gap: var(--s-1); }
+.source-lessons a { display: inline-flex; align-items: baseline; gap: var(--s-1); color: var(--ink); font-weight: 700; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.source-lessons svg { width: 14px; height: 14px; flex: none; align-self: center; }
+.source-lessons .source-lesson-done { color: var(--ink-3); }
+
+.edit-line { display: flex; flex-wrap: wrap; gap: var(--s-2); width: 100%; }
+.edit-line .input { flex: 1; }
+.edit-line > .notice { flex-basis: 100%; }
+.sentence-layout { margin-top: var(--s-5); }
+.lesson-title { font: inherit; height: auto; padding: 0; text-align: left; white-space: normal; }
+
+/* the script */
+.source-content { min-width: 0; display: grid; gap: var(--s-4); }
+.source-content .aids-bar-end { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
+/* a row: the time under its speaker, the sentence, then the stamps over the line's tools in one narrow column,
+   all hung from the sentence's first line */
+.source-content .row { grid-template-columns: minmax(0, 1fr) auto; padding-inline: var(--s-3); }
+.source-content .row-lead { grid-template-columns: 3rem minmax(0, 1fr) auto; }
+.source-content .row .lead { flex-direction: column; align-items: flex-start; gap: var(--s-1); align-self: start; margin-top: var(--s-2); }
+.source-content .row { align-items: start; }
+.source-content .row .acts { display: grid; justify-items: end; gap: var(--s-2); margin-top: var(--s-1); }
+.source-content .row .acts .record { width: auto; min-height: 34px; align-items: center; }
+.source-content .row .tools { display: flex; gap: 2px; }
+.row .tc { border: 0; background: none; padding: 0; text-align: left; cursor: pointer; }
+.row .tc:hover { color: var(--ink); text-decoration: underline; }
+/* what has been said steps back to the third ink, so the eye finds the reading front */
+.source-content .row.past .sentence-text { color: var(--ink-3); }
+.source-content .row .sentence-text { transition: color var(--t-state) var(--ease); }
+@media (hover: hover) and (pointer: fine) {
+  /* while listening the per-line tools stay out of the script's way; stamps stay, they're the record */
+  .source-content .row .tools { opacity: 0; transition: opacity var(--t-fast) var(--ease); }
+  .source-content .row:hover .tools, .source-content .row:focus-within .tools { opacity: 1; }
+}
+@media (max-width: 1100px) {
+  /* narrower: the stamps and tools go under the sentence, in one line */
+  .source-content .row-lead { grid-template-columns: 3rem minmax(0, 1fr); }
+  .source-content .row .lead { grid-column: auto; grid-row: span 2; }
+  .source-content .row .acts { display: flex; flex-wrap: wrap; justify-content: space-between; grid-column: auto; }
+  .source-content .row .acts .record { margin-left: 0; }
+}
+
+.follow-voice { position: fixed; z-index: 7; right: var(--s-6); bottom: var(--s-6); box-shadow: var(--lift); }
+@media (prefers-reduced-motion: reduce) {
+  .source-content .row .sentence-text, .source-content .row .tools { transition: none; }
+}
+
+@media (min-width: 901px) {
+  /* wide screens: the page fills the viewport, the head stays put, and the columns scroll on their own */
+  .source-layout { flex: 1; min-height: 0; align-items: stretch; }
+  .source-aside { overflow: hidden auto; overscroll-behavior: contain; min-height: 0; }
+  .source-content { display: flex; flex-direction: column; min-height: 0; }
+  .source-content > .rows { flex: 1; min-height: 0; align-content: start; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+}
 @media (max-width: 900px) {
-  /* stacked: the player docks at the top of the screen and the script reads beneath it */
+  /* stacked: the player docks at the top of the screen, the script reads beneath it, and what the
+     source is follows the script */
   .source-layout { grid-template-columns: minmax(0, 1fr); }
   .source-aside { display: contents; }
-  .source-aside > * { min-width: 0; }
+  .source-about { order: 2; }
   .source-aside .source-audio { position: sticky; top: 0; z-index: 6; background: var(--page); padding-block: var(--s-2); border-bottom: var(--frame) solid var(--rule-strong); gap: var(--s-2); }
   .source-aside .source-audio .sentence-section-head { display: none; }
   .source-aside .source-audio .sentence-wave { height: 56px; }
   .source-aside .source-audio .sentence-audio-hint { display: none; }
   .source-aside .source-audio .sentence-audio-controls { gap: var(--s-2); }
   .source-aside .source-audio .sentence-audio-controls .btn:not(.sentence-play):not(.icon) { padding-inline: var(--s-2); }
-}
-.edit-line { display: flex; flex-wrap: wrap; gap: var(--s-2); width: 100%; }
-.edit-line .input { flex: 1; }
-.edit-line > .notice { flex-basis: 100%; }
-.source-aside > audio { min-width: 0; }
-.sentence-layout { margin-top: var(--s-5); }
-.source-content { min-width: 0; display: grid; gap: var(--s-4); }
-.source-aside > audio { width: 100%; min-width: 0; }
-/* Source playback: the sentence being spoken sits on the warm wash with a burgundy edge,
-   and its timecode turns burgundy, like the current row of a deck. */
-.source-aside .source-audio { padding-top: 0; border-top: 0; }
-.source-aside .source-audio .sentence-wave { height: 120px; }
-.row .tc { border: 0; background: none; padding: 0; text-align: left; cursor: pointer; }
-.row .tc:hover { color: var(--ink); text-decoration: underline; }
-.source-content .row { padding-inline: var(--s-3); }
-/* what has been said steps back to the second ink, so the eye finds the reading front */
-.source-content .row.past .sentence-text { color: var(--ink-3); }
-.source-content .row .sentence-text { transition: color var(--t-state) var(--ease); }
-@media (hover: hover) and (pointer: fine) {
-  /* while listening the per-line tools stay out of the script's way; stamps stay, they're the record */
-  .source-content .row .acts > :not(.record) { opacity: 0; transition: opacity var(--t-fast) var(--ease); }
-  .source-content .row:hover .acts > *, .source-content .row:focus-within .acts > * { opacity: 1; }
-}
-.follow-voice { position: fixed; z-index: 7; right: var(--s-6); bottom: var(--s-6); box-shadow: var(--lift); }
-@media (max-width: 900px) {
   .follow-voice { right: auto; left: 50%; transform: translateX(-50%); bottom: var(--s-4); }
 }
 @media (max-width: 760px) {
   .follow-voice { bottom: calc(84px + env(safe-area-inset-bottom)); }
 }
-@media (prefers-reduced-motion: reduce) {
-  .source-content .row .sentence-text, .source-content .row .acts > * { transition: none; }
-}
-@media (min-width: 901px) {
-  .source-layout { flex: 1; min-height: 0; align-items: stretch; }
-  .source-aside { position: static; max-height: none; align-content: start; }
-  .source-content { display: flex; flex-direction: column; min-height: 0; }
-  .source-content > .rows { flex: 1; min-height: 0; align-content: start; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
-}
-.lesson-title { font: inherit; height: auto; padding: 0; text-align: left; white-space: normal; }
-/* a source studied in lessons leads back to them */
-.source-lessons { display: grid; gap: var(--s-1); }
-.source-lessons a { display: inline-flex; align-items: baseline; gap: var(--s-1); color: var(--ink); font-weight: 700; text-underline-offset: 3px; overflow-wrap: anywhere; }
-.source-lessons svg { width: 14px; height: 14px; flex: none; align-self: center; }
-.source-lessons .source-lesson-done { color: var(--ink-3); }
