@@ -29,7 +29,8 @@ def _system(user) -> str:
             f"Their own language is {name}. When they write in Japanese, answer in natural Japanese they can follow, "
             f"then, only if they made mistakes, add a short note in {name} on how to say it better. Otherwise answer "
             f"in {name}, quoting Japanese where it helps. When they share an image (a game, a page, a sign, an app), "
-            "read the Japanese in it and help with that. Keep answers short unless asked for more; Markdown is fine.")
+            "read the Japanese in it and help with that. Keep answers short unless asked for more. Markdown is fine, but "
+            "not LaTeX: write symbols as plain characters (→, ×, ≈), never $\\rightarrow$.")
 
 
 def _images(raw) -> list[tuple[str, str]]:

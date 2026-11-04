@@ -141,6 +141,32 @@ const REPLY: Components = {
   li: ({ children }) => <Readable as="li">{children}</Readable>,
 }
 
+/** LaTeX symbols models write inline, as the characters they stand for. */
+const TEX: Record<string, string> = {
+  rightarrow: '→', to: '→', leftarrow: '←', gets: '←', leftrightarrow: '↔', uparrow: '↑', downarrow: '↓',
+  Rightarrow: '⇒', Leftarrow: '⇐', Leftrightarrow: '⇔', implies: '⇒', iff: '⇔', longrightarrow: '⟶', mapsto: '↦',
+  times: '×', div: '÷', pm: '±', cdot: '·', approx: '≈', neq: '≠', ne: '≠', leq: '≤', le: '≤', geq: '≥', ge: '≥',
+  sim: '∼', infty: '∞', checkmark: '✓', ldots: '…', dots: '…', cdots: '⋯', circ: '∘', degree: '°', star: '★',
+  quad: ' ', qquad: '  ', ',': ' ', ';': ' ', ' ': ' ',
+}
+/** A reply's inline math ($\rightarrow$, \(\times\)) as plain symbols, when it is only symbols kotoba knows;
+ *  anything else, prices and code included, stays as written. */
+function untex(markdown: string) {
+  return markdown.split(/(```[\s\S]*?```|`[^`\n]*`)/).map((part, i) => i % 2 ? part : part.replace(
+    /\$([^$\n]{1,80})\$|\\\(([^\n]{1,80}?)\\\)/g, (whole, a?: string, b?: string) => {
+      const inner = a ?? b ?? ''
+      if (!inner.includes('\\')) return whole
+      let known = true
+      const out = inner.replace(/\\(?:text\{([^}]*)\}|([A-Za-z]+|[,; ]))/g, (_, text?: string, cmd?: string) => {
+        if (text !== undefined) return text
+        if (cmd! in TEX) return TEX[cmd!]
+        known = false
+        return ''
+      })
+      return known && !/[\\{}^_]/.test(out) ? out.replace(/\s+/g, ' ') : whole
+    })).join('')
+}
+
 /** The Japanese lines of a reply, without the notes about them: what Keep puts in the inbox. */
 const japaneseLines = (markdown: string) => plainText(markdown).split('\n').map((l) => l.trim()).filter(japanese).join('\n')
 
@@ -333,7 +359,7 @@ export default function ChatPage() {
     () => toast({ text: 'Copied.' }), () => toast({ text: 'The browser didn’t allow copying. Select the text instead.' }))
   const keep = async (i: number) => {
     try {
-      await api.collectText(japaneseLines(messages[i].content), '', ['chat'])
+      await api.collectText(japaneseLines(untex(messages[i].content)), '', ['chat'])
       setKept((prev) => [...prev, i])
       toast({ text: 'Kept in the Inbox, labelled chat.' })
     } catch (e) {
@@ -459,10 +485,10 @@ export default function ChatPage() {
                   </li>
                   : <li key={i} className="chat-turn chat-them">
                     <span className="chat-who meta">{m.name}</span>
-                    <NoteMarkdown body={m.content} components={REPLY} />
+                    <NoteMarkdown body={untex(m.content)} components={REPLY} />
                     <div className="chat-tools">
-                      <Button variant="ghost" size="small" onClick={() => copy(m.content)}><Copy aria-hidden="true" />Copy</Button>
-                      {japaneseLines(m.content) && (kept.includes(i)
+                      <Button variant="ghost" size="small" onClick={() => copy(untex(m.content))}><Copy aria-hidden="true" />Copy</Button>
+                      {japaneseLines(untex(m.content)) && (kept.includes(i)
                         ? <span className="meta">In the Inbox</span>
                         : <Button variant="ghost" size="small" onClick={() => keep(i)} title="Its Japanese lines go to the Inbox, to keep as sentences and practise">
                           <Inbox aria-hidden="true" />Keep the Japanese</Button>)}
