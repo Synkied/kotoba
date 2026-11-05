@@ -180,9 +180,20 @@ export function PracticeSession({ title, back = '/sources', sentences: initial, 
   // the scoring engine (Whisper) and the voices
   useEffect(() => {
     let live = true
-    const poll = () => api.engineStatus().then(
-      (st) => { if (live) setEngine(st.state) },
-      () => { if (live) setEngine('off') })
+    const poll = () => {
+      const onScreen = document.visibilityState === 'visible'
+      return api.engineStatus(onScreen).then(
+        (st) => {
+          if (!live) return
+          setEngine(st.state)
+          // let go while nobody was looking: bring it back, as they had it
+          if (onScreen && st.released) {
+            setEngine('loading')
+            api.engineLoad().then((l) => { if (live) setEngine(l.state) }, () => { if (live) setEngine('error') })
+          }
+        },
+        () => { if (live) setEngine('off') })
+    }
     poll()
     const t = window.setInterval(poll, 5000)
     api.voices().then((v) => live && setVoices(v.voices), () => {})

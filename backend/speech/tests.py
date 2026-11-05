@@ -2,7 +2,7 @@ import json
 from unittest.mock import patch
 from urllib.parse import urlencode
 
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, override_settings
 
 from library.testing import SignedIn
 
@@ -118,6 +118,88 @@ class KokoroLoadTests(SignedIn):
     def test_load_without_kokoro_installed_does_nothing(self):
         with patch.object(self.engine, "kokoro_installed", return_value=False):
             self.assertEqual(self.client.post("/api/engine/tts/load").json(), {"kokoro": "missing", "kokoro_error": None})
+
+
+class IdleModelTests(SignedIn):
+    KEY = ("turbo", "cpu", "int8")
+
+    def setUp(self):
+        super().setUp()
+        from speech import engine, jpcut
+        self.engine, self.jpcut = engine, jpcut
+        self.addCleanup(setattr, jpcut, "_model", jpcut._model)
+        self.addCleanup(engine._kokoro.update, dict(engine._kokoro))
+        self.addCleanup(setattr, engine, "_released", engine._released)
+        self.addCleanup(engine._used.update, dict(engine._used))
+        jpcut._model = (self.KEY, object())
+        engine._kokoro["pipeline"] = object()
+        engine._released = None
+
+    def _last_used(self, seconds_ago):
+        import time
+        self.engine._used.update(whisper=time.monotonic() - seconds_ago, kokoro=time.monotonic() - seconds_ago)
+
+    @override_settings(MODEL_IDLE=600)
+    def test_models_used_lately_stay(self):
+        self._last_used(60)
+        self.engine.tidy()
+        self.assertEqual(self.jpcut._model[0], self.KEY)
+        self.assertIsNotNone(self.engine._kokoro["pipeline"])
+
+    @override_settings(MODEL_IDLE=600)
+    def test_idle_models_are_let_go_and_reported(self):
+        self._last_used(601)
+        self.engine.tidy()
+        self.assertEqual(self.jpcut._model, (None, None))
+        self.assertIsNone(self.engine._kokoro["pipeline"])
+        with patch.object(self.engine, "whisper_installed", return_value=True):
+            st = self.engine.status(self.KEY)
+        self.assertEqual((st["state"], st["released"]), ("idle", True))
+
+    @override_settings(MODEL_IDLE=600)
+    def test_a_model_at_work_is_left_alone(self):
+        self._last_used(601)
+        with self.engine.model_lock, self.engine._kokoro_lock:
+            self.engine.tidy()
+        self.assertEqual(self.jpcut._model[0], self.KEY)
+        self.assertIsNotNone(self.engine._kokoro["pipeline"])
+
+    @override_settings(MODEL_IDLE=0)
+    def test_zero_keeps_them_loaded(self):
+        self._last_used(10 ** 6)
+        self.engine.tidy()
+        self.assertEqual(self.jpcut._model[0], self.KEY)
+        self.assertIsNotNone(self.engine._kokoro["pipeline"])
+
+    @override_settings(MODEL_IDLE=600)
+    def test_an_open_practice_page_keeps_whisper_but_a_plain_status_does_not(self):
+        self._last_used(601)
+        with patch.object(self.engine, "whisper_key", return_value=self.KEY), \
+                patch.object(self.engine, "whisper_installed", return_value=True):
+            self.client.get("/api/engine/status")
+            self.assertGreater(__import__("time").monotonic() - self.engine._used["whisper"], 600)
+            self.client.get("/api/engine/status?active=1")
+        self.engine.tidy()
+        self.assertEqual(self.jpcut._model[0], self.KEY)
+        self.assertIsNone(self.engine._kokoro["pipeline"])
+
+    def test_a_used_model_is_no_longer_released(self):
+        self.engine._released = self.KEY
+        with patch.object(self.jpcut, "get_model", return_value=object()), patch.object(self.engine, "_note_use"):
+            self.engine.get_model(self.KEY)
+        self.assertIsNone(self.engine._released)
+
+
+class TtsCacheTests(SimpleTestCase):
+    def test_oldest_speech_makes_way_past_the_size_limit(self):
+        from speech import engine
+        self.addCleanup(engine._tts_cache.clear)
+        engine._tts_cache.clear()
+        with patch.object(engine, "_TTS_CACHE_BYTES", 10), patch.object(engine.romanize, "furigana", return_value=[]), \
+                patch.object(engine, "_kokoro_wav", side_effect=[b"x" * 6, b"y" * 6]):
+            self.assertEqual(engine.tts("一", "kokoro:jf_alpha", 1), b"x" * 6)
+            self.assertEqual(engine.tts("二", "kokoro:jf_alpha", 1), b"y" * 6)
+        self.assertEqual(list(engine._tts_cache.values()), [b"y" * 6])
 
 
 class VoicevoxReadingTests(SimpleTestCase):

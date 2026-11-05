@@ -130,7 +130,6 @@ export function wav(pcm: Int16Array): Blob {
   return new Blob([head.buffer, pcm.buffer as ArrayBuffer], { type: 'audio/wav' })
 }
 
-let kokoroReady = false
 let voiceLoading = false
 const voiceListeners = new Set<() => void>()
 /** Whether a voice model is being loaded (Kokoro's first use downloads its weights). */
@@ -148,11 +147,11 @@ const wait = (ms: number, signal?: AbortSignal) => new Promise<void>((resolve) =
 async function readyKokoro(signal?: AbortSignal) {
   let shown = false
   try {
-    while (!kokoroReady && !signal?.aborted) {
+    while (!signal?.aborted) { // asked each time: the server lets an idle voice go
       const r = await fetch('/api/engine/tts/load', { method: 'POST', signal })
       if (!r.ok) return
       const st: { kokoro: string } = await r.json()
-      if (st.kokoro !== 'loading') { kokoroReady = st.kokoro === 'ready'; return }
+      if (st.kokoro !== 'loading') return
       if (!shown) { shown = true; setVoiceLoading(true) }
       await wait(1000, signal)
     }

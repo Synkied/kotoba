@@ -4,14 +4,20 @@ Kokoro and VOICEVOX for the model voice. Everything here is optional: without th
 browser's voices.
 
 One Whisper model is loaded at a time and `model_lock` serialises its use, so live
-scoring, uploads and the recording editor share one GPU without fighting over it."""
+scoring, uploads and the recording editor share one GPU without fighting over it.
+
+Each model holds over a gigabyte, so an idle one is let go (see `tidy`) and comes back
+on its next use."""
+import ctypes
 import difflib
+import gc
 import importlib.util
 import io
 import json
 import re
 import threading
 import time
+import traceback
 import urllib.error
 import wave
 from pathlib import Path
@@ -75,20 +81,30 @@ def whisper_key(overrides=None):
 
 
 def get_model(key):
+    global _released
     if key[1] != "cpu":
         _preload_cuda_libs()
-    return jpcut.get_model(*key)
+    model = jpcut.get_model(*key)
+    _released = None
+    _note_use("whisper")
+    return model
+
+
+def keep_whisper():
+    """Someone has the practice page open: the model they're about to need stays loaded."""
+    if jpcut._model[0]:
+        _used["whisper"] = time.monotonic()
 
 
 def status(key):
     if not whisper_installed():
         return {"state": "missing", "loaded": None, "error": None, "readings": jpscore.has_readings(),
-                "key": list(key)}
+                "key": list(key), "released": False}
     loaded = jpcut._model[0]
     state = ("ready" if loaded == key else "loading" if _loading["key"] == key
              else "error" if _loading["error"] else "idle")
     return {"state": state, "loaded": loaded and list(loaded), "error": _loading["error"],
-            "readings": jpscore.has_readings(), "key": list(key)}
+            "readings": jpscore.has_readings(), "key": list(key), "released": state == "idle" and _released == key}
 
 
 def load(key):
@@ -111,7 +127,10 @@ def transcribe(path, key):
     """Whole-file transcription (uploads, recordings): {model, duration, words}."""
     with model_lock:
         get_model(key)
-        return jpcut.transcribe(path, *key)
+        try:
+            return jpcut.transcribe(path, *key)
+        finally:
+            _note_use("whisper")
 
 
 def score(pcm, expected, final, key, busy=lambda: "another clip"):
@@ -130,11 +149,79 @@ def score(pcm, expected, final, key, busy=lambda: "another clip"):
         words = (jpscore.transcribe_clip(get_model(key), audio, 5 if final else 1)
                  if len(audio) >= 16000 * 0.25 and jpscore.has_speech(audio) else [])
     finally:
+        _note_use("whisper")
         model_lock.release()
     res = jpscore.score(expected, words)
     res.update(words=words, final=final, seconds=round(len(audio) / 16000, 2),
                latency=round(time.time() - t0, 2))
     return res, 200
+
+
+# ---------------------------------------------------------------- memory
+
+TIDY_EVERY = 30  # seconds
+_used = {"whisper": 0.0, "kokoro": 0.0}  # when each model last worked (time.monotonic)
+_untrimmed = False
+_released = None  # the Whisper key let go for being idle, until a model is loaded again
+_tidying = None
+_tidying_lock = threading.Lock()
+
+
+def _note_use(model):
+    """A model just worked: it isn't idle, and it has left freed memory behind. Starts the tidying."""
+    global _untrimmed, _tidying
+    _used[model] = time.monotonic()
+    _untrimmed = True
+    with _tidying_lock:
+        if _tidying is None:
+            _tidying = threading.Thread(target=_tidy_forever, daemon=True, name="speech-tidy")
+            _tidying.start()
+
+
+def _tidy_forever():
+    while True:
+        time.sleep(TIDY_EVERY)
+        try:
+            tidy()
+        except Exception:  # noqa: BLE001 - it only saves memory; the next round tries again
+            traceback.print_exc()
+
+
+def _trim():
+    """Hand freed memory back to the system. glibc keeps it otherwise: about 900 MB once both
+    models have loaded and worked, measured with large-v3-turbo int8 and Kokoro."""
+    try:
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except (OSError, AttributeError):
+        pass  # not glibc
+
+
+def tidy():
+    """Let go of the models idle for settings.MODEL_IDLE seconds (a model at work holds its
+    lock and is left alone), then return what's free to the system."""
+    global _untrimmed, _released
+    limit = settings.MODEL_IDLE
+    idle = lambda model: limit and time.monotonic() - _used[model] > limit  # noqa: E731
+    freed = False
+    if jpcut._model[0] and idle("whisper") and model_lock.acquire(blocking=False):
+        try:
+            if jpcut._model[0] and idle("whisper"):
+                _released, jpcut._model = jpcut._model[0], (None, None)
+                freed = True
+        finally:
+            model_lock.release()
+    if _kokoro["pipeline"] and idle("kokoro") and _kokoro_lock.acquire(blocking=False):
+        try:
+            if _kokoro["pipeline"] and idle("kokoro"):
+                _kokoro["pipeline"] = None
+                freed = True
+        finally:
+            _kokoro_lock.release()
+    if freed:
+        gc.collect()  # Kokoro's model is held in reference cycles
+    if freed or _untrimmed:
+        _untrimmed = False
+        _trim()
 
 
 def peaks(path):
@@ -165,7 +252,7 @@ KOKORO_VOICES = [("jf_alpha", "female"), ("jf_gongitsune", "female"), ("jf_nezum
 _kokoro = {"pipeline": None, "error": None, "loading": False}
 _kokoro_lock = threading.Lock()
 _tts_cache = {}   # (voice, speed, text) -> wav bytes
-_TTS_CACHE_MAX = 200
+_TTS_CACHE_BYTES = 64 * 1024 * 1024  # a long line is 3 MB of speech
 
 
 def _vv(path, params, body=None, timeout=20):
@@ -240,6 +327,7 @@ def _kokoro_pipeline():
                 _kokoro["error"] = f"Kokoro failed to load: {msg}"
                 raise RuntimeError(_kokoro["error"]) from e
             _kokoro["pipeline"], _kokoro["error"] = pipe, None
+        _note_use("kokoro")
         return _kokoro["pipeline"]
 
 
@@ -250,6 +338,7 @@ def _kokoro_wav(text, voice, speed):
     with _kokoro_lock:  # one synthesis at a time
         chunks = [r.audio.detach().cpu().numpy() if hasattr(r.audio, "detach") else np.asarray(r.audio)
                   for r in pipe(text, voice=voice, speed=speed) if r.audio is not None]
+        _note_use("kokoro")
     if not chunks:
         raise RuntimeError("Kokoro produced no audio for this text")
     pcm = (np.clip(np.concatenate(chunks), -1, 1) * 32767).astype("<i2")
@@ -355,14 +444,15 @@ def tts(text, voice, speed, readings=None):
     if readings is None:
         readings = romanize.furigana(text)
     key = (voice, speed, text, json.dumps(readings, ensure_ascii=False))
-    if key not in _tts_cache:
+    wav = _tts_cache.get(key)
+    if wav is None:
         if engine == "kokoro" and name in dict(KOKORO_VOICES):
             wav = _kokoro_wav(romanize.with_readings(text, readings), name, speed)
         elif engine == "voicevox" and name.isdigit():
             wav = _voicevox_wav(text, int(name), speed, romanize.spoken(text, readings))
         else:
             raise ValueError(f"unknown voice {voice!r}")
-        if len(_tts_cache) >= _TTS_CACHE_MAX:
-            _tts_cache.pop(next(iter(_tts_cache)))
+        while _tts_cache and sum(map(len, list(_tts_cache.values()))) + len(wav) > _TTS_CACHE_BYTES:
+            _tts_cache.pop(next(iter(_tts_cache)), None)
         _tts_cache[key] = wav
-    return _tts_cache[key]
+    return wav

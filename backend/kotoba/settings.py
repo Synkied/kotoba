@@ -80,6 +80,8 @@ WHISPER = {k: v for k, v in {
     "device": os.environ.get("KOTOBA_WHISPER_DEVICE", ""),
     "compute_type": os.environ.get("KOTOBA_WHISPER_COMPUTE", ""),
 }.items() if v}
+# Seconds before an unused Whisper or Kokoro model is let go (1 GB or more each); 0 keeps them loaded
+MODEL_IDLE = int(os.environ.get("KOTOBA_MODEL_IDLE") or "600")
 # A VOICEVOX / AivisSpeech engine for more voices (AivisSpeech uses port 10101)
 VOICEVOX_URL = os.environ.get("KOTOBA_VOICEVOX", "http://127.0.0.1:50021").rstrip("/")
 # The LLM that translates sentences. Any OpenAI-compatible server: Ollama (the default),

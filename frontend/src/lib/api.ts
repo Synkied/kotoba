@@ -56,7 +56,7 @@ export type Score = {
   missed: string[]; unclear: string[]; extra: string[]; fillers: string[]; error?: string
 }
 export type EngineState = 'missing' | 'idle' | 'loading' | 'ready' | 'error'
-export type EngineStatus = { state: EngineState; error: string | null; loaded: string[] | null; key: string[]; readings: boolean }
+export type EngineStatus = { state: EngineState; error: string | null; loaded: string[] | null; key: string[]; readings: boolean; released?: boolean }
 export type Job = {
   id: number; kind: 'transcribe' | 'render' | 'story'; source: number; title: string
   state: 'queued' | 'running' | 'done' | 'error'; log: string[]; progress: number | null; error: string | null
@@ -423,7 +423,8 @@ export const api = {
     const f = new FormData(); f.append('file', file); if (media) f.append('media', media)
     return req<Source>('collect/file', { method: 'POST', body: f })
   },
-  engineStatus: () => req<EngineStatus>('engine/status'),
+  /** `active`: someone is on the page, so the model stays loaded. */
+  engineStatus: (active = false) => req<EngineStatus>('engine/status' + (active ? '?active=1' : '')),
   engineLoad: () => req<EngineStatus>('engine/load', json('POST', {})),
   score: (pcm: Int16Array, expected: string) =>
     req<Score>('engine/score' + qs({ expected, final: 1 }), { method: 'POST', body: pcm.buffer as ArrayBuffer, headers: { 'Content-Type': 'application/octet-stream' } }),

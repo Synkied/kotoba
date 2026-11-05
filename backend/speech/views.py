@@ -23,6 +23,8 @@ def _key(request, *, query_only=False):
 
 @api_view(["GET"])
 def engine_status(request):
+    if request.query_params.get("active") == "1":
+        engine.keep_whisper()
     return Response(engine.status(_key(request)))
 
 

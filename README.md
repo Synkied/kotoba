@@ -54,6 +54,8 @@ Screen-ocr and scripts sign in with the account's capture key (Account page), se
 
 Whisper picks its model by itself: large-v3 on a GPU, large-v3-turbo (int8) on a CPU. Override it with `KOTOBA_WHISPER_MODEL`, `KOTOBA_WHISPER_DEVICE` and `KOTOBA_WHISPER_COMPUTE`. A VOICEVOX or AivisSpeech engine is found at `KOTOBA_VOICEVOX` (default `http://127.0.0.1:50021`).
 
+Whisper and Kokoro hold 1 GB or more of memory each, so one that goes unused for 10 minutes is let go and comes back on its next use; a practice page open on screen keeps Whisper loaded. `KOTOBA_MODEL_IDLE` sets the seconds, and 0 keeps them loaded.
+
 ### Translations
 
 Sentences can show a translation (turn it on with the language chip under any sentence; pick the language on the Add-ons page). An LLM does the translating, with the neighbouring lines as context. Set one up on the **Add-ons** page: choose Ollama, llama.cpp, Claude or any OpenAI-compatible API, fill in its address, key and model, Test it, and save. Keep as many as you like and pick the one in use. Keys are stored with your account in kotoba's database and are never sent back to the browser.
