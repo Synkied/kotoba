@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { SpeechEndDetector } from './audio.ts'
+import { SpeechEndDetector, speechParts } from './audio.ts'
 
 test('waits for speech and allows short pauses before stopping', () => {
   const detector = new SpeechEndDetector()
@@ -38,4 +38,26 @@ test('keeps going through continuous speech with short dips', () => {
   const detector = new SpeechEndDetector()
   for (let t = 0; t < 0.5; t += 0.01) detector.update(0.005, 0.01)
   for (let t = 0; t < 20; t += 0.01) assert.equal(detector.update(Math.floor(t * 5) % 2 ? 0.12 : 0.05, 0.01), false)
+})
+
+test('reads Japanese apart from the language around it', () => {
+  assert.deepEqual(speechParts('The word 食べる means to eat. It costs 300円.'), [
+    { text: 'The word', ja: false },
+    { text: '食べる', ja: true },
+    { text: 'means to eat.', ja: false },
+    { text: 'It costs', ja: false },
+    { text: '300円.', ja: true },
+  ])
+})
+
+test('reads sentence by sentence and skips what has nothing to say', () => {
+  assert.deepEqual(speechParts('行きます。\n「はい」！\n---\n3.5 is fine.').map((p) => p.text),
+    ['行きます。', 'はい」！', '3.5 is fine.'])
+})
+
+test('never hands the voice more than it reads at once', () => {
+  const parts = speechParts('あいうえお、'.repeat(200))
+  assert.ok(parts.length > 1)
+  assert.ok(parts.every((p) => p.text.length <= 280 && p.text.endsWith('、')))
+  assert.equal(parts.map((p) => p.text).join(''), 'あいうえお、'.repeat(200))
 })

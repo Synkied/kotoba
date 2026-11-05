@@ -39,13 +39,15 @@ a.word-surface:hover, a.word-surface:focus-visible { text-decoration: underline 
 @media (pointer: coarse) {
   .word-pop .btn.icon.small { width: 44px; height: 44px; }
 }
-/* the selection's offer, and what the translator says it means */
-.select-explain { position: fixed; z-index: 59; width: 120px; justify-content: center; background: var(--paper); box-shadow: var(--lift); animation: dock-in var(--t-fast) var(--ease); }
+/* the selection's offer (Listen, Explain), and what the translator says it means */
+.select-offer { position: fixed; z-index: 59; display: flex; gap: var(--s-2); animation: dock-in var(--t-fast) var(--ease); }
+.select-offer .btn { width: 104px; justify-content: center; box-shadow: var(--lift); }
+.select-offer .btn:not(:hover, :active) { background: var(--paper); }
 @media (pointer: coarse) {
-  .select-explain { min-height: 44px; }
+  .select-offer .btn { min-height: 44px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .select-explain { animation: none; }
+  .select-offer { animation: none; }
 }
 .word-explain { margin: 0; }
 section.word-explain { border-top: var(--frame) solid var(--rule-strong); padding-top: var(--s-2); display: grid; gap: var(--s-1); }

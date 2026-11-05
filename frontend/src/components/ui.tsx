@@ -105,10 +105,13 @@ export function ToastHost({ children }: { children: ReactNode }) {
 /** True while a voice model loads (see speak). */
 export const useVoiceLoading = () => useSyncExternalStore(onVoiceLoading, voiceLoadingNow)
 
+/** A saved preference as it stands now, for what stays mounted while it's changed elsewhere. */
+export function getPref<T>(key: string, initial: T): T {
+  try { const s = localStorage.getItem('kotoba.' + key); return s === null ? initial : JSON.parse(s) } catch { return initial }
+}
+
 export function usePref<T>(key: string, initial: T): [T, (v: T) => void] {
-  const [v, setV] = useState<T>(() => {
-    try { const s = localStorage.getItem('kotoba.' + key); return s === null ? initial : JSON.parse(s) } catch { return initial }
-  })
+  const [v, setV] = useState<T>(() => getPref(key, initial))
   const set = useCallback((nv: T) => {
     setV(nv)
     try { localStorage.setItem('kotoba.' + key, JSON.stringify(nv)) } catch { /* private mode */ }

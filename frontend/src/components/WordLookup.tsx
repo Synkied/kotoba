@@ -3,10 +3,12 @@ import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { MessageSquareText, RefreshCw, Square, Volume2, X } from 'lucide-react'
 import { api, type DictEntry, type DictionaryStatus, type Explanation as Explained, type Word, type WordStatus } from '../lib/api'
-import { speak, stopAudio } from '../lib/audio'
+import { readAloud, readingNow, speak, stopAudio } from '../lib/audio'
 import { Furigana } from './Furigana'
+import { altKey } from './LessonListen'
+import { caretPoint, plainText } from './NoteMarkdown'
 import { useLanguage } from './ReadingAids'
-import { usePref } from './ui'
+import { getPref, usePref, useToast } from './ui'
 import { Button } from './ds'
 
 /** Text nodes of the sentence itself, leaving out the furigana in <rt> and <rp>. */
@@ -109,6 +111,12 @@ export function Lookup({ text, pairs = [], children }: { text: string; pairs?: [
 
 type Picked = Omit<Open, 'x' | 'y'> & { end: number; rect: DOMRect }
 
+/** Where a selection ends on screen: its last line's box. */
+function endOf(range: Range): DOMRect {
+  const rects = [...range.getClientRects()].filter((r) => r.width > 0)
+  return rects[rects.length - 1] ?? range.getBoundingClientRect()
+}
+
 /** The selection, when it lies in one lookup's text and holds more than spaces. */
 function picked(): Picked | null {
   const sel = window.getSelection()
@@ -128,24 +136,70 @@ function picked(): Picked | null {
   const at = root.contains(range.startContainer) ? boundary(root, range.startContainer, range.startOffset, 'start') : 0
   const end = Math.min(text.length, root.contains(range.endContainer) ? boundary(root, range.endContainer, range.endOffset, 'end') : text.length)
   if (end <= at || !text.slice(at, end).trim()) return null
-  const rects = [...range.getClientRects()].filter((r) => r.width > 0)
-  return { text, pairs, at, end, root, rect: rects[rects.length - 1] ?? range.getBoundingClientRect() }
+  return { text, pairs, at, end, root, rect: endOf(range) }
 }
 
-/** Select any stretch of a sentence and an Explain button comes up beside it: the stretch
- *  opens with its reading, its meanings when it's a dictionary word, and what the translator
- *  says it means there. Mounted once for the whole app. */
+/** Not read aloud: furigana (the kanji is read), controls, and what's only there for its looks. */
+const UNSPOKEN = 'rt, rp, button, svg, select, textarea, [aria-hidden="true"]'
+const BLOCK = 'p, li, div, h1, h2, h3, h4, h5, h6, blockquote, pre, td, th, article, section, dialog'
+
+/** What a range says, as the reader sees it: each block on its own line, so the voice pauses. */
+function rangeSpeech(range: Range): string {
+  const common = range.commonAncestorContainer
+  const walk = document.createTreeWalker(common, NodeFilter.SHOW_TEXT)
+  let out = '', block: Element | null = null
+  for (let n: Node | null = common instanceof Text ? common : walk.nextNode(); n; n = walk.nextNode()) {
+    const el = n.parentElement
+    if (!(n instanceof Text) || !el || !range.intersectsNode(n) || el.closest(UNSPOKEN) || el.checkVisibility?.() === false) continue
+    const said = n.data.slice(n === range.startContainer ? range.startOffset : 0, n === range.endContainer ? range.endOffset : undefined)
+    if (!said.trim()) continue
+    const here = el.closest(BLOCK)
+    if (out && here !== block) out += '\n'
+    block = here
+    out += said
+  }
+  return out.trim()
+}
+
+type Speech = { text: string; rect: DOMRect }
+
+/** The text selected anywhere in the app, a note being written included, ready to read aloud. */
+function selectedSpeech(): Speech | null {
+  const area = document.activeElement
+  if (area instanceof HTMLTextAreaElement) {
+    const text = plainText(area.value.slice(area.selectionStart, area.selectionEnd))
+    if (!text) return null
+    const box = area.getBoundingClientRect(), caret = caretPoint(area, area.selectionEnd)
+    return { text, rect: new DOMRect(box.left + caret.left, Math.min(box.top + caret.top, box.bottom), 0, 0) }
+  }
+  const sel = window.getSelection()
+  if (!sel || sel.isCollapsed || !sel.rangeCount) return null
+  const range = sel.getRangeAt(0), text = rangeSpeech(range)
+  return text ? { text, rect: endOf(range) } : null
+}
+
 /** Where popovers go: into an open modal dialog (practice, say), since the page behind one can't be clicked. */
 const layer = () => document.querySelector('dialog:modal') ?? document.body
 
+/** Select any text and a Listen button comes up beside it: Japanese in your voice, the rest in the
+ *  browser's voice for your language. In a sentence there's Explain too: the stretch opens with its
+ *  reading, its meanings when it's a dictionary word, and what the translator says it means there.
+ *  Mounted once for the whole app. */
 export function SelectionLookup() {
-  const [offer, setOffer] = useState<Picked | null>(null)
+  const [offer, setOffer] = useState<(Speech & { pick: Picked | null }) | null>(null)
   const [open, setOpen] = useState<Open | null>(null)
+  const [reading, setReading] = useState<DOMRect | null>(null) // where its Stop stays, should the selection go
+  const lang = useLanguage()
+  const toast = useToast()
   useEffect(() => {
     let down = false, timer = 0
-    const check = () => { window.clearTimeout(timer); setOffer(down ? null : picked()) }
+    const check = () => {
+      window.clearTimeout(timer)
+      const speech = down ? null : selectedSpeech()
+      setOffer(speech && { ...speech, pick: picked() })
+    }
     const later = () => { window.clearTimeout(timer); timer = window.setTimeout(check, 200) } // touch handles move without pointer events
-    const press = (e: PointerEvent) => { if (!(e.target as Element).closest?.('.select-explain')) down = true }
+    const press = (e: PointerEvent) => { if (!(e.target as Element).closest?.('.select-offer')) down = true }
     const lift = () => { if (down) { down = false; window.setTimeout(check) } }
     document.addEventListener('selectionchange', later)
     document.addEventListener('pointerdown', press, true)
@@ -159,21 +213,47 @@ export function SelectionLookup() {
       window.removeEventListener('scroll', later, true)
     }
   }, [])
+  const listen = useCallback((speech: Speech) => {
+    setReading(speech.rect)
+    readAloud(speech.text, getPref<string>('voice', 'browser'), lang?.to ?? navigator.language)
+      .catch((e) => toast({ text: e instanceof Error ? e.message : String(e) }))
+      .finally(() => setReading(null))
+  }, [lang?.to, toast])
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      const toggle = e.altKey && e.code === 'KeyR' && !e.ctrlKey && !e.metaKey && !e.repeat && !e.isComposing
+      if (readingNow() && (toggle || e.key === 'Escape')) {
+        e.preventDefault(); e.stopPropagation()
+        stopAudio()
+      } else if (toggle) {
+        const speech = selectedSpeech()
+        if (speech) { e.preventDefault(); listen(speech) }
+      }
+    }
+    window.addEventListener('keydown', key, true)
+    return () => window.removeEventListener('keydown', key, true)
+  }, [listen])
+  useEffect(() => () => { if (readingNow()) stopAudio() }, [])
   const explain = () => {
-    if (!offer) return
-    const { rect, ...rest } = offer
+    if (!offer?.pick) return
+    const { rect, ...rest } = offer.pick
     setOpen({ ...rest, x: rect.right, y: rect.bottom })
     setOffer(null)
     window.getSelection()?.removeAllRanges() // the popover marks the stretch itself
   }
-  const gap = 8, w = 120
+  const at = offer?.rect ?? reading
+  const gap = 8, one = 104, w = offer?.pick ? one * 2 + gap : one
   return <>
-    {offer && !open && createPortal(
-      <Button type="button" size="small" className="select-explain" lang="en"
-        style={{ left: Math.min(Math.max(16, offer.rect.right - w / 2), window.innerWidth - w - 16), top: Math.min(offer.rect.bottom + gap, window.innerHeight - 56) }}
-        onPointerDown={(e) => e.preventDefault()} onClick={explain} title="Its reading, meaning and what it means here">
-        <MessageSquareText aria-hidden="true" />Explain
-      </Button>, layer())}
+    {at && !open && createPortal(
+      <div className="select-offer" lang="en" onPointerDown={(e) => e.preventDefault()}
+        style={{ left: Math.min(Math.max(16, at.right - w / 2), window.innerWidth - w - 16), top: Math.min(at.bottom + gap, window.innerHeight - 56) }}>
+        {reading
+          ? <Button type="button" size="small" onClick={stopAudio} title="Stop reading (Esc)"><Square aria-hidden="true" />Stop</Button>
+          : offer && <Button type="button" size="small" onClick={() => listen(offer)} title={`Read it aloud (${altKey} R)`}><Volume2 aria-hidden="true" />Listen</Button>}
+        {offer?.pick && <Button type="button" size="small" onClick={explain} title="Its reading, meaning and what it means here">
+          <MessageSquareText aria-hidden="true" />Explain
+        </Button>}
+      </div>, layer())}
     {open && <WordPopover key={`${open.at}-${open.end}`} {...open} onClose={() => setOpen(null)} />}
   </>
 }

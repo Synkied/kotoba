@@ -159,37 +159,109 @@ async function readyKokoro(signal?: AbortSignal) {
   } catch { /* aborted or offline: the speech request says why */ } finally { if (shown) setVoiceLoading(false) }
 }
 
-/** The synthetic voice through jp-shadow-cut; falls back to the browser's Japanese voice.
- *  With a saved sentence's id the voice reads its kanji as its furigana show. */
-export async function speak(text: string, voice: string | null, speed = 1, signal?: AbortSignal, sentence?: number): Promise<void> {
-  stopAudio()
-  if (voice?.startsWith('kokoro:')) {
+/** The voice's take of a line, or null when there's no server voice to read it. */
+async function fetchVoice(text: string, voice: string | null, speed: number, signal?: AbortSignal, sentence?: number): Promise<Blob | null> {
+  if (!voice || voice === 'browser') return null
+  if (voice.startsWith('kokoro:')) {
     await readyKokoro(signal)
-    if (signal?.aborted) return
+    if (signal?.aborted) return null
   }
-  if (voice && voice !== 'browser') {
-    const r = await fetch('/api/engine/tts?' + new URLSearchParams({ text, voice, speed: String(speed), ...(sentence ? { sentence: String(sentence) } : {}) }), { signal })
-    if (r.ok) {
-      const blob = await r.blob()
-      if (signal?.aborted) return
-      const url = URL.createObjectURL(blob)
-      const el = (player = new Audio(url))
-      stopAt = null
-      return new Promise((resolve) => { el.onended = el.onpause = () => { URL.revokeObjectURL(url); resolve() }; el.play().catch(() => resolve()) })
-    }
-  }
-  if (signal?.aborted) return
+  const r = await fetch('/api/engine/tts?' + new URLSearchParams({ text, voice, speed: String(speed), ...(sentence ? { sentence: String(sentence) } : {}) }), { signal })
+  return r.ok ? r.blob() : null
+}
+
+function playBlob(blob: Blob): Promise<void> {
+  const url = URL.createObjectURL(blob)
+  const el = (player = new Audio(url))
+  stopAt = null
+  return new Promise((resolve) => { el.onended = el.onpause = () => { URL.revokeObjectURL(url); resolve() }; el.play().catch(() => resolve()) })
+}
+
+let utterance: SpeechSynthesisUtterance | null = null // held on to: Chrome drops the end event of one it has collected
+function browserSay(text: string, lang: string, speed: number): Promise<void> {
   if (!('speechSynthesis' in window)) throw new Error('No voice available: start jp-shadow-cut for VOICEVOX or Kokoro voices.')
   return new Promise((resolve) => {
-    const u = new SpeechSynthesisUtterance(text)
-    u.lang = 'ja-JP'; u.rate = speed
-    u.voice = speechSynthesis.getVoices().find((v) => v.lang.startsWith('ja')) ?? null
-    u.onend = u.onerror = () => resolve()
+    const u = (utterance = new SpeechSynthesisUtterance(text))
+    u.lang = lang; u.rate = speed
+    u.voice = speechSynthesis.getVoices().find((v) => v.lang.startsWith(lang.slice(0, 2))) ?? null
+    u.onend = u.onerror = () => { if (utterance === u) utterance = null; resolve() }
     speechSynthesis.speak(u)
   })
 }
 
+/** The synthetic voice through jp-shadow-cut; falls back to the browser's Japanese voice.
+ *  With a saved sentence's id the voice reads its kanji as its furigana show. */
+export async function speak(text: string, voice: string | null, speed = 1, signal?: AbortSignal, sentence?: number): Promise<void> {
+  stopAudio()
+  const blob = await fetchVoice(text, voice, speed, signal, sentence)
+  if (signal?.aborted) return
+  return blob ? playBlob(blob) : browserSay(text, 'ja-JP', speed)
+}
+
+const JA_LETTER = '\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Han}ーｰ'
+// digits touching Japanese go with it (300円, 第3); spaces and punctuation with whatever they follow; a line ends it
+const JA_RUN = new RegExp(`\\p{N}*[${JA_LETTER}](?:[${JA_LETTER}]|[^\\p{L}\\p{N}\\n]|\\p{N}+(?=[${JA_LETTER}])|(?<=[${JA_LETTER}])\\p{N}+)*`, 'gu')
+const SENTENCE_END = /(?<=[。！？!?…\n])|(?<=\.)(?=\s)/
+const LONGEST = 280 // the server reads at most 300 characters at a time
+
+function sentences(run: string): string[] {
+  const out: string[] = []
+  for (let s of run.split(SENTENCE_END)) {
+    while (s.length > LONGEST) {
+      const pause = Math.max(...['、', '，', ',', ' '].map((c) => s.lastIndexOf(c, LONGEST - 1)))
+      const at = pause > 0 ? pause + 1 : LONGEST
+      out.push(s.slice(0, at))
+      s = s.slice(at)
+    }
+    out.push(s)
+  }
+  return out.map((t) => t.trim()).filter((t) => /[\p{L}\p{N}]/u.test(t))
+}
+
+/** Text cut up to be read aloud: sentence by sentence, Japanese apart from everything else,
+ *  since the Japanese voices can't read the learner's own language. */
+export function speechParts(text: string): { text: string; ja: boolean }[] {
+  const out: { text: string; ja: boolean }[] = []
+  const add = (run: string, ja: boolean) => { for (const t of sentences(run)) out.push({ text: t, ja }) }
+  let at = 0
+  for (const m of text.matchAll(JA_RUN)) {
+    add(text.slice(at, m.index), false)
+    add(m[0], true)
+    at = m.index + m[0].length
+  }
+  add(text.slice(at), false)
+  return out
+}
+
+let reading: AbortController | null = null
+/** Whether readAloud is still going. */
+export const readingNow = () => reading !== null
+
+/** Read any length of text: its Japanese in the chosen voice, the rest in the browser's voice
+ *  for `otherLang`. Resolves when it's finished or stopped; any other audio stops it. */
+export async function readAloud(text: string, voice: string | null, otherLang: string, speed = 1): Promise<void> {
+  stopAudio()
+  const ctl = (reading = new AbortController())
+  const { signal } = ctl
+  const parts = speechParts(text)
+  const take = (i: number) => parts[i]?.ja ? fetchVoice(parts[i].text, voice, speed, signal).catch(() => null) : Promise.resolve(null)
+  try {
+    let next = take(0)
+    for (let i = 0; i < parts.length; i++) {
+      const blob = await next
+      if (signal.aborted) return
+      next = take(i + 1) // asked for now, so the voice doesn't leave a gap between sentences
+      await (blob ? playBlob(blob) : browserSay(parts[i].text, parts[i].ja ? 'ja-JP' : otherLang, speed))
+      if (signal.aborted) return
+    }
+  } finally {
+    if (reading === ctl) reading = null
+  }
+}
+
 export function stopAudio() {
+  reading?.abort()
+  reading = null
   if (player) { player.pause(); player = null }
   if ('speechSynthesis' in window) speechSynthesis.cancel()
 }
